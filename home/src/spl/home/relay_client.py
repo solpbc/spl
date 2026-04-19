@@ -259,10 +259,15 @@ async def _post_json(url: str, body: dict[str, Any]) -> dict[str, Any]:
     def sync() -> dict[str, Any]:
         data = json.dumps(body).encode("utf-8")
         # URL comes from config (sol pbc relay endpoint); scheme is http/https only.
+        # Cloudflare's edge rejects UA-less requests with 403 on some zones;
+        # send a stable client identifier so staging + prod both accept us.
         req = urllib.request.Request(  # noqa: S310 — URL scheme validated below
             url,
             data=data,
-            headers={"content-type": "application/json"},
+            headers={
+                "content-type": "application/json",
+                "user-agent": "spl.home/0.1",
+            },
             method="POST",
         )
         ctx = ssl.create_default_context()
