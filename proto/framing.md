@@ -8,7 +8,7 @@ This document is the contract between the home python module (`home/src/spl/fram
 
 ## frame layout
 
-Every frame has a 9-byte header followed by zero or more bytes of payload.
+Every frame has an 8-byte header followed by zero or more bytes of payload (`stream_id` u32 + `flags` u8 + `length` u24).
 
 ```
  0                   1                   2                   3
