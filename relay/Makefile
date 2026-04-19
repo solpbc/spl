@@ -1,4 +1,4 @@
-# solcf — CF Worker + Durable Object
+# spl-relay — CF Worker + Durable Object
 # sol private link relay server
 
 .PHONY: install test ci format clean dev deploy typecheck lint

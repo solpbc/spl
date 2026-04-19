@@ -11,10 +11,10 @@ See the diagram in [`../README.md`](../README.md#architecture). This document wi
 ### layer 1 — JWT (rendezvous auth)
 
 - **Algorithm:** Ed25519 / EdDSA.
-- **What it authorizes:** the right to open a WebSocket to `solcf` (`/session/listen`, `/session/dial`, `/tunnel/<id>`).
+- **What it authorizes:** the right to open a WebSocket to `spl-relay` (`/session/listen`, `/session/dial`, `/tunnel/<id>`).
 - **Who signs:** sol pbc (or the self-host operator) using a private key held in `env.SIGNING_JWK` on the Worker.
-- **Who verifies:** `solcf` itself, on every WebSocket upgrade. Verification uses the public JWKS in `env.JWKS_PUBLIC`, with `kid`-keyed lookup so rotations are non-disruptive.
-- **Where the public key lives:** in `env.JWKS_PUBLIC` and mirrored at `https://<solcf-host>/.well-known/jwks.json` for transparency.
+- **Who verifies:** `spl-relay` itself, on every WebSocket upgrade. Verification uses the public JWKS in `env.JWKS_PUBLIC`, with `kid`-keyed lookup so rotations are non-disruptive.
+- **Where the public key lives:** in `env.JWKS_PUBLIC` and mirrored at `https://<relay-host>/.well-known/jwks.json` for transparency.
 - **Operational lifecycle:** [`signing-keys.md`](signing-keys.md) (public-facing playbook).
 - **Wire format:** [`../proto/tokens.md`](../proto/tokens.md).
 
@@ -24,7 +24,7 @@ See the diagram in [`../README.md`](../README.md#architecture). This document wi
 - **What it authorizes:** the actual byte exchange between mobile and home, *inside* the tunnel that JWT layer set up.
 - **Who signs:** the home's local CA, generated on the home machine at first run, never transmitted, never escrowed. The CA private key is encrypted at rest under the user's solstone unlock secret.
 - **Who verifies:** the home itself, via pyOpenSSL's `verify_callback` inside the TLS handshake — the mobile presents its paired client cert; the home checks the SHA-256 fingerprint against `authorized_clients.json` and rejects unauthorized fingerprints with a clean TLS alert.
-- **Where the keys live:** the CA private key on the home, encrypted; the mobile client private key in iOS Keychain (`kSecAttrAccessibleWhenUnlockedThisDeviceOnly`). Neither ever traverses `solcf`.
+- **Where the keys live:** the CA private key on the home, encrypted; the mobile client private key in iOS Keychain (`kSecAttrAccessibleWhenUnlockedThisDeviceOnly`). Neither ever traverses `spl-relay`.
 - **Why ECDSA, not Ed25519:** the JOSE side gets Ed25519 for the reasons above; the TLS side has to use ECDSA-P256 because Node and Bun TLS stacks don't advertise Ed25519 in signature schemes by default. Ed25519 in TLS would fail with `NO_SUITABLE_SIGNATURE_ALGORITHM` (prototype finding §11.7).
 - **Wire format:** [`../proto/pairing.md`](../proto/pairing.md) for cert issuance; [`../proto/session.md`](../proto/session.md) for handshake placement.
 
@@ -32,9 +32,9 @@ See the diagram in [`../README.md`](../README.md#architecture). This document wi
 
 The two layers exist to make a precise claim possible:
 
-> **`solcf` can mint, verify, and rotate JWTs all day; the JWTs confer no data access.**
+> **`spl-relay` can mint, verify, and rotate JWTs all day; the JWTs confer no data access.**
 
-Possessing a valid JWT lets you open a WebSocket to `solcf`. It does not let you complete the inner TLS handshake — that requires the mobile client cert and private key, which live only on a paired device. It does not let you decrypt past traffic — there is no key escrow; the relay never sees TLS plaintext. It does not let you mint a usable mobile identity — the home's CA private key never traverses the relay.
+Possessing a valid JWT lets you open a WebSocket to `spl-relay`. It does not let you complete the inner TLS handshake — that requires the mobile client cert and private key, which live only on a paired device. It does not let you decrypt past traffic — there is no key escrow; the relay never sees TLS plaintext. It does not let you mint a usable mobile identity — the home's CA private key never traverses the relay.
 
 This is what makes the trust claim load-bearing: not "sol pbc decided not to look at the bytes," but **"sol pbc holds no key that could decrypt the bytes, even if it tried."**
 

@@ -2,9 +2,9 @@
 
 The wire format that lets one tunnel WebSocket carry many concurrent logical streams. Lives between the TLS 1.3 record layer and the HTTP/WS/SSE traffic that actually wants to flow.
 
-This is the SSH-channel-style multiplex. The prototype (`vpe/workspace/spl-prototype-report.md` §13.1) ran one request per tunnel — fine for vetting the relay, TLS, and hibernation paths, but not what v1 ships. v1 needs to load a journal page that pulls images, holds a server-sent-event stream, and opens a WebSocket for live updates concurrently. All of that has to multiplex onto the single WebSocket each side holds open through `solcf`.
+This is the SSH-channel-style multiplex. The prototype (`vpe/workspace/spl-prototype-report.md` §13.1) ran one request per tunnel — fine for vetting the relay, TLS, and hibernation paths, but not what v1 ships. v1 needs to load a journal page that pulls images, holds a server-sent-event stream, and opens a WebSocket for live updates concurrently. All of that has to multiplex onto the single WebSocket each side holds open through `spl-relay`.
 
-This document is the contract between the home python module (`home/src/spl/framing.py`), the iOS client (`ios/Sources/SPLTunnel/Framing.swift`), and any future port (Android, browser bridge, etc.). The relay (`solcf`) does not parse frames — it forwards opaque bytes — so the contract is **between the two endpoints only**. That is the load-bearing fact: any framing change is a coordinated endpoint upgrade. The relay does not need a deploy.
+This document is the contract between the home python module (`home/src/spl/framing.py`), the iOS client (`ios/Sources/SPLTunnel/Framing.swift`), and any future port (Android, browser bridge, etc.). The relay (`spl-relay`) does not parse frames — it forwards opaque bytes — so the contract is **between the two endpoints only**. That is the load-bearing fact: any framing change is a coordinated endpoint upgrade. The relay does not need a deploy.
 
 ## frame layout
 
@@ -135,9 +135,9 @@ Application writes do not map 1:1 to frames. The framing layer fragments large w
 
 ## relationship to the relay
 
-The relay (`solcf`) carries opaque bytes. It does not parse frames. It does not enforce credit. It does not enforce stream caps. It does not validate flag combinations. **All framing semantics are between the two TLS endpoints.**
+The relay (`spl-relay`) carries opaque bytes. It does not parse frames. It does not enforce credit. It does not enforce stream caps. It does not validate flag combinations. **All framing semantics are between the two TLS endpoints.**
 
-This is load-bearing for the blind-by-construction claim. If `solcf` had to inspect frames to enforce flow control, it would have to decrypt the TLS record stream, which would defeat the whole architecture. The bytes the relay sees are TLS records — `framing` lives inside TLS.
+This is load-bearing for the blind-by-construction claim. If `spl-relay` had to inspect frames to enforce flow control, it would have to decrypt the TLS record stream, which would defeat the whole architecture. The bytes the relay sees are TLS records — `framing` lives inside TLS.
 
 The relay does enforce one thing relevant to framing: a per-tunnel pending-buffer cap (16 MiB, see [`session.md`](session.md)). This is independent of the framing window and exists only to bound the in-process buffer between the moment one side has attached and the moment the other side has. Once both sides are paired, the relay is a pure pump.
 

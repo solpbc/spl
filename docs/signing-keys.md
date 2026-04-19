@@ -1,8 +1,8 @@
 # signing keys
 
-This document is the public-facing operational guide for the JWT signing keys used by `solcf`. It applies to both sol pbc's hosted deployment and any self-hosted instance.
+This document is the public-facing operational guide for the JWT signing keys used by `spl-relay`. It applies to both sol pbc's hosted deployment and any self-hosted instance.
 
-`solcf` uses one signing keypair to mint and verify the JWTs that authorize WebSocket establishment with the relay. Lose the private key and every paired device must re-enroll. Take this seriously.
+`spl-relay` uses one signing keypair to mint and verify the JWTs that authorize WebSocket establishment with the relay. Lose the private key and every paired device must re-enroll. Take this seriously.
 
 ## the two key layers — do not conflate
 
@@ -10,7 +10,7 @@ This document is the public-facing operational guide for the JWT signing keys us
 
 | layer | algorithm | what it protects | where the keys live |
 |---|---|---|---|
-| **JWT signing layer** (this document) | **Ed25519 / EdDSA** | rendezvous: authorizes a WebSocket open to `solcf` | private: `env.SIGNING_JWK` (Worker secret); public: `env.JWKS_PUBLIC` (Worker secret + `/.well-known/jwks.json`) |
+| **JWT signing layer** (this document) | **Ed25519 / EdDSA** | rendezvous: authorizes a WebSocket open to `spl-relay` | private: `env.SIGNING_JWK` (Worker secret); public: `env.JWKS_PUBLIC` (Worker secret + `/.well-known/jwks.json`) |
 | **mTLS layer** (see [`../proto/pairing.md`](../proto/pairing.md), [`../proto/session.md`](../proto/session.md)) | **ECDSA-P256** | data: authorizes the actual byte exchange between mobile and home | home CA private key on the home machine, encrypted at rest under the user's solstone unlock secret; mobile client cert in iOS Keychain |
 
 The two layers are independent. The signing key never appears in any TLS handshake. The home CA never signs a JWT. **A compromise of one is not a compromise of the other.**
@@ -51,7 +51,7 @@ JWK format (per RFC 7517 / RFC 8037):
 For self-hosters, the bundled generator script is the supported path:
 
 ```sh
-cd solcf
+cd relay
 npm run gen-key
 ```
 
@@ -71,7 +71,7 @@ Storage guidance for the keypair file:
 - **Offline backup** is required: print to paper, write to a hardware token, or copy to an encrypted USB stored physically separately.
 - **Rotation is your responsibility.** No bug-bounty coverage from sol pbc for self-hosted instances.
 
-## provisioning to `solcf`
+## provisioning to `spl-relay`
 
 Two Worker secrets, set via `wrangler secret put`:
 
@@ -92,10 +92,10 @@ The Worker uses:
 
 ### `/.well-known/jwks.json`
 
-`solcf` exposes the current `env.JWKS_PUBLIC` at:
+`spl-relay` exposes the current `env.JWKS_PUBLIC` at:
 
 ```
-GET https://<your-solcf-host>/.well-known/jwks.json
+GET https://<your-relay-host>/.well-known/jwks.json
 ```
 
 This is the transparency endpoint. Anyone can verify what key the relay is currently signing with — no internal access required. The endpoint is unauthenticated, returns a JSON object of the same shape stored in the secret, and is cached for 5 minutes.
@@ -178,7 +178,7 @@ If you operate both environments, rotate on the same 12-month cadence but **out 
 
 ## self-host vs. sol pbc internal
 
-This document is the public-facing playbook for any deployment of `solcf`. sol pbc additionally has an internal operational playbook (`cso/playbooks/spl-signing-key-lifecycle.md`) covering vault paths, internal commands, and sol pbc's specific provisioning flow. That playbook is sol pbc's; **self-hosters follow the public-facing version you're reading**.
+This document is the public-facing playbook for any deployment of `spl-relay`. sol pbc additionally has an internal operational playbook (`cso/playbooks/spl-signing-key-lifecycle.md`) covering vault paths, internal commands, and sol pbc's specific provisioning flow. That playbook is sol pbc's; **self-hosters follow the public-facing version you're reading**.
 
 If you find this document insufficient for your deployment, open an issue on `github.com/solpbc/spl` — the public version should be sufficient for any reasonable self-host.
 

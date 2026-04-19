@@ -33,7 +33,7 @@ packages = ["src/spl"]
 testpaths = ["tests"]
 asyncio_mode = "auto"
 markers = [
-    "integration: integration tests that require a running solcf (not run by default)",
+    "integration: integration tests that require a running spl-relay (not run by default)",
 ]
 
 [tool.ruff]

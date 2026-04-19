@@ -1,8 +1,8 @@
-# solcf
+# spl-relay
 
 The Cloudflare Worker + Durable Object that relays opaque bytes between two paired endpoints.
 
-`solcf` is the hosted server component of spl. sol pbc runs it at the canonical endpoint; you can run your own against a clean Cloudflare account by following the steps below. That self-host path is first-class — we ship `solcf` with the same trust claim as the hosted relay because *the code is the claim*.
+`spl-relay` is the hosted server component of spl. sol pbc runs it at the canonical endpoint; you can run your own against a clean Cloudflare account by following the steps below. That self-host path is first-class — we ship `spl-relay` with the same trust claim as the hosted relay because *the code is the claim*.
 
 ## status
 
@@ -40,7 +40,7 @@ Runs the Worker under Miniflare. No CF account required. Secrets can be set in a
 make test
 ```
 
-Unit tests run under Miniflare. Integration tests require a live `solcf` and are marked separately.
+Unit tests run under Miniflare. Integration tests require a live `spl-relay` and are marked separately.
 
 ## deploy
 

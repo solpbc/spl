@@ -1,38 +1,38 @@
 # spl — sol private link
-# Top-level orchestrator. Per-component Makefiles live in solcf/, home/, ios/.
+# Top-level orchestrator. Per-component Makefiles live in relay/, home/, ios/.
 
 .PHONY: install test ci format clean \
-        solcf-install solcf-test solcf-ci solcf-dev solcf-deploy \
+        relay-install relay-test relay-ci relay-dev relay-deploy \
         home-install home-test home-ci home-format
 
-install: solcf-install home-install
+install: relay-install home-install
 
-test: solcf-test home-test
+test: relay-test home-test
 
-ci: solcf-ci home-ci
+ci: relay-ci home-ci
 
 format: home-format
-	$(MAKE) -C solcf format
+	$(MAKE) -C relay format
 
 clean:
-	$(MAKE) -C solcf clean
+	$(MAKE) -C relay clean
 	$(MAKE) -C home clean
 
-# solcf (Cloudflare Worker + Durable Object)
-solcf-install:
-	$(MAKE) -C solcf install
+# spl-relay (Cloudflare Worker + Durable Object)
+relay-install:
+	$(MAKE) -C relay install
 
-solcf-test:
-	$(MAKE) -C solcf test
+relay-test:
+	$(MAKE) -C relay test
 
-solcf-ci:
-	$(MAKE) -C solcf ci
+relay-ci:
+	$(MAKE) -C relay ci
 
-solcf-dev:
-	$(MAKE) -C solcf dev
+relay-dev:
+	$(MAKE) -C relay dev
 
-solcf-deploy:
-	$(MAKE) -C solcf deploy
+relay-deploy:
+	$(MAKE) -C relay deploy
 
 # home (Python tunnel module)
 home-install:

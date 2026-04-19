@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) 2026 sol pbc
 
-// Entry point for the solcf Worker.
+// Entry point for the spl-relay Worker.
 //
 // This file is a scaffold placeholder. The real Worker wires up
 // /session/listen, /session/dial, /tunnel/<id> routes and hands the
@@ -38,7 +38,7 @@ export default {
 			return jwksResponse(env);
 		}
 
-		return new Response("solcf — scaffold", {
+		return new Response("spl-relay — scaffold", {
 			status: 200,
 			headers: { "content-type": "text/plain; charset=utf-8" },
 		});
@@ -82,7 +82,7 @@ function jwksHeaders(): HeadersInit {
 // Will load env.JWKS_PUBLIC, parse the JWKS envelope, look up the kid
 // from the JWT JOSE header, verify the EdDSA signature against the
 // matched public key (via Web Crypto's Ed25519 import + verify), and
-// validate standard claims (aud == "solcf", iss == expected issuer for
+// validate standard claims (aud == "spl-relay", iss == expected issuer for
 // this deployment, exp > now, iat <= now + 60s skew, scope matches the
 // requested route). Return { ok: true, claims } | { ok: false, reason }.
 //

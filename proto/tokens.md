@@ -1,6 +1,6 @@
 # tokens
 
-The two JWTs that authorize a side to establish a WebSocket with `solcf`. Both are issued by `solcf`'s control plane and signed by an Ed25519 key held only by sol pbc (or by the self-host operator, for self-hosted deployments). Both authorize **rendezvous only** — neither confers data access. Data access is gated by the TLS handshake inside the tunnel, against `authorized_clients.json` on the home.
+The two JWTs that authorize a side to establish a WebSocket with `spl-relay`. Both are issued by `spl-relay`'s control plane and signed by an Ed25519 key held only by sol pbc (or by the self-host operator, for self-hosted deployments). Both authorize **rendezvous only** — neither confers data access. Data access is gated by the TLS handshake inside the tunnel, against `authorized_clients.json` on the home.
 
 This document specifies the token shape, claims, validation, and the JWKS-based rotation model. The signing-key lifecycle (generation, vault storage, provisioning, rotation cadence, compromise response) is out of scope here — see [`../docs/signing-keys.md`](../docs/signing-keys.md) for the public-facing playbook, and (for sol pbc internal operators only) `cso/playbooks/spl-signing-key-lifecycle.md`.
 
@@ -21,11 +21,11 @@ There are two.
 
 ### account token
 
-Authorizes a home to open a `/session/listen` WebSocket to `solcf`. Long-lived. One per home install.
+Authorizes a home to open a `/session/listen` WebSocket to `spl-relay`. Long-lived. One per home install.
 
 ### device token
 
-Authorizes a paired mobile device to open a `/session/dial` WebSocket to `solcf`, naming a specific home `instance_id`. Bound to (`instance_id`, client cert fingerprint). One per paired device.
+Authorizes a paired mobile device to open a `/session/dial` WebSocket to `spl-relay`, naming a specific home `instance_id`. Bound to (`instance_id`, client cert fingerprint). One per paired device.
 
 Both are JWTs with the same shell; the differences are in claims and TTL.
 
@@ -49,7 +49,7 @@ JWT payload, account token:
 {
   "iss": "spl.solpbc.org",
   "sub": "home:<instance_id>",
-  "aud": "solcf",
+  "aud": "spl-relay",
   "scope": "session.listen",
   "instance_id": "<uuidv7>",
   "ca_fp": "sha256:<hex>",
@@ -65,7 +65,7 @@ JWT payload, device token:
 {
   "iss": "spl.solpbc.org",
   "sub": "device:<device_id>",
-  "aud": "solcf",
+  "aud": "spl-relay",
   "scope": "session.dial",
   "instance_id": "<paired home instance_id>",
   "device_fp": "sha256:<hex>",
@@ -79,10 +79,10 @@ JWT payload, device token:
 |---|---|---|
 | `iss` | yes | issuer hostname; for sol pbc deployments, `spl.solpbc.org`. Self-hosters use their own. |
 | `sub` | yes | subject; `home:<instance_id>` or `device:<device_id>`. |
-| `aud` | yes | audience; always `solcf`. |
+| `aud` | yes | audience; always `spl-relay`. |
 | `scope` | yes | one of `session.listen` (account token) or `session.dial` (device token). Workers reject mismatched scope at the route level. |
 | `instance_id` | yes | which home this token authorizes the bearer to act on. For account tokens, the home's own id. For device tokens, the paired home. |
-| `ca_fp` | account only | SHA-256 of the home's local CA public key, registered at home enrollment. Used by `solcf` to validate device-token enrollment requests (mobile presents a client cert; `solcf` checks the cert chains to a CA whose fingerprint a home has registered). |
+| `ca_fp` | account only | SHA-256 of the home's local CA public key, registered at home enrollment. Used by `spl-relay` to validate device-token enrollment requests (mobile presents a client cert; `spl-relay` checks the cert chains to a CA whose fingerprint a home has registered). |
 | `device_fp` | device only | SHA-256 of the mobile client cert. Bound to a specific paired device. |
 | `iat` | yes | issued-at, seconds since epoch. |
 | `exp` | yes | expiration, seconds since epoch. |
@@ -97,7 +97,7 @@ Workers MUST reject any token missing a required claim or carrying an unexpected
 | account token | 365 days | re-issued automatically by the home on token age > 80% of TTL via the control-plane re-issue endpoint |
 | device token | 60 days | re-issued automatically by the mobile on next dial after age > 80% of TTL |
 
-Long TTLs are deliberate. Both tokens authorize the **rendezvous** only; they confer no data access. The TLS layer is the data-plane authoritative point. A leaked token grants only the right to open a WebSocket to `solcf`, which is useless without the matching mTLS material that lives only on the device.
+Long TTLs are deliberate. Both tokens authorize the **rendezvous** only; they confer no data access. The TLS layer is the data-plane authoritative point. A leaked token grants only the right to open a WebSocket to `spl-relay`, which is useless without the matching mTLS material that lives only on the device.
 
 Rotation matters less than the signing-key rotation underneath (see *rotation* below). Token rotation is hygienic, not protective.
 
@@ -121,7 +121,7 @@ Called once at solstone first run. Body:
 }
 ```
 
-`solcf` records (`instance_id`, `ca_fp = sha256(ca_pubkey)`, `home_label`, `created_at`) in D1 and issues an account token. Response:
+`spl-relay` records (`instance_id`, `ca_fp = sha256(ca_pubkey)`, `home_label`, `created_at`) in D1 and issues an account token. Response:
 
 ```json
 {
@@ -143,7 +143,7 @@ Called by the mobile app after LAN pairing completes. Body:
 }
 ```
 
-`solcf` validates that the `client_cert` chains to a CA whose fingerprint matches the `ca_fp` recorded for the named `instance_id` at home enrollment. If the chain validates, `solcf` issues a device token. Response:
+`spl-relay` validates that the `client_cert` chains to a CA whose fingerprint matches the `ca_fp` recorded for the named `instance_id` at home enrollment. If the chain validates, `spl-relay` issues a device token. Response:
 
 ```json
 {
@@ -154,7 +154,7 @@ Called by the mobile app after LAN pairing completes. Body:
 
 Re-issuance: same endpoint, same payload. The new token's `jti` is new; the old `jti` becomes eligible for the D1 revocation list if the home or operator wants defense-in-depth.
 
-## validation in `solcf`
+## validation in `spl-relay`
 
 On every WebSocket upgrade request to `/session/listen` or `/session/dial`, the Worker:
 
@@ -163,7 +163,7 @@ On every WebSocket upgrade request to `/session/listen` or `/session/dial`, the 
 3. Looks `kid` up in the JWKS loaded from `env.JWKS_PUBLIC` (a JSON array of JWK public keys; see *JWKS publication* below). Reject with 401 if `kid` is unknown.
 4. Verifies the Ed25519 signature using the matched public key.
 5. Verifies the standard claims:
-   - `aud == "solcf"`
+   - `aud == "spl-relay"`
    - `iss == <expected issuer for this deployment>` (`spl.solpbc.org` for sol pbc; configurable per self-host)
    - `exp > now`
    - `iat ≤ now + 60s` (allow 60s clock skew on the issued-at side)
@@ -173,7 +173,7 @@ On every WebSocket upgrade request to `/session/listen` or `/session/dial`, the 
 
 If any check fails, the Worker closes the WebSocket with a clean close code (`4401` "unauthorized") and logs the failure with `tunnel_id` (none yet — pre-pair), token `jti`, route, and reason. **Never the token bytes, never claims-as-payload.**
 
-`solcf` does **not** issue or refresh tokens on the WebSocket path. Issuance is HTTPS-only via the control-plane endpoints.
+`spl-relay` does **not** issue or refresh tokens on the WebSocket path. Issuance is HTTPS-only via the control-plane endpoints.
 
 ## rotation
 
@@ -194,13 +194,13 @@ The compromise runbook collapses this — see `../docs/signing-keys.md` for the 
 
 ## JWKS publication
 
-`solcf` publishes the **public** JWKS at:
+`spl-relay` publishes the **public** JWKS at:
 
 ```
 GET https://spl.solpbc.org/.well-known/jwks.json
 ```
 
-(Self-hosters serve from their own `solcf` deployment's hostname.)
+(Self-hosters serve from their own `spl-relay` deployment's hostname.)
 
 The endpoint returns the JSON content of `env.JWKS_PUBLIC` directly:
 
@@ -227,7 +227,7 @@ The endpoint is unauthenticated, served `Cache-Control: max-age=300` (5 minutes 
 
 Workers store no token bytes. Token validation is stateless (signature + claim checks); revocation is via `jti` lookup against D1.
 
-The D1 schema (informative — owned by `solcf/migrations/`):
+The D1 schema (informative — owned by `relay/migrations/`):
 
 ```sql
 CREATE TABLE instances (
@@ -258,7 +258,7 @@ Stated to make the trust boundary unambiguous:
 
 - **Tokens do not decrypt anything.** TLS material lives only on the home and the mobile device.
 - **Tokens do not name a fingerprint that the TLS layer trusts.** Adding a fingerprint to `authorized_clients.json` happens during pairing on the home, not via any token operation.
-- **Tokens do not bind a session to a user.** They bind a WebSocket to an `instance_id` for `solcf`'s rendezvous purposes. There is no concept of a "user" in `solcf`.
+- **Tokens do not bind a session to a user.** They bind a WebSocket to an `instance_id` for `spl-relay`'s rendezvous purposes. There is no concept of a "user" in `spl-relay`.
 - **Possession of a token is not possession of access.** A device token without the matching client cert is useless. A leaked account token without the home's CA private key cannot be turned into a working home install.
 
 This is the load-bearing trust statement: tokens are the rendezvous, not the data.

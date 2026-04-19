@@ -6,7 +6,7 @@ This document is the contract for the WebSocket dance — what each side opens, 
 
 ## actors and surfaces
 
-Three WebSocket endpoints on `solcf`:
+Three WebSocket endpoints on `spl-relay`:
 
 - `GET /session/listen` — home upgrades to WS; carries an account-token bearer. One per home, held open indefinitely.
 - `GET /session/dial` — mobile upgrades to WS; carries a device-token bearer. One per mobile dial; **becomes** the mobile-side tunnel WS once paired.
@@ -16,7 +16,7 @@ The asymmetry is deliberate. The mobile opens **one** WebSocket per dial (the di
 
 ## endpoint shapes
 
-### listen — home → solcf
+### listen — home → spl-relay
 
 ```
 GET /session/listen HTTP/1.1
@@ -40,7 +40,7 @@ After upgrade, the WebSocket is held open. The home sends nothing on this socket
 
 Reconnect: see *home reconnect* below.
 
-### dial — mobile → solcf
+### dial — mobile → spl-relay
 
 ```
 GET /session/dial?instance=<paired_instance_id> HTTP/1.1
@@ -55,7 +55,7 @@ Query parameter `instance` names the home this dial targets; must match the `ins
 
 After upgrade, this **same WebSocket** becomes the mobile-side tunnel WS once the relay has paired it with a home tunnel WS. There is no second WS open from the mobile. The mobile waits for the relay to attach the home side, then begins TLS 1.3 over this WS toward the home.
 
-### tunnel — home → solcf
+### tunnel — home → spl-relay
 
 ```
 GET /tunnel/<tunnel_id> HTTP/1.1
@@ -73,7 +73,7 @@ The home opens one tunnel WS per concurrent tunnel. The listen WS stays open acr
 ## the dance, step by step
 
 ```
-home                          solcf                              mobile
+home                          spl-relay                              mobile
 ----                          -----                              ------
 
 (1) listen WS open ─────────▶ validate account token
@@ -113,11 +113,11 @@ Numbered steps:
 
 ### 1. listen — home opens at solstone startup
 
-The home's `spl.tunnel` task opens `GET /session/listen` to `solcf` immediately on solstone startup. It carries the account token in the `Authorization` header. The relay validates the token (see [`tokens.md`](tokens.md)), records this WS as the ready listen socket for the home's `instance_id`, and holds the WS open. The home sends no further bytes on this WS — it only reads.
+The home's `spl.tunnel` task opens `GET /session/listen` to `spl-relay` immediately on solstone startup. It carries the account token in the `Authorization` header. The relay validates the token (see [`tokens.md`](tokens.md)), records this WS as the ready listen socket for the home's `instance_id`, and holds the WS open. The home sends no further bytes on this WS — it only reads.
 
 ### 2. dial — mobile opens when the user opens the app
 
-When the user opens the solstone mobile app and the app foregrounds, the mobile opens `GET /session/dial?instance=<id>` to `solcf`, carrying the device token. The relay validates the token and the matching `instance_id`, mints a `tunnel_id`, and records the mobile's WS as one half of the (not yet complete) tunnel.
+When the user opens the solstone mobile app and the app foregrounds, the mobile opens `GET /session/dial?instance=<id>` to `spl-relay`, carrying the device token. The relay validates the token and the matching `instance_id`, mints a `tunnel_id`, and records the mobile's WS as one half of the (not yet complete) tunnel.
 
 ### 3. pair signal — relay tells the home
 
@@ -131,7 +131,7 @@ This is a structured JSON message in a WebSocket text frame. It is the **only** 
 
 ### 4. tunnel — home opens on the signal
 
-The home reacts to the `incoming` signal by opening `GET /tunnel/<tunnel_id>` to `solcf`, carrying the account token and the `tunnel_id` from the signal. The relay matches the WS against the recorded entry by `tunnel_id`.
+The home reacts to the `incoming` signal by opening `GET /tunnel/<tunnel_id>` to `spl-relay`, carrying the account token and the `tunnel_id` from the signal. The relay matches the WS against the recorded entry by `tunnel_id`.
 
 ### 5. pair — relay matches the two WSes
 
@@ -176,7 +176,7 @@ If alpha reveals idle disconnects beyond 30 min in real-world conditions, we rev
 
 ### home reconnect — listen WS
 
-The listen WS may disconnect for any reason — network flap on the home machine, `solcf` deploy, transient CF edge churn, etc. The home reconnects with **exponential backoff**:
+The listen WS may disconnect for any reason — network flap on the home machine, `spl-relay` deploy, transient CF edge churn, etc. The home reconnects with **exponential backoff**:
 
 - Initial delay: 1 s.
 - Multiplier: 2× each failed attempt.
@@ -193,7 +193,7 @@ The mobile dial-turned-tunnel WS disconnects on:
 - App backgrounding (iOS suspends after 20 s grace, per the extro-phone lifecycle; the WS naturally drops).
 - Network change (wifi ↔ cellular).
 - TLS-handshake failure (revocation).
-- `solcf` deploy.
+- `spl-relay` deploy.
 
 For non-revocation disconnects, the mobile reconnects on next user-visible activity (foreground, scroll, tap). Backoff is: 1 s, then 5 s, then 10 s, capped at 30 s, with the same ±25% jitter. The mobile's UX handles "Reconnecting…" / "Offline" banners.
 
@@ -201,7 +201,7 @@ For TLS-handshake failure (revocation), the mobile does **not** retry automatica
 
 ## deploy-disconnect
 
-Every `solcf` Worker redeploy disconnects every WebSocket. This is a CF property of the Hibernatable WebSocket API — the new code version cannot inherit live sockets from the old version.
+Every `spl-relay` Worker redeploy disconnects every WebSocket. This is a CF property of the Hibernatable WebSocket API — the new code version cannot inherit live sockets from the old version.
 
 Behavior:
 
@@ -212,7 +212,7 @@ Behavior:
 
 Acceptance criterion (per spec): clients reconnect within 10 seconds of a Worker redeploy without requiring re-pair. Prototype did not measure this directly (§7); MVP test suite covers it.
 
-Operational implication: deploy cadence on `solcf` is low. We don't ship features weekly. Every deploy is a customer-visible blip; only ship when it's worth that.
+Operational implication: deploy cadence on `spl-relay` is low. We don't ship features weekly. Every deploy is a customer-visible blip; only ship when it's worth that.
 
 ## cardinality
 
@@ -247,7 +247,7 @@ Both sides may close at any time. The relay propagates close events across the p
 
 The listen WS closing does **not** close active tunnel WSes — those continue until either side hangs up. The relay does, however, refuse new dials while the listen WS is down.
 
-## what `solcf` logs about a session
+## what `spl-relay` logs about a session
 
 For audit and debugging, the Worker emits structured log events at session boundaries. Logged fields are an exhaustive list:
 

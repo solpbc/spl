@@ -11,11 +11,11 @@ Thumbs.db
 .idea/
 .vscode/
 
-# solcf (Cloudflare Worker, TypeScript)
-solcf/node_modules/
-solcf/dist/
-solcf/.wrangler/
-solcf/.dev.vars
+# spl-relay (Cloudflare Worker, TypeScript)
+relay/node_modules/
+relay/dist/
+relay/.wrangler/
+relay/.dev.vars
 
 # home (Python)
 home/.venv/

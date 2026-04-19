@@ -68,7 +68,7 @@ function parseArgs(args: string[]): { out: string; force: boolean } {
 function printHelp(): void {
 	stdout.write(
 		[
-			"gen-signing-key — generate an Ed25519 JWK keypair for solcf JWT signing",
+			"gen-signing-key — generate an Ed25519 JWK keypair for spl-relay JWT signing",
 			"",
 			"usage:",
 			"  npm run gen-key                        write to ~/.spl/signing-keypair.json",
@@ -193,7 +193,7 @@ async function main(): Promise<void> {
 			"   Lose it and every paired device must re-enroll.",
 			"   Back it up offline (paper, hardware token, encrypted USB — never a cloud drive).",
 			"",
-			"Provision the secrets to your solcf Worker. Make sure you are using the GLOBAL",
+			"Provision the secrets to your spl-relay Worker. Make sure you are using the GLOBAL",
 			"wrangler binary (npx wrangler loses the OAuth session and breaks secret put).",
 			"",
 			"For production:",
@@ -206,8 +206,8 @@ async function main(): Promise<void> {
 			`  echo '${signingJwkPayload}' | wrangler secret put SIGNING_JWK --env staging`,
 			`  echo '${jwksPayload}' | wrangler secret put JWKS_PUBLIC --env staging`,
 			"",
-			"After provisioning, your solcf will serve the public JWKS at",
-			"  https://<your-solcf-host>/.well-known/jwks.json",
+			"After provisioning, your spl-relay will serve the public JWKS at",
+			"  https://<your-relay-host>/.well-known/jwks.json",
 			"",
 			"Rotation: see docs/signing-keys.md. Default cadence is 12 months with a 30-day overlap.",
 			"",

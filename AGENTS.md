@@ -16,7 +16,7 @@ Read the architecture section of the README before writing code. If the change y
 
 | Directory | Purpose | Go here when |
 |-----------|---------|--------------|
-| [`solcf/`](solcf/) | CF Worker + Durable Object — the relay. TypeScript. | Editing the relay server, wrangler config, migrations. |
+| [`relay/`](relay/) | CF Worker + Durable Object — the relay. TypeScript. | Editing the relay server, wrangler config, migrations. |
 | [`home/`](home/) | Python tunnel module. Embeds in solstone. | Editing the home-side listen/TLS/pairing code. |
 | [`ios/`](ios/) | iOS client (stub). Lineage: extro-phone. | Once the iOS build lands — not yet. |
 | [`proto/`](proto/) | Shared protocol spec (framing, pairing, token shape). | Changing the wire format or token shape — both sides must agree. |
@@ -30,9 +30,9 @@ These are architectural, not aspirational. A PR that violates any of them is dec
 
 ### blind by construction
 
-- `solcf` (the relay) must hold **no key** that can decrypt the inner stream.
-- `solcf` must have **no code path** that reads the contents of a relayed frame. The DO holds `ArrayBuffer`s. It does not parse them.
-- `solcf` must **not store** relayed bytes anywhere — not in D1, not in R2, not in KV, not in memory beyond the in-process pairing table that lives only for the socket's lifetime.
+- `spl-relay` (the relay) must hold **no key** that can decrypt the inner stream.
+- `spl-relay` must have **no code path** that reads the contents of a relayed frame. The DO holds `ArrayBuffer`s. It does not parse them.
+- `spl-relay` must **not store** relayed bytes anywhere — not in D1, not in R2, not in KV, not in memory beyond the in-process pairing table that lives only for the socket's lifetime.
 - mTLS with the self-signed CA terminates **at the home endpoint**, never at CF. An earlier architecture considered CF Access edge mTLS; it was rejected because that shape would show CF the plaintext.
 - There is **no key escrow, ever**. No path by which sol pbc can reconstruct a past or present session.
 
@@ -40,12 +40,12 @@ These are architectural, not aspirational. A PR that violates any of them is dec
 
 - Every log statement that touches tunnel data must log metadata only: `timestamp`, `tunnel_id`, `direction`, `byte_count`. Never a payload byte. Never a header. Never a token value. Never a TLS handshake message.
 - No analytics libraries. No tracking pixels. No behavioral telemetry. No third-party error-reporting SDK that could capture a payload on a stack trace. Adding one is a fail-stop change — cut it in code review.
-- Operational error tracking for `solcf` bugs is fine *if* it captures Worker stack traces that do not include user frames. Be specific about what goes upstream; default-deny anything ambiguous.
+- Operational error tracking for `spl-relay` bugs is fine *if* it captures Worker stack traces that do not include user frames. Be specific about what goes upstream; default-deny anything ambiguous.
 
 ### open source is the product
 
 - Everything that runs in production is in this repo, under [AGPL-3.0-only](LICENSE).
-- Self-hosting `solcf` against a clean CF account must produce a working tunnel by following a README. A contributor running it on their own infra is not a second-class path — they are the product in a different hosting mode.
+- Self-hosting `spl-relay` against a clean CF account must produce a working tunnel by following a README. A contributor running it on their own infra is not a second-class path — they are the product in a different hosting mode.
 - No hidden dependencies on sol-pbc-proprietary infrastructure, closed SaaS, or internal services. If you reach for one, stop; there's a wrong turn upstream.
 
 ### minimum-delta MVP
@@ -56,7 +56,7 @@ These are architectural, not aspirational. A PR that violates any of them is dec
 
 ## 4. Safety rails — what an agent must never do here
 
-- **Never** write a code path in `solcf` that reads, parses, stores, forwards, or reasons about the payload of a relayed frame. Opaque bytes in, opaque bytes out.
+- **Never** write a code path in `spl-relay` that reads, parses, stores, forwards, or reasons about the payload of a relayed frame. Opaque bytes in, opaque bytes out.
 - **Never** add an analytics / tracking / telemetry / behavioral-insight library. Not as a dep, not as a middleware, not as a debug tool. This is fail-stop.
 - **Never** commit a secret — tokens, signing keys, CF API tokens, wrangler OAuth sessions, `authorized_clients.json` entries, `.dev.vars` contents. Secrets go in `.env.local` (gitignored) for dev and `wrangler secret put` for prod.
 - **Signing keys (`SIGNING_JWK`, `JWKS_PUBLIC`) are JWT-layer secrets — never confuse them with mTLS cert keys.** They live in two different layers with two different algorithms: this layer is **Ed25519 / EdDSA** for JWT signing; the mTLS layer (home CA + mobile client cert) is separately **ECDSA-P256**. They authorize different things — JWTs authorize the rendezvous WebSocket open; mTLS authorizes the actual byte exchange. The private signing key (`env.SIGNING_JWK`) MUST NOT appear in the repo, in commit history, in any log line, in any error message, in any `console.*` call, in any HTTP response body, or in any thrown exception's `.message`. It exists only at `env.SIGNING_JWK` at runtime and at the operator's local keypair file. See [`docs/signing-keys.md`](docs/signing-keys.md) for the full lifecycle and [`proto/tokens.md`](proto/tokens.md) for the wire format.
@@ -86,7 +86,7 @@ Headers go immediately after any shebang. Do not add them to docs, configs, gene
 
 ### build system
 
-Top-level `Makefile` orchestrates. Per-component Makefiles live in `solcf/` and `home/`. Required targets at each level:
+Top-level `Makefile` orchestrates. Per-component Makefiles live in `relay/` and `home/`. Required targets at each level:
 
 | Target | Does |
 |--------|------|
@@ -96,19 +96,19 @@ Top-level `Makefile` orchestrates. Per-component Makefiles live in `solcf/` and 
 | `make format` | Auto-fix formatting |
 | `make clean` | Remove build artifacts |
 
-Additional targets (`make dev`, `make deploy` in `solcf/`) are fine. These five are the contract.
+Additional targets (`make dev`, `make deploy` in `relay/`) are fine. These five are the contract.
 
 ### secrets
 
 - **Dev:** `.env.local` at the component root. Gitignored. Load via the language's dotenv library.
-- **solcf prod:** `wrangler secret put <NAME>`. Encrypted server-side by CF. Read via `env.NAME` in the Worker.
-- **Signing keys** (account-token / device-token signing): live in sol pbc's vault. Install into `solcf` via `wrangler secret put SIGNING_KEY < key.pem`. Never written to the repo, never echoed to logs, never returned in an API response.
+- **spl-relay prod:** `wrangler secret put <NAME>`. Encrypted server-side by CF. Read via `env.NAME` in the Worker.
+- **Signing keys** (account-token / device-token signing): live in sol pbc's vault. Install into `spl-relay` via `wrangler secret put SIGNING_KEY < key.pem`. Never written to the repo, never echoed to logs, never returned in an API response.
 
 ### testing
 
 - Tests live under each component's `tests/` directory.
 - Unit tests run without network or CF resources.
-- Integration tests against Miniflare (solcf) or a running local `solcf` (home) are marked separately and not gated by default CI.
+- Integration tests against Miniflare (spl-relay) or a running local `spl-relay` (home) are marked separately and not gated by default CI.
 - The build gate is `make ci`. It must pass before commit.
 
 ### git

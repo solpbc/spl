@@ -8,14 +8,14 @@
 
 spl gives two paired endpoints (today: a solstone home server and a paired mobile app) a way to reach each other over the public internet without exposing either to it. Cloudflare holds two WebSockets and shovels opaque bytes between them. Inside the tunnel, the endpoints run TLS 1.3 end-to-end; the server authenticates the rendezvous, never the payload.
 
-- **Operator:** sol pbc (hosted `solcf` relay at `spl.solpbc.org`). Or run your own — the whole server is in this repo.
+- **Operator:** sol pbc (hosted `spl-relay` relay at `spl.solpbc.org`). Or run your own — the whole server is in this repo.
 - **License:** [AGPL-3.0-only](LICENSE).
 - **Status:** pre-MVP, closed alpha approaching. Architecture vetted end-to-end by prototype (2026-04-18). See the [roadmap](https://github.com/solpbc/spl/blob/main/docs/roadmap.md) when published.
 
 ## architecture
 
 ```
-solstone (home, python)          sol-pbc CF ("solcf")            mobile app (swift/kotlin)
+solstone (home, python)          sol-pbc CF ("spl-relay")            mobile app (swift/kotlin)
 -----------------------          --------------------            ------------------------
 POST /session/listen ────────▶   Workers: validate
   Authorization: account_token     account token
@@ -44,7 +44,7 @@ encrypted http/ws/sse   ◀─── DO forwards opaque frames ───▶   en
 
 Key invariants:
 
-- `solcf` holds **no key** that can decrypt the inner stream. It authenticates the rendezvous, not the payload.
+- `spl-relay` holds **no key** that can decrypt the inner stream. It authenticates the rendezvous, not the payload.
 - mTLS with a self-signed CA lives **at the home endpoint**, not at CF. Authorized-keys-file pattern for revocation — edit a file, device is out.
 - The inner protocol is TLS 1.3 with an SSH-channel-style multiplexing frame (`stream_id | flags | length | payload`). One tunnel WebSocket carries many concurrent HTTP/WS/SSE connections.
 
@@ -52,7 +52,7 @@ Key invariants:
 
 | Directory | What's here |
 |-----------|-------------|
-| [`solcf/`](solcf/) | CF Worker + Durable Object (TypeScript). The relay. |
+| [`relay/`](relay/) | CF Worker + Durable Object (TypeScript). The relay. |
 | [`home/`](home/) | Python tunnel module. Embeddable in solstone. |
 | [`ios/`](ios/) | iOS client. Stub — lineage is the solstone mobile app. |
 | [`proto/`](proto/) | Shared protocol spec (framing, pairing, token shape). |
@@ -66,22 +66,22 @@ Clone, then:
 make install
 ```
 
-Orchestrates per-component installs (`solcf/` → npm, `home/` → uv/pip). Per-component targets are also available: `make solcf-install`, `make home-install`.
+Orchestrates per-component installs (`relay/` → npm, `home/` → uv/pip). Per-component targets are also available: `make relay-install`, `make home-install`.
 
 Prerequisites:
 
-- **Node 20+** and **bun** or **npm** for `solcf/`
+- **Node 20+** and **bun** or **npm** for `relay/`
 - **Python 3.11+** and **uv** (or **pip**) for `home/`
 
 ## run
 
-**solcf locally** (Miniflare):
+**spl-relay locally** (Miniflare):
 
 ```sh
-make solcf-dev
+make relay-dev
 ```
 
-**home locally** (against a running `solcf`):
+**home locally** (against a running `spl-relay`):
 
 ```sh
 cd home && make dev
@@ -95,11 +95,11 @@ See each component's `README.md` for the full story.
 make test
 ```
 
-Per-component: `make solcf-test`, `make home-test`. `make ci` runs the full pre-commit gate (format + lint + type check + test) locally.
+Per-component: `make relay-test`, `make home-test`. `make ci` runs the full pre-commit gate (format + lint + type check + test) locally.
 
 ## self-host
 
-Running your own `solcf` instance is a supported path — not an afterthought. See [`docs/self-host.md`](docs/self-host.md).
+Running your own `spl-relay` instance is a supported path — not an afterthought. See [`docs/self-host.md`](docs/self-host.md).
 
 ## license
 

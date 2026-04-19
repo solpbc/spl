@@ -1,5 +1,5 @@
 # home — python tunnel module
-# Embeds in solstone. Opens listen WS to solcf, terminates TLS inside the tunnel.
+# Embeds in solstone. Opens listen WS to spl-relay, terminates TLS inside the tunnel.
 
 .PHONY: install test ci format clean dev lint typecheck
 

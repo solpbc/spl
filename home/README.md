@@ -1,6 +1,6 @@
 # home
 
-The python tunnel module. Embeds in solstone to open a long-held listen WebSocket to `solcf`, terminate TLS inside each incoming tunnel, and forward decrypted traffic to the local convey server.
+The python tunnel module. Embeds in solstone to open a long-held listen WebSocket to `spl-relay`, terminate TLS inside each incoming tunnel, and forward decrypted traffic to the local convey server.
 
 ## status
 
@@ -10,7 +10,7 @@ Scaffold only. The MVP build lands in a later phase; see [`../AGENTS.md`](../AGE
 
 Three cooperating asyncio pieces, all in one python package:
 
-- `spl.tunnel` — outbound listen-WS manager to `solcf`. Uses the `websockets` library; relies on library-default ping + CF auto ping/pong for liveness. No app-level heartbeat.
+- `spl.tunnel` — outbound listen-WS manager to `spl-relay`. Uses the `websockets` library; relies on library-default ping + CF auto ping/pong for liveness. No app-level heartbeat.
 - `spl.pair` — local HTTPS pairing server. Serves a short-lived, single-use QR/URL nonce over LAN; on scan, signs a client CSR with the home CA, writes the fingerprint to `authorized_clients.json`, and returns the cert chain.
 - `spl.relay_server` — TLS 1.3 server inside the tunnel. Uses `pyOpenSSL` (not stdlib `ssl`) to expose a `verify_callback` that rejects unauthorized client fingerprints **inside the handshake** — revocation is immediate, not post-handshake.
 
@@ -33,7 +33,7 @@ make install
 make dev
 ```
 
-Runs `spl.tunnel` against a local `solcf` (see `../solcf/`). Configuration via `.env.local` (gitignored): `SOLCF_ENDPOINT`, `ACCOUNT_TOKEN`, `CA_CERT_PATH`.
+Runs `spl.tunnel` against a local `spl-relay` (see `../relay/`). Configuration via `.env.local` (gitignored): `SPL_RELAY_ENDPOINT`, `ACCOUNT_TOKEN`, `CA_CERT_PATH`.
 
 ## test
 
@@ -41,7 +41,7 @@ Runs `spl.tunnel` against a local `solcf` (see `../solcf/`). Configuration via `
 make test
 ```
 
-Unit tests run without network. Integration tests against a live `solcf` are marked `@pytest.mark.integration` and not gated by default CI.
+Unit tests run without network. Integration tests against a live `spl-relay` are marked `@pytest.mark.integration` and not gated by default CI.
 
 ## why pyOpenSSL
 

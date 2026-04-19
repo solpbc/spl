@@ -1,5 +1,5 @@
 {
-  "name": "solcf",
+  "name": "spl-relay",
   "version": "0.0.0",
   "private": true,
   "description": "sol private link — blind byte-relay Worker + Durable Object",

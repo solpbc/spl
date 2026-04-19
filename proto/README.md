@@ -1,6 +1,6 @@
 # proto
 
-Shared protocol documentation. The authoritative description of the wire formats and ceremonies that `solcf`, `home`, and the iOS client all have to agree on.
+Shared protocol documentation. The authoritative description of the wire formats and ceremonies that `spl-relay`, `home`, and the iOS client all have to agree on.
 
 The rule for this directory: **if any two components would need to agree on the same detail, it is documented here, not in their READMEs**. A subtle divergence in framing interpretation between the Worker and the python home is the exact class of bug this directory exists to prevent.
 
@@ -15,7 +15,7 @@ The rule for this directory: **if any two components would need to agree on the 
 
 If you're new to the protocol: [`session.md`](session.md) first (the lifecycle), then [`framing.md`](framing.md) (what flows inside), then [`pairing.md`](pairing.md) (how a mobile device first becomes able to dial), then [`tokens.md`](tokens.md) (the JWT shapes that authorize the rendezvous).
 
-If you're touching code in `solcf/`, `home/`, or `ios/`: read the document for the layer you're touching, plus [`tokens.md`](tokens.md) (because every WebSocket open touches token validation).
+If you're touching code in `relay/`, `home/`, or `ios/`: read the document for the layer you're touching, plus [`tokens.md`](tokens.md) (because every WebSocket open touches token validation).
 
 ## boundary
 
