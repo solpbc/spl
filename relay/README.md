@@ -6,7 +6,15 @@ The Cloudflare Worker + Durable Object that relays opaque bytes between two pair
 
 ## status
 
-Scaffold only. The MVP build lands in a later phase; see [`../AGENTS.md`](../AGENTS.md) §6.
+MVP build — Worker + Durable Object implement the full v1 protocol surface:
+
+- `/enroll/home` and `/enroll/device` control-plane endpoints with Ed25519 JWT issuance and ES256 home-attestation verification (see [`../proto/tokens.md`](../proto/tokens.md))
+- `/session/listen`, `/session/dial`, `/tunnel/<id>` WebSocket routes with JWT verify, WS-tag cardinality, and 16 MiB pending-buffer cap with 1009 close on overflow
+- `/.well-known/jwks.json` transparency mirror
+- D1 schema (`migrations/0001_init.sql`) for instance + device metadata — no payload bytes, ever
+- Blind forwarding: the DO holds `ArrayBuffer`s and forwards them without parsing; no code path reads a relayed frame
+
+**What's not built yet:** the Python home (`spl/home/`) and Bun mobile (`spl/mobile/`) MVP programs that exercise the relay end-to-end. Those are the next chunk of the MVP scope.
 
 ## what it is
 
@@ -40,7 +48,9 @@ Runs the Worker under Miniflare. No CF account required. Secrets can be set in a
 make test
 ```
 
-Unit tests run under Miniflare. Integration tests require a live `spl-relay` and are marked separately.
+Two suites. Unit tests (`test/`, vitest + node) cover the pure crypto helpers — JWT verify/mint, attestation verify, fingerprinting. Integration tests (`test-integration/`, vitest + `@cloudflare/vitest-pool-workers`) spin up the real Worker under Miniflare with D1 and InstanceDO bindings and exercise the full request path, WebSocket pairing, cardinality enforcement, and pending-buffer overflow.
+
+A fresh Ed25519 signing keypair is minted at config-load time in `vitest.workers.config.ts`; no keys are committed. Full CI (`make ci`) runs typecheck + biome + both suites.
 
 ## deploy
 
@@ -75,16 +85,22 @@ Do **not** edit `wrangler.toml` to add an `account_id` line. The pattern is: the
 Never commit a secret. For production:
 
 ```sh
-wrangler secret put HOME_TOKEN < /path/to/token
-wrangler secret put MOBILE_TOKEN < /path/to/token
-wrangler secret put SIGNING_KEY < /path/to/key.pem
+# Private Ed25519 signing JWK (JSON; the private half used to mint
+# account/device tokens):
+echo "$PRIVATE_JWK_JSON" | wrangler secret put SIGNING_JWK --env production
+
+# Public JWKS envelope (JSON; the public half the Worker verifies against —
+# supports multi-key rotation via kid):
+echo "$JWKS_ENVELOPE_JSON" | wrangler secret put JWKS_PUBLIC --env production
 ```
 
-Read in the Worker via `env.HOME_TOKEN`, `env.SIGNING_KEY`, etc.
+Read in the Worker via `env.SIGNING_JWK` and `env.JWKS_PUBLIC`. The private key is the root of trust; see [`../docs/signing-keys.md`](../docs/signing-keys.md) for the full lifecycle (generation, rotation, compromise response).
+
+Run `npm run gen-key` to mint a self-host keypair — it writes to `~/.spl/signing-keypair.json` with mode 0600 and prints the exact `wrangler secret put` commands.
 
 ## configuration
 
-`wrangler.toml` is checked in and contains no secrets. Database IDs and account IDs are not secrets; signing keys and auth tokens are.
+`wrangler.toml` is checked in and contains no secrets. The top-level block is a dev-only placeholder; `[env.staging]` and `[env.production]` hold the real deploy targets. Fill in each env's `database_id` (from `wrangler d1 create ...`) before deploying. Signing keys and tokens are secrets, provisioned via `wrangler secret put`.
 
 ## logging policy
 
