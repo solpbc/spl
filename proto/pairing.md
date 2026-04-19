@@ -118,7 +118,7 @@ The home computes the SHA-256 fingerprint of the new cert and writes a new entry
 
 `authorized_clients.json` is the source of truth for revocation. The TLS layer reloads it on mtime change (polled at 0.5 s). See [`session.md`](session.md) for the runtime check.
 
-### 7. home returns cert + chain
+### 7. home returns cert + chain + home attestation
 
 Response body:
 
@@ -127,9 +127,12 @@ Response body:
   "client_cert": "<PEM>",
   "ca_chain": ["<home CA PEM>"],
   "instance_id": "<home_instance_id>",
-  "home_label": "<user-named home, e.g. 'living room mac'>"
+  "home_label": "<user-named home, e.g. 'living room mac'>",
+  "home_attestation": "<compact JWS, ES256>"
 }
 ```
+
+`home_attestation` is a short-lived JWT signed by the local CA private key and scoped to this particular pair ceremony. Shape, claims, and validation are specified in [`tokens.md`](tokens.md) §"POST /enroll/device". The mobile forwards it verbatim to `/enroll/device` in step 8; the home never stores it and never signs a second one for the same device without a fresh pair ceremony.
 
 The mobile stores `client_cert`, the matching private key (already in Keychain from step 4), and `ca_chain` (used to validate the home's TLS server cert during everyday tunnel use). It also stores `instance_id` — this is the address it will dial through `spl-relay`.
 
@@ -141,16 +144,12 @@ The mobile makes one HTTPS POST to `spl-relay`'s control plane:
 POST https://spl.solpbc.org/enroll/device
 {
   "instance_id": "<from step 7>",
-  "client_cert": "<PEM>"
+  "client_cert": "<PEM>",
+  "home_attestation": "<from step 7>"
 }
 ```
 
-`spl-relay` validates that:
-
-- The `client_cert` is signed by a CA whose fingerprint the home has registered with `spl-relay` at home enrollment (the home registers its CA fingerprint when it acquires its account token).
-- The `instance_id` exists and the requesting client has not been revoked at the rendezvous layer (account-token revocation, distinct from `authorized_clients.json` — revocation in v1 is enforced at the TLS handshake on the home, but `spl-relay` honors a future revocation list for defense-in-depth).
-
-If valid, `spl-relay` issues a **device token** — a JWT scoped to (`instance_id`, fingerprint), signed by `spl-relay`'s signing key (see [`tokens.md`](tokens.md)). Mobile stores it in Keychain alongside the client cert.
+`spl-relay` validates the `home_attestation` against the home's registered CA public key (per [`tokens.md`](tokens.md) §"POST /enroll/device"). The attestation binds this specific device fingerprint to a specific pair ceremony within a 5-minute window; its `jti` is consumed exactly once via a D1 UNIQUE constraint. If valid, `spl-relay` issues a **device token** — a JWT scoped to (`instance_id`, fingerprint), signed by `spl-relay`'s signing key. Mobile stores it in Keychain alongside the client cert.
 
 Pairing complete. The mobile now holds: ECDSA private key + client cert + CA chain + device token. User-visible: `LITERAL: "Paired with <home label>."`
 

@@ -139,11 +139,65 @@ Called by the mobile app after LAN pairing completes. Body:
 ```json
 {
   "instance_id": "<paired home>",
-  "client_cert": "<PEM>"
+  "client_cert": "<PEM>",
+  "home_attestation": "<compact JWS, ES256>"
 }
 ```
 
-`spl-relay` validates that the `client_cert` chains to a CA whose fingerprint matches the `ca_fp` recorded for the named `instance_id` at home enrollment. If the chain validates, `spl-relay` issues a device token. Response:
+**`home_attestation`** is a short-lived JWT signed by the home's local CA private key during the pair ceremony (see [`pairing.md`](pairing.md) §7). Its role is to prove to `spl-relay` that the paired home intentionally issued *this specific* client cert in *this specific* pair ceremony — chain validity alone would only prove the home issued the cert at some point, which is a weaker claim.
+
+Header:
+
+```json
+{ "alg": "ES256", "typ": "home-attest" }
+```
+
+Claims:
+
+```json
+{
+  "iss": "home:<instance_id>",
+  "aud": "spl-relay",
+  "scope": "device.enroll",
+  "instance_id": "<uuidv7>",
+  "device_fp": "sha256:<lowercase hex>",
+  "iat": 1745006400,
+  "exp": 1745006700,
+  "jti": "<uuidv7>"
+}
+```
+
+| claim | required | meaning |
+|---|---|---|
+| `iss` | yes | literal `home:<instance_id>`. Binds the attestation to a specific home identity. |
+| `aud` | yes | literal `spl-relay`. |
+| `scope` | yes | literal `device.enroll`. |
+| `instance_id` | yes | home's instance_id; must match the request body's `instance_id`. |
+| `device_fp` | yes | `sha256:<hex>` of the DER-encoded `client_cert`. `spl-relay` recomputes this from the submitted cert and rejects on mismatch. |
+| `iat` | yes | issued-at, seconds since epoch. |
+| `exp` | yes | expiration, seconds since epoch. Must satisfy `exp > now` and `exp - iat ≤ 300` (5 min, matching the LAN pair nonce TTL). |
+| `jti` | yes | unique id (UUIDv7). Stored in D1 as `devices.attestation_jti UNIQUE`; a second `/enroll/device` presenting the same `jti` is rejected as replay. |
+
+Signature algorithm is ES256 (ECDSA-P256 / SHA-256), in either JOSE raw (r||s, 64 bytes, preferred) or DER-encoded form. `spl-relay` accepts both — home implementations may differ in whichever their local library emits, and the cost of supporting both is trivial.
+
+**Validation (by `spl-relay`) on every `/enroll/device`:**
+
+1. Load the home's `ca_pubkey_pem` from D1 for the named `instance_id`. If absent → 404.
+2. Parse the `home_attestation` header; reject if `alg ≠ ES256` or `typ ≠ home-attest`.
+3. Verify the ECDSA signature against the home's CA public key.
+4. Check claims per the table above, including the 5-minute lifetime cap and the `device_fp` match against `sha256(DER(client_cert))`.
+5. Attempt to INSERT the attestation's `jti` into `devices.attestation_jti`; UNIQUE constraint failure → 409 replay.
+6. On success, mint a device token (see below).
+
+**Why this shape (design O1):** CPO's open question O1 asked what proves a client cert was legitimately paired with a specific home before `spl-relay` will mint a device token. The alternatives considered:
+
+- *Chain validity alone.* Too weak: chain validity proves the home issued the cert at some point, not that it did so recently or intentionally for this mobile. Anyone who later captures a stale client cert could mint new device tokens.
+- *Bootstrap-token-plus-nonce.* Similar security, extra endpoint. The proposed home-signed JWT carries the same signal — fresh signature, scoped to `(instance_id, device_fp)`, short-lived — in a single compact blob on an existing endpoint.
+- *mTLS from the home to `spl-relay` at `/enroll/device`.* Would require threading the home's CA private key through the enrollment path, which it isn't on otherwise. Bigger attack surface on the control plane with no marginal benefit over a signed JWT.
+
+The home-signed JWT is the minimal shape that closes the trust gap. The relay never gains decrypt capability; the home never ships the CA private key off-box; the attestation is consumed exactly once via D1's UNIQUE constraint.
+
+Response (on success):
 
 ```json
 {
@@ -152,7 +206,7 @@ Called by the mobile app after LAN pairing completes. Body:
 }
 ```
 
-Re-issuance: same endpoint, same payload. The new token's `jti` is new; the old `jti` becomes eligible for the D1 revocation list if the home or operator wants defense-in-depth.
+Re-issuance: same endpoint, a fresh `home_attestation` per call. The old attestation's `jti` is consumed and cannot be replayed; the old device token's `jti` becomes eligible for the D1 revocation list if the home or operator wants defense-in-depth.
 
 ## validation in `spl-relay`
 
