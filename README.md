@@ -57,7 +57,6 @@ Key invariants:
 | [`ios/`](ios/) | iOS client. Stub — lineage is the solstone mobile app. |
 | [`proto/`](proto/) | Shared protocol spec (framing, pairing, token shape). |
 | [`docs/`](docs/) | Architecture, self-host guide, decision log. |
-| [`.github/workflows/`](.github/workflows/) | Per-component lint + test on PR. |
 
 ## install
 
@@ -96,21 +95,11 @@ See each component's `README.md` for the full story.
 make test
 ```
 
-Per-component: `make solcf-test`, `make home-test`.
+Per-component: `make solcf-test`, `make home-test`. `make ci` runs the full pre-commit gate (format + lint + type check + test) locally.
 
 ## self-host
 
 Running your own `solcf` instance is a supported path — not an afterthought. See [`docs/self-host.md`](docs/self-host.md).
-
-## security
-
-Found a vulnerability? See [SECURITY.md](SECURITY.md). Short version: email `security@solpbc.org`. We target a 48-hour acknowledgement.
-
-## contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md). The blind-by-construction invariant is non-negotiable — PRs that add any code path reading, logging, storing, or forwarding tunnel payload are declined on sight. No analytics, no telemetry, no tracking.
-
-By submitting a PR, you agree your contribution is licensed under [AGPL-3.0-only](LICENSE).
 
 ## license
 
