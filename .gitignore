@@ -17,6 +17,11 @@ relay/dist/
 relay/.wrangler/
 relay/.dev.vars
 
+# mobile (Bun/TypeScript)
+mobile/node_modules/
+mobile/dist/
+mobile/.bun-cache/
+
 # home (Python)
 home/.venv/
 home/venv/
