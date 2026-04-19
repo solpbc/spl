@@ -8,7 +8,7 @@
 
 spl gives two paired endpoints (today: a solstone home server and a paired mobile app) a way to reach each other over the public internet without exposing either to it. Cloudflare holds two WebSockets and shovels opaque bytes between them. Inside the tunnel, the endpoints run TLS 1.3 end-to-end; the server authenticates the rendezvous, never the payload.
 
-- **Operator:** sol pbc (hosted `solcf` relay at [solpbc.org](https://solpbc.org)). Or run your own — the whole server is in this repo.
+- **Operator:** sol pbc (hosted `solcf` relay at `spl.solpbc.org`). Or run your own — the whole server is in this repo.
 - **License:** [AGPL-3.0-only](LICENSE).
 - **Status:** pre-MVP, closed alpha approaching. Architecture vetted end-to-end by prototype (2026-04-18). See the [roadmap](https://github.com/solpbc/spl/blob/main/docs/roadmap.md) when published.
 

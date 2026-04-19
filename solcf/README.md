@@ -17,7 +17,7 @@ See [`../README.md`](../README.md#architecture) for the diagram and [`../AGENTS.
 ## prerequisites
 
 - **Node 20+** (tested on 20.x and 22.x)
-- **wrangler 4+** (installed globally or via the local dev dependency)
+- **wrangler 4+** installed **globally** for any operation that touches a real CF account (`npm install -g wrangler` or `bun add -g wrangler`). `npx wrangler` is acceptable for local Miniflare dev only; do not use it for deploy or for any command that needs your OAuth session (R2, D1, secret put, tail).
 - A Cloudflare account (free tier is fine for local development; production needs Workers Paid, ~$5/mo)
 
 ## install
@@ -50,9 +50,25 @@ Production deploys are manual and run by an authenticated sol pbc operator from 
 make deploy
 ```
 
-This invokes `wrangler deploy`. The operator must have run `wrangler login` at least once and be working from the global `wrangler` binary (not `npx wrangler` — that loses the OAuth session).
+This invokes the **global** `wrangler deploy`. The operator must have run `wrangler login` at least once. Do not use `npx wrangler` for this — it installs a temporary binary that loses the authenticated OAuth session and has been observed to cause R2/D1 visibility bugs.
 
 A deploy disconnects every live tunnel. It is not routine. Only deploy when the change is worth the customer-visible blip.
+
+### account context — `account_id`
+
+The checked-in `wrangler.toml` deliberately contains **no `account_id`**. This avoids two problems: leaking sol pbc's CF account identifier into a public repo, and inviting paste errors from self-hosters who would otherwise have to remember to delete a line before deploying.
+
+`wrangler` resolves the account context from one of three sources, checked in this order. Pick whichever fits your environment:
+
+1. **OAuth session (recommended).** Run `wrangler login` once on this workstation. wrangler stores account context in `~/.wrangler/config/` (outside the repo) and uses it for every subsequent invocation. If the session is bound to a single CF account, you're done; if it's bound to multiple, wrangler will prompt the first time and remember.
+2. **Environment variable.** Export `CLOUDFLARE_ACCOUNT_ID=<your-account-id>` in your shell profile, or set it in a local `.env.local` (gitignored) and source it before deploying.
+3. **Per-invocation flag.** Pass `--account-id=<your-account-id>` on every `wrangler deploy`. Verbose, but explicit.
+
+For sol pbc operators: option 1 is the standard. The founder workstation is already authenticated.
+
+For self-hosters: any of the three is fine. Option 1 is the cleanest and matches the way wrangler is designed to work.
+
+Do **not** edit `wrangler.toml` to add an `account_id` line. The pattern is: the checked-in config has no account binding; the invocation context supplies it.
 
 ## secrets
 

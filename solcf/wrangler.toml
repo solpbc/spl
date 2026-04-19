@@ -4,9 +4,10 @@ compatibility_date = "2026-04-01"
 compatibility_flags = ["nodejs_compat"]
 
 # Production routes are wired by sol pbc at deploy time; self-hosters replace
-# these values with their own hostnames before `wrangler deploy`.
+# these values with their own hostnames before `wrangler deploy`. Sol pbc's
+# hosted relay is at spl.solpbc.org.
 # routes = [
-#   { pattern = "solcf.solpbc.org", custom_domain = true }
+#   { pattern = "spl.solpbc.org", custom_domain = true }
 # ]
 
 [observability]
