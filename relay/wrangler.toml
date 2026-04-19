@@ -51,7 +51,7 @@ vars = { ENVIRONMENT = "staging", ISSUER = "spl-staging.solpbc.org" }
 [[env.staging.d1_databases]]
 binding = "DB"
 database_name = "spl-relay-staging"
-database_id = ""
+database_id = "778edf39-815e-49df-8d92-fb05e454a118"
 migrations_dir = "migrations"
 
 [[env.staging.durable_objects.bindings]]
