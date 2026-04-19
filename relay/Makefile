@@ -16,10 +16,10 @@ typecheck:
 	npx tsc --noEmit
 
 lint:
-	npx biome check src/
+	npx biome check src/ test/ test-integration/
 
 format:
-	npx biome format --write src/
+	npx biome format --write src/ test/ test-integration/
 
 # Local dev under Miniflare. `npx wrangler` is fine here — dev uses no
 # persistent OAuth session and never touches a real CF account.

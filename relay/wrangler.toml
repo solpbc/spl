@@ -22,7 +22,62 @@ bindings = [
 tag = "v1"
 new_sqlite_classes = ["InstanceDO"]
 
-# Non-secret configuration. Secrets (HOME_TOKEN, MOBILE_TOKEN, SIGNING_KEY)
-# are set via `wrangler secret put` and are NEVER committed here.
+# Non-secret configuration. Secrets (SIGNING_JWK, JWKS_PUBLIC) are set via
+# `wrangler secret put` and are NEVER committed here. ISSUER is the JWT
+# `iss` claim the Worker enforces on every verify; self-hosters override in
+# their env block.
 [vars]
 ENVIRONMENT = "development"
+ISSUER = "spl.local"
+
+# D1 database for token metadata. Override `database_id` per environment.
+# `database_id` is populated by `wrangler d1 create` and is not sensitive —
+# but we leave it blank by default so `wrangler deploy` fails loudly if the
+# operator hasn't provisioned D1 yet.
+[[d1_databases]]
+binding = "DB"
+database_name = "spl-relay-dev"
+database_id = ""
+migrations_dir = "migrations"
+
+# Staging environment. Operator fills in database_id after `wrangler d1
+# create spl-relay-staging --env staging` and provisions SIGNING_JWK +
+# JWKS_PUBLIC via `wrangler secret put`. Staging is deployed autonomously by
+# VPE/CTO per CTO coordination; production deploys require founder approval.
+[env.staging]
+name = "spl-relay-staging"
+vars = { ENVIRONMENT = "staging", ISSUER = "spl-staging.solpbc.org" }
+
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "spl-relay-staging"
+database_id = ""
+migrations_dir = "migrations"
+
+[[env.staging.durable_objects.bindings]]
+name = "INSTANCE"
+class_name = "InstanceDO"
+
+[[env.staging.migrations]]
+tag = "v1"
+new_sqlite_classes = ["InstanceDO"]
+
+# Production environment. database_id + secrets are provisioned at deploy.
+# Production deploys require founder approval per AGENTS.md §4.
+[env.production]
+name = "spl-relay"
+vars = { ENVIRONMENT = "production", ISSUER = "spl.solpbc.org" }
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "spl-relay"
+database_id = ""
+migrations_dir = "migrations"
+
+[[env.production.durable_objects.bindings]]
+name = "INSTANCE"
+class_name = "InstanceDO"
+
+[[env.production.migrations]]
+tag = "v1"
+new_sqlite_classes = ["InstanceDO"]
