@@ -1,0 +1,27 @@
+name = "solcf"
+main = "src/index.ts"
+compatibility_date = "2026-04-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Production routes are wired by sol pbc at deploy time; self-hosters replace
+# these values with their own hostnames before `wrangler deploy`.
+# routes = [
+#   { pattern = "solcf.solpbc.org", custom_domain = true }
+# ]
+
+[observability]
+enabled = true
+
+[durable_objects]
+bindings = [
+  { name = "INSTANCE", class_name = "InstanceDO" }
+]
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["InstanceDO"]
+
+# Non-secret configuration. Secrets (HOME_TOKEN, MOBILE_TOKEN, SIGNING_KEY)
+# are set via `wrangler secret put` and are NEVER committed here.
+[vars]
+ENVIRONMENT = "development"

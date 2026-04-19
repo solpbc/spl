@@ -1,0 +1,40 @@
+# secrets — never committed
+.env
+.env.local
+.env.*.local
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.idea/
+.vscode/
+
+# solcf (Cloudflare Worker, TypeScript)
+solcf/node_modules/
+solcf/dist/
+solcf/.wrangler/
+solcf/.dev.vars
+
+# home (Python)
+home/.venv/
+home/venv/
+home/__pycache__/
+home/**/__pycache__/
+home/*.egg-info/
+home/build/
+home/dist/
+home/.pytest_cache/
+home/.mypy_cache/
+home/.ruff_cache/
+
+# ios (Xcode) — stub for now; real project files added when ios/ is populated
+ios/build/
+ios/DerivedData/
+ios/*.xcuserdatad/
+ios/xcuserdata/
+
+# coverage + reports
+coverage/
+*.log
