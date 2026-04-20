@@ -1,5 +1,8 @@
 # home
 
+> **Production home-side implementation now lives in [solstone `think/link/`](https://github.com/solpbc/solstone/tree/main/think/link).**
+> This copy is the open-source reference for the protocol; the two codebases are fully independent.
+
 The python tunnel module. Standalone MVP implementation of the home side of spl — opens a listen WebSocket to `spl-relay`, terminates TLS 1.3 inside each incoming tunnel (with handshake-time fingerprint pinning against `authorized_clients.json`), and serves a minimal test HTTP app.
 
 ## status
