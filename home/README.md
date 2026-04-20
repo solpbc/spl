@@ -27,9 +27,10 @@ Four cooperating pieces, all in one python package (`spl.home`):
 - `spl.home.relay_client` — outbound listen WS manager. Uses `websockets` library; relies on library-default ping + CF auto ping/pong for liveness. No app-level heartbeat.
 - `spl.home.pair_server` — local HTTPS pairing server. Serves a short-lived, single-use nonce over LAN; on submission signs a CSR with the home CA, writes the fingerprint to `authorized_clients.json`, mints the attestation, returns the cert chain.
 - `spl.home.tls_adapter` — TLS 1.3 server inside the tunnel. Uses `pyOpenSSL` (not stdlib `ssl`) to expose a `verify_callback` that rejects unauthorized client fingerprints **inside the handshake** — revocation is immediate, not post-handshake.
-- `spl.home.mux` — multiplexes many logical HTTP streams over one tunnel WebSocket, per proto/framing.md.
+- `spl.home.mux` — multiplexes many logical byte streams over one tunnel WebSocket, per proto/framing.md.
+- `spl.home.tcp_pipe` — per-stream TCP byte pipe. For each incoming tunnel stream, opens a plain TCP connection to a local home-app port and pumps bytes bidirectionally. No HTTP parsing at the link layer — that's what makes the blindness invariant structural.
 
-Shared helpers: `spl.home.ca` (CA + CSR + attestation), `spl.home.auth` (authorized_clients.json), `spl.home.nonces` (pair-nonce store), `spl.home.app` (test HTTP handlers), `spl.home.config` (persistent state).
+Shared helpers: `spl.home.ca` (CA + CSR + attestation), `spl.home.auth` (authorized_clients.json), `spl.home.nonces` (pair-nonce store), `spl.home.app` (loopback test HTTP server), `spl.home.config` (persistent state).
 
 ## prerequisites
 

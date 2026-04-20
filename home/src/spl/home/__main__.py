@@ -22,6 +22,7 @@ import signal
 import sys
 from pathlib import Path
 
+from .app import AppServer
 from .auth import AuthorizedClients
 from .ca import generate_nonce, load_or_generate_ca
 from .config import Config, default_config, ensure_passphrase
@@ -111,7 +112,16 @@ def _cmd_start(args: argparse.Namespace) -> int:
     )
     pair_server.start()
 
-    relay_client = RelayClient(config, ca, authorized)
+    app_server = AppServer(host="127.0.0.1", port=0)
+    app_server.start()
+
+    relay_client = RelayClient(
+        config,
+        ca,
+        authorized,
+        target_host=app_server.host,
+        target_port=app_server.port,
+    )
 
     async def run() -> None:
         await relay_client.enroll_if_needed()
@@ -132,6 +142,7 @@ def _cmd_start(args: argparse.Namespace) -> int:
     try:
         asyncio.run(run())
     finally:
+        app_server.close()
         pair_server.stop()
     return 0
 

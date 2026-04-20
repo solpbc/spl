@@ -1,10 +1,12 @@
 # framing
 
-The wire format that lets one tunnel WebSocket carry many concurrent logical streams. Lives between the TLS 1.3 record layer and the HTTP/WS/SSE traffic that actually wants to flow.
+The wire format that lets one tunnel WebSocket carry many concurrent logical streams. Lives between the TLS 1.3 record layer and whatever application-layer bytes the endpoints decide to send through it.
 
 This is the SSH-channel-style multiplex. The prototype (`vpe/workspace/spl-prototype-report.md` §13.1) ran one request per tunnel — fine for vetting the relay, TLS, and hibernation paths, but not what v1 ships. v1 needs to load a journal page that pulls images, holds a server-sent-event stream, and opens a WebSocket for live updates concurrently. All of that has to multiplex onto the single WebSocket each side holds open through `spl-relay`.
 
 This document is the contract between the home python module (`home/src/spl/framing.py`), the iOS client (`ios/Sources/SPLTunnel/Framing.swift`), and any future port (Android, browser bridge, etc.). The relay (`spl-relay`) does not parse frames — it forwards opaque bytes — so the contract is **between the two endpoints only**. That is the load-bearing fact: any framing change is a coordinated endpoint upgrade. The relay does not need a deploy.
+
+The framing layer is **application-layer agnostic**. A `stream_id` is a labelled byte channel; it carries whatever bytes the endpoints agreed to send — HTTP/1.1 today, WebSocket frames after an upgrade, SSE events inside a long-lived HTTP response, or anything else. The framing code does not parse the payload; the home's link service pipes stream bytes into a local TCP connection, and the mobile side does the same at the app boundary. Blindness is not a property we enforce at the framing layer; it is a property we get for free because the layer above framing never inspects payload contents either.
 
 ## frame layout
 
@@ -29,7 +31,7 @@ Every frame has an 8-byte header followed by zero or more bytes of payload (`str
 | `stream_id` | 4 | unsigned big-endian; identifies one logical stream within the tunnel |
 | `flags`     | 1 | bitfield (see below) |
 | `length`    | 3 | unsigned big-endian; payload byte count, 0 ≤ length ≤ 16 777 215 |
-| `payload`   | `length` | opaque bytes for the application (TLS-decrypted at this layer; HTTP/WS/SSE bytes inside) |
+| `payload`   | `length` | opaque application bytes (TLS-decrypted at this layer; the endpoints decide what protocol rides here — HTTP/WS/SSE in v1; framing doesn't care) |
 
 Maximum frame payload is 16 MiB minus 1. In practice frames are much smaller — see *fragmentation* below.
 

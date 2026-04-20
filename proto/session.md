@@ -149,7 +149,27 @@ With the byte pipe open, the mobile initiates TLS 1.3 toward the home. The mobil
 
 ### 8. application traffic
 
-After TLS, the mobile speaks HTTP (with multiplexed streams per [`framing.md`](framing.md)) to the home's convey Flask app via WSGI test-client (or an internal socket). Image loads, SSE feeds, WS upgrades all flow through the same tunnel WS, multiplexed by stream id.
+After TLS, the mobile speaks HTTP (with multiplexed streams per [`framing.md`](framing.md)) toward the home's app — convey on solstone, the reference test server in `home/src/spl/home/app.py` in this repo, or any other HTTP server the operator runs.
+
+The link service on the home side is a **dumb byte pipe**. For each incoming stream it opens a plain TCP connection to `127.0.0.1:<app_port>` and pumps bytes bidirectionally:
+
+```
+tunnel stream reader ──► socket writer
+socket reader        ──► tunnel stream writer
+```
+
+No HTTP parsing, no WSGI environ, no internal hand-off through a framework's request object. Half-close on the tunnel stream (stream CLOSE) translates to `shutdown(SHUT_WR)` on the TCP socket, and half-close on the TCP socket (EOF) translates to stream CLOSE. A stream RESET closes the socket abruptly; a socket error RESETs the stream with `INTERNAL_ERROR`.
+
+This choice is load-bearing. Image loads, SSE feeds, and **WebSocket upgrades** all flow through the same tunnel WS, multiplexed by stream id, because the tunnel layer sits below HTTP. Frameworks that hijack the underlying socket to service a protocol upgrade (`flask-sock`, `starlette`'s WebSocket endpoints, `Hypercorn` / `uvicorn` with HTTP/2 push, chunked-transfer responses) work without special cases in the link service — they would not work through a WSGI callable, which cannot surrender a socket.
+
+### blindness is structural
+
+The link service on the home side never parses, interprets, or transforms the application-layer protocol (HTTP, WS, SSE, HTTP/2, raw bytes) flowing through it. Its only two operations on stream contents are `socket.read` and `socket.write`. This is the blindness invariant made structural, not promise-based:
+
+- The relay cannot see TLS plaintext because it holds no key.
+- The link service cannot see application semantics because its code contains no parser.
+
+A code reviewer looking at either layer can verify blindness by reading a small amount of code — not by auditing every commit for "did someone add logging that includes payload bytes?" The shape of the pipe prevents the class of mistake.
 
 ## hibernation
 

@@ -8,13 +8,14 @@ On startup:
   2. Open listen WS to spl-relay with the account token.
   3. Loop: wait for {"type":"incoming","tunnel_id":...} control message.
      On each signal, spawn a tunnel task that opens /tunnel/<id>, drives
-     pyOpenSSL TLS 1.3 in memory-BIO mode, and hands the plaintext byte
-     stream to the multiplexer + test app.
+     pyOpenSSL TLS 1.3 in memory-BIO mode, and pipes each multiplexed
+     stream to a local TCP connection on ``target_host:target_port``.
   4. On disconnect, reconnect with exponential backoff (1s → 60s, ±25%).
 
-All WebSocket I/O uses the `websockets` library in asyncio mode. The TLS
-state machine runs inline on the event loop — each tunnel is a dedicated
-task pumping bytes between the WS and the TLS engine.
+The link layer is a dumb byte pipe: it does not parse HTTP, WebSocket,
+or any other application-layer protocol. That is the blind-by-construction
+invariant made structural — every stream is ``socket.read`` / ``socket.write``
+and nothing else.
 """
 
 from __future__ import annotations
@@ -33,11 +34,11 @@ import websockets
 from websockets.asyncio.client import ClientConnection as _WsConnection
 from websockets.exceptions import ConnectionClosed
 
-from . import app as test_app
 from .auth import AuthorizedClients
 from .ca import LoadedCa
 from .config import Config
 from .mux import Multiplexer, StreamWriter
+from .tcp_pipe import pipe_stream
 from .tls_adapter import (
     TlsError,
     build_server_context,
@@ -63,10 +64,15 @@ class RelayClient:
         config: Config,
         ca: LoadedCa,
         authorized: AuthorizedClients,
+        *,
+        target_host: str,
+        target_port: int,
     ) -> None:
         self._config = config
         self._ca = ca
         self._authorized = authorized
+        self._target_host = target_host
+        self._target_port = target_port
         self._running = False
         # Shared TLS context — contains the home's server cert + CA +
         # verify callback that pins on authorized_clients.json.
@@ -173,15 +179,21 @@ class RelayClient:
             reader: asyncio.StreamReader,
             writer: StreamWriter,
         ) -> None:
-            try:
-                request = await test_app.read_request(reader)
-            except Exception as exc:  # noqa: BLE001
-                log.debug("tunnel %s stream: bad request: %s", tunnel_id, exc)
-                await writer.close()
-                return
-            response = test_app.ResponseWriter(writer.write)
-            await test_app.handle(request, response)
-            await writer.close()
+            meta = await pipe_stream(
+                reader,
+                writer,
+                target_host=self._target_host,
+                target_port=self._target_port,
+                tunnel_id=tunnel_id,
+            )
+            log.debug(
+                "tunnel %s stream %s: in=%s out=%s (%s)",
+                meta.tunnel_id,
+                meta.stream_id,
+                meta.bytes_in,
+                meta.bytes_out,
+                meta.closed_reason,
+            )
 
         mux = Multiplexer(send_frame, handle_stream, is_listener=True)
 
