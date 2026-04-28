@@ -2,7 +2,7 @@
 
 The wire format that lets one tunnel WebSocket carry many concurrent logical streams. Lives between the TLS 1.3 record layer and whatever application-layer bytes the endpoints decide to send through it.
 
-This is the SSH-channel-style multiplex. The prototype (`vpe/workspace/spl-prototype-report.md` §13.1) ran one request per tunnel — fine for vetting the relay, TLS, and hibernation paths, but not what v1 ships. v1 needs to load a journal page that pulls images, holds a server-sent-event stream, and opens a WebSocket for live updates concurrently. All of that has to multiplex onto the single WebSocket each side holds open through `spl-relay`.
+This is the SSH-channel-style multiplex. The prototype (tracked in sol pbc's internal engineering notes, §13.1) ran one request per tunnel — fine for vetting the relay, TLS, and hibernation paths, but not what v1 ships. v1 needs to load a journal page that pulls images, holds a server-sent-event stream, and opens a WebSocket for live updates concurrently. All of that has to multiplex onto the single WebSocket each side holds open through `spl-relay`.
 
 This document is the contract between the home python module (`home/src/spl/framing.py`), the iOS client (`ios/Sources/SPLTunnel/Framing.swift`), and any future port (Android, browser bridge, etc.). The relay (`spl-relay`) does not parse frames — it forwards opaque bytes — so the contract is **between the two endpoints only**. That is the load-bearing fact: any framing change is a coordinated endpoint upgrade. The relay does not need a deploy.
 

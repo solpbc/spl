@@ -4,11 +4,11 @@ iOS client for spl. **Stub directory** — the real project files land when the 
 
 ## status
 
-Not started. Lineage: the iOS client extends [extro-phone](https://github.com/solpbc/extro-phone)'s stack, replacing its `SSHTransport.swift` (~500 lines) with a `CFTunnelTransport.swift` that speaks the spl framing protocol over a WebSocket to `spl-relay`.
+Not started. The iOS client builds on the same SwiftUI + WKWebView portal stack already proven in solstone-swift, replacing its `SSHTransport.swift` (~500 lines) with a `CFTunnelTransport.swift` that speaks the spl framing protocol over a WebSocket to `spl-relay`.
 
 ## what will reuse
 
-Most of the iOS stack is already proven in extro-phone and will be imported unchanged or nearly so:
+Most of the iOS stack is already proven in the upstream solstone-swift app and will be imported unchanged or nearly so:
 
 - `Sources/Tunnel/PortForwardingServer.swift` — `NIOTSListenerBootstrap` on loopback
 - `Sources/Tunnel/GlueHandler.swift` — 2-buffer bidirectional pump with backpressure

@@ -18,7 +18,7 @@ Read the architecture section of the README before writing code. If the change y
 |-----------|---------|--------------|
 | [`relay/`](relay/) | CF Worker + Durable Object — the relay. TypeScript. | Editing the relay server, wrangler config, migrations. |
 | [`home/`](home/) | Python tunnel module. Embeds in solstone. | Editing the home-side listen/TLS/pairing code. |
-| [`ios/`](ios/) | iOS client (stub). Lineage: extro-phone. | Once the iOS build lands — not yet. |
+| [`ios/`](ios/) | iOS client (stub). | Once the iOS build lands — not yet. |
 | [`proto/`](proto/) | Shared protocol spec (framing, pairing, token shape). | Changing the wire format or token shape — both sides must agree. |
 | [`docs/`](docs/) | Architecture notes, self-host guide, decision log. | Reference lookups; never the first stop. |
 
@@ -50,8 +50,8 @@ These are architectural, not aspirational. A PR that violates any of them is dec
 
 ### minimum-delta MVP
 
-- This repo starts as scaffolding, not ported prototype code. Prototype learnings (see [`vpe/workspace/spl-prototype-report.md`](https://github.com/solpbc/spl) — internal) inform structure, not contents.
-- v1 is one use case: solstone mobile ↔ home convey, iOS-only, LAN-pair only. Not two platforms. Not off-LAN pairing. Not observer-over-tunnel. See `cpo/specs/shipped/spl-v1-tunnel-mvp.md` once it graduates.
+- This repo starts as scaffolding, not ported prototype code. Prototype learnings (tracked in sol pbc's internal engineering notes) inform structure, not contents.
+- v1 is one use case: solstone mobile ↔ home convey, iOS-only, LAN-pair only. Not two platforms. Not off-LAN pairing. Not observer-over-tunnel.
 - When in doubt, ship less. A reviewer who pushes back with "is this v1 scope?" is doing the right thing.
 
 ## 4. Safety rails — what an agent must never do here
@@ -122,9 +122,9 @@ Additional targets (`make dev`, `make deploy` in `relay/`) are fine. These five 
 
 The v1 build is a future phase. This repo is scaffolded, not implemented. When MVP work begins:
 
-- Spec lives in `cpo/specs/in-flight/spl-v1-tunnel-mvp.md` (sol pbc internal). Acceptance criteria in that spec are the contract the build delivers against.
-- VPE will issue one or more hopper lodes per spec section. Review them against spec acceptance criteria; ship when they match.
-- Cross-office dependencies (paid CF resources, production DNS, token signing keys, ToS, brand) are tracked separately — see `cpo/workspace/spl-cross-office-dependencies.md` and scope them through VPE/CTO before they block MVP work.
+- Acceptance criteria come from sol pbc's internal v1 spec. The build delivers against those criteria.
+- Engineering will issue one or more hopper lodes per spec section. Review them against spec acceptance criteria; ship when they match.
+- Cross-office dependencies (paid CF resources, production DNS, token signing keys, ToS, brand) are tracked separately and scoped through engineering before they block MVP work.
 
 ## 7. If something's off
 

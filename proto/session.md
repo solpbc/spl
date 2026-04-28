@@ -210,7 +210,7 @@ While the listen WS is down, the home cannot receive `incoming` signals. New dia
 
 The mobile dial-turned-tunnel WS disconnects on:
 
-- App backgrounding (iOS suspends after 20 s grace, per the extro-phone lifecycle; the WS naturally drops).
+- App backgrounding (iOS suspends after 20 s grace; the WS naturally drops).
 - Network change (wifi ↔ cellular).
 - TLS-handshake failure (revocation).
 - `spl-relay` deploy.
