@@ -127,7 +127,7 @@ The relay sends a single control frame on the home's listen WS:
 { "type": "incoming", "tunnel_id": "<uuidv7>" }
 ```
 
-This is a structured JSON message in a WebSocket text frame. It is the **only** message the home receives on its listen WS in v1. Future versions may add control messages (e.g., revoke notifications); the home parses defensively and ignores unknown message types.
+This is a structured JSON message in a WebSocket text frame. It is the **only** message the home receives on its listen WS, and per *WS-layer minimality* (below) any future addition at this layer is bounded to TLS-establishment-related signaling — endpoint-to-endpoint application data does not belong here. The home parses defensively and ignores unknown message types.
 
 ### 4. tunnel — home opens on the signal
 
@@ -170,6 +170,42 @@ The link service on the home side never parses, interprets, or transforms the ap
 - The link service cannot see application semantics because its code contains no parser.
 
 A code reviewer looking at either layer can verify blindness by reading a small amount of code — not by auditing every commit for "did someone add logging that includes payload bytes?" The shape of the pipe prevents the class of mistake.
+
+## WS-layer minimality
+
+Cloudflare terminates the outer TLS connection on each WebSocket between an endpoint and `spl-relay`. Anything written at the WebSocket protocol layer — JSON control messages, header values, framing metadata — is plaintext to CF the operator and to anyone with subpoena access to CF, regardless of how the worker code chooses to handle it. The relay's blindness about the inner TLS payload (above) is a property of cryptographic layering. Blindness about everything else has to be a property of **what bytes can structurally exist at the WS layer at all.**
+
+The discipline:
+
+> The WebSocket protocol surface between endpoints (home, mobile) and `spl-relay` exists **solely** to broker inner-TLS tunnel establishment.
+
+**Acceptable at the WS layer:**
+
+- Dial signaling — the HTTP+upgrade exchanges on `/session/listen`, `/session/dial`, `/tunnel/<id>` and their `Authorization` bearer tokens.
+- The `incoming` / `tunnel_id` control message from relay to home (above, §3).
+- Opaque ciphertext payload of inner-TLS records, framed as binary WS messages.
+- WebSocket transport keepalive (library-level ping/pong; see *no app heartbeat* below).
+
+**Not acceptable at the WS layer:**
+
+Any application-layer or device-to-device data, however small, however framed as "opaque to the relay code." This includes — but is not limited to:
+
+- LAN endpoint advertisements (the originating motivating case — the LAN-direct path)
+- Capability or version hints
+- Presence signals
+- Key fingerprints or instance metadata beyond what's already inside the bearer tokens
+- User identifiers
+- Any field whose presence or contents would describe runtime state of the home or the mobile
+
+Such data carries **inside the inner TLS** — as ordinary application traffic to convey on the home, or to a future explicit mux-level control stream below the application protocol (see [`framing.md`](framing.md)). The home and the mobile have a private encrypted channel; that's the only legitimate venue for endpoint-to-endpoint negotiation.
+
+This is the same shape of move as *blindness is structural* (above): we make the privacy property a property of the transport rather than a property of how the relay code is written. A reviewer can verify the property by enumerating the small set of message types accepted at WS-message handlers — they don't have to audit "did someone add a control-message type that captures the contents of a new field?"
+
+The discipline also rules out a class of leak by construction: a coding-agent or contributor extending the wire protocol cannot accidentally add an endpoint-to-endpoint feature at the WS layer, because the rule against doing so is at the design layer, not buried in privacy-review checklists.
+
+**Gate.** A new control-message type at the WS layer requires explicit founder review — the same gate as adding a listening port to the home's `link` service.
+
+**Origin.** The first design pass for the LAN-direct path proposed an `endpoint_advertisement` JSON message at the WS layer ("opaque to relay code"). Founder caught the leak: even with the relay code declining to parse the field, CF terminates the outer TLS and could log, store, or be subpoenaed for the contents. The corrected design moves the advertisement into a convey API call inside the inner TLS. This invariant generalizes the lesson so future spl features don't re-tread the same path. Established 2026-05-10.
 
 ## hibernation
 

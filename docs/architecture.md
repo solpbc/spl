@@ -38,6 +38,18 @@ Possessing a valid JWT lets you open a WebSocket to `spl-relay`. It does not let
 
 This is what makes the trust claim load-bearing: not "sol pbc decided not to look at the bytes," but **"sol pbc holds no key that could decrypt the bytes, even if it tried."**
 
+### WS-layer minimality
+
+A sibling invariant. Cryptographic layering protects the inner-TLS payload; it does **not** protect anything at the WebSocket layer itself, because Cloudflare terminates the outer TLS on every WebSocket between an endpoint and `spl-relay`. Any JSON control message, any header value, any framing metadata at the WS layer is plaintext to the operator regardless of how the worker code handles it.
+
+The discipline:
+
+> The WebSocket protocol surface between endpoints and `spl-relay` exists **solely** to broker inner-TLS tunnel establishment. Endpoint-to-endpoint data — LAN advertisements, capability hints, presence signals, anything describing runtime state — must ride inside the inner TLS, never as a new WS-layer message type.
+
+This turns blindness about non-payload metadata into a property of *what bytes can structurally exist at the WS layer at all*, rather than a property of how the relay's worker code is written. New WS-layer message types require explicit founder review on the same gate as listening-port additions to the home's `link` service.
+
+Full statement, rationale, and examples in [`../proto/session.md`](../proto/session.md#ws-layer-minimality). Established 2026-05-10.
+
 ## what the operator can see
 
 - Which account-token established which listen socket.
@@ -45,6 +57,7 @@ This is what makes the trust claim load-bearing: not "sol pbc decided not to loo
 - Byte counts and timing of relayed frames.
 - WebSocket connection liveness (connect, disconnect, wake).
 - Rate-limit / abuse signals.
+- WS-layer control messages in cleartext (the `incoming`/`tunnel_id` pair signal). Bounded by *WS-layer minimality* (above), which restricts these to TLS-establishment-related signaling.
 
 ## what the operator cannot see
 
