@@ -46,9 +46,11 @@ Bit 0 is the low-order bit.
 | 2   | `CLOSE`   | sender will write no more bytes on this stream; payload may be empty or carry final bytes. half-close. |
 | 3   | `RESET`   | this stream is aborted; both sides drop pending buffers. payload is a 1-byte reason code (see below). |
 | 4   | `WINDOW`  | this frame is a window-update for `stream_id`; payload is a 4-byte big-endian unsigned credit count. carries no data. |
-| 5–7 | reserved  | must be zero on send; receiver MUST reject a frame with any reserved bit set. |
+| 5   | `PING`    | tunnel-level keepalive probe. `stream_id` MUST be 0. payload is an 8-byte nonce. see *control frames* below. |
+| 6   | `PONG`    | matching reply to a `PING`. `stream_id` MUST be 0. payload is the same 8-byte nonce verbatim. |
+| 7   | reserved  | must be zero on send; receiver MUST reject a frame with bit 7 set. |
 
-**Valid combinations.** Exactly one of `OPEN | DATA | CLOSE | RESET | WINDOW` MUST be set, except that `OPEN | DATA` MAY appear together (open with initial bytes) and `DATA | CLOSE` MAY appear together (last data frame also closes the writer). Any other combination is a protocol violation and the receiver MUST `RESET` the offending stream with reason `PROTOCOL_ERROR`.
+**Valid combinations.** Exactly one of `OPEN | DATA | CLOSE | RESET | WINDOW | PING | PONG` MUST be set, except that `OPEN | DATA` MAY appear together (open with initial bytes) and `DATA | CLOSE` MAY appear together (last data frame also closes the writer). `PING` and `PONG` are mutually exclusive with each other and with every other flag — neither MAY be combined with `OPEN | DATA | CLOSE | RESET | WINDOW`. Any other combination is a protocol violation and the receiver MUST `RESET` the offending stream with reason `PROTOCOL_ERROR` (or, for malformed control frames on `stream_id = 0`, tear the tunnel down — control errors have no stream to reset on).
 
 **Reset reason codes** (1-byte, in the `RESET` payload):
 
@@ -93,7 +95,7 @@ A stream is half-close-aware: each side independently signals it is done writing
 
 - The **dialing side** (mobile) MUST use **odd** stream ids: `1, 3, 5, …`.
 - The **listening side** (home) MUST use **even** stream ids: `2, 4, 6, …`. Home rarely opens streams unprompted in v1, but the convention is reserved so future server-push features (e.g., notifications) don't collide.
-- `stream_id = 0` is reserved for control frames (none defined in v1, but we leave the room).
+- `stream_id = 0` is reserved for tunnel-level control frames. v1 defines two: `PING` and `PONG` (see *control frames* below). It is illegal to OPEN, DATA, CLOSE, RESET, or WINDOW on `stream_id = 0` — receivers MUST treat such frames as a tunnel-fatal protocol error.
 - Allocation is monotonic per side. **Do not reuse a closed `stream_id`** until at least 2² = 4 active streams have separated it from any in-flight RESET frames the peer may still emit. In practice: increment, never recycle. The 32-bit space is large enough that v1 will not exhaust it.
 
 If a peer opens a `stream_id` outside its assigned parity, RESET with `PROTOCOL_ERROR`.
@@ -116,6 +118,54 @@ Without per-stream flow control, one fat upload would head-of-line block every o
 The 1 MiB initial window is sized so a single TLS record (typically ≤16 KiB after fragmentation) never blocks waiting for a window update on an uncongested tunnel. For a streaming upload, the receiver's policy SHOULD grant credit as it drains the application — typical implementation: grant whatever is consumed every 64 KiB or every 100 ms, whichever comes first.
 
 There is **no tunnel-wide credit window in v1.** The relay enforces no flow control across streams; the underlying WebSocket and TCP carry the only tunnel-level backpressure. This is sufficient because both endpoints are TLS terminators, and TLS handles record-level backpressure naturally. If a future version surfaces tunnel-wide head-of-line blocking, a tunnel-level WINDOW (`stream_id = 0`) is the obvious extension point.
+
+## control frames
+
+`stream_id = 0` is the tunnel-level control channel. v1 defines two control frames, `PING` and `PONG`, used to detect a silently-dead direct-mode TLS path so the client can re-dial with relay-preferred candidates.
+
+### PING
+
+| field | value |
+|-------|-------|
+| `stream_id` | `0` (MUST) |
+| `flags` | `PING` (`0x20`) only |
+| `length` | `8` |
+| `payload` | 8-byte nonce, opaque to the wire; sender SHOULD use cryptographically-random bytes |
+
+### PONG
+
+| field | value |
+|-------|-------|
+| `stream_id` | `0` (MUST) |
+| `flags` | `PONG` (`0x40`) only |
+| `length` | `8` |
+| `payload` | the nonce from the `PING` being acknowledged, copied verbatim |
+
+### responder behavior
+
+When a peer receives a valid `PING`, it MUST reply with a `PONG` carrying the same 8-byte nonce. The reply MUST be emitted promptly — implementations SHOULD treat the reply as higher priority than queued DATA frames on application streams. The reply is opaque at the framing layer; it does not interact with stream credit, the concurrent-stream cap, or stream lifecycle.
+
+A peer MUST tolerate stray `PONG` frames it did not solicit (e.g., a `PONG` arriving after the side that sent the matching `PING` has already torn the keepalive down). Stray `PONG`s MUST be silently dropped, not treated as a protocol error.
+
+### initiator behavior
+
+v1 is asymmetric: the **dialing side** (mobile) drives keepalive on a direct-mode tunnel; the **listening side** (home) responds. Concretely:
+
+- The mobile client opens a keepalive task immediately after the mux is established on a direct-mode candidate, and pings at a fixed cadence of **500 ms**.
+- Each outstanding `PING` is tracked by its nonce. A `PONG` whose payload matches the outstanding nonce clears the pending state.
+- If **3 consecutive pings** elapse without a matching `PONG` (≈1.5 s of silence), the client treats the direct TLS path as lost and tears it down, then re-dials with relay-preferred candidates.
+
+These cadences are mobile-side policy; the framing layer does not encode them. A future version MAY change the cadence or add SETTINGS-style negotiation. Receivers MUST tolerate `PING` at any cadence — including bursts — without rate-limiting.
+
+### why streamID==0 ping/pong, not HTTP HEAD
+
+A direct-mode TLS path can go dark with no FIN, no RST, and no TLS alert — e.g., NAT rebinding on a backgrounded mobile foregrounding into Wi-Fi, or a flaky router silently dropping ESTABLISHED state. The TLS state machine has no application-layer liveness signal of its own, so we need one inside the tunnel. `PING/PONG` on `stream_id = 0` rides inside the inner TLS record stream, so it exercises the exact same wire that user requests will: a `PONG` round-trip is positive proof the direct TLS path is alive end-to-end.
+
+The alternative — an HTTP `HEAD` to a sentinel route — also works, but it allocates a fresh mux stream every 500ms, churns server-side request logs, and conflates application-layer health with transport-layer liveness. A framing-layer ping has neither cost.
+
+### tunnel-wide WINDOW extension point
+
+The framing layer keeps `stream_id = 0` as the obvious extension point for a future tunnel-wide WINDOW frame (see *flow control*). `WINDOW` on stream 0 is reserved for that purpose and is currently a protocol error.
 
 ## ordering guarantees
 
@@ -149,7 +199,7 @@ The framing format is versioned implicitly by the JWT-authenticated tunnel sessi
 
 If the format changes incompatibly in a future version:
 
-- The reserved flag bits (5–7) are the hook for an explicit version negotiation frame.
+- Bit 7 (the remaining reserved flag bit, after `PING`/`PONG` took bits 5 and 6 in the streamID==0 control-frame addition) is the hook for an explicit version negotiation frame.
 - Reset codes are extensible without coordinated upgrades (unknown codes degrade to `UNSPECIFIED`).
 - Either side detecting a peer that violates v1 semantics MUST RESET the offending stream and SHOULD log a structured `framing_protocol_violation` event (with `tunnel_id`, `stream_id`, `flags`, `length` only — never payload).
 
