@@ -4,8 +4,6 @@ This file is the developer guide for the `spl` repository. Read it before writin
 
 `CLAUDE.md` at the repo root is a symlink to this file — one source of truth for human and agent contributors.
 
-Build conventions follow `cto/standards/project-conventions.md`; engineering philosophy follows `cto/standards/engineering-principles.md`. Those live in the sol pbc internal ops repo; the principles that matter in *this* codebase are distilled below.
-
 ## 1. What spl is
 
 A blind rendezvous service. Two paired endpoints meet through Cloudflare's edge without Cloudflare — or sol pbc — ever seeing inside the tunnel. See [`README.md`](README.md) for the architecture diagram and product framing.
@@ -122,9 +120,8 @@ Additional targets (`make dev`, `make deploy` in `relay/`) are fine. These five 
 
 The v1 build is a future phase. This repo is scaffolded, not implemented. When MVP work begins:
 
-- Acceptance criteria come from sol pbc's internal v1 spec. The build delivers against those criteria.
-- Engineering will issue one or more hopper lodes per spec section. Review them against spec acceptance criteria; ship when they match.
-- Cross-office dependencies (paid CF resources, production DNS, token signing keys, ToS, brand) are tracked separately and scoped through engineering before they block MVP work.
+- Engineering work arrives as small focused changes against spec acceptance criteria.
+- Operational dependencies (paid CF resources, production DNS, token signing keys, ToS, brand) are tracked separately and scoped before they block MVP work.
 
 ## 7. If something's off
 
