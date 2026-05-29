@@ -10,6 +10,8 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { mintDeviceToken, mintServiceToken } from "../src/tokens";
 import { migrations } from "./migrations";
 
+const VALID_FP = `sha256:${"a".repeat(64)}`;
+
 declare module "cloudflare:test" {
 	interface ProvidedEnv {
 		DB: D1Database;
@@ -30,7 +32,7 @@ function newInstanceId(): string {
 async function mintService(instanceId: string): Promise<string> {
 	const m = await mintServiceToken(env.SIGNING_JWK, {
 		instance_id: instanceId,
-		ca_fp: "sha256:test",
+		ca_fp: VALID_FP,
 		issuer: env.ISSUER,
 		ttlSeconds: 300,
 	});
@@ -41,7 +43,7 @@ async function mintDevice(instanceId: string): Promise<string> {
 	const m = await mintDeviceToken(env.SIGNING_JWK, {
 		instance_id: instanceId,
 		device_id: crypto.randomUUID(),
-		device_fp: "sha256:test",
+		device_fp: VALID_FP,
 		issuer: env.ISSUER,
 		ttlSeconds: 300,
 	});

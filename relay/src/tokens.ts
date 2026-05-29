@@ -124,7 +124,25 @@ export async function verifyToken(token: string, options: VerifyOptions): Promis
 	if (typeof claims.exp !== "number" || claims.exp <= now) return { ok: false, reason: "expired" };
 	if (typeof claims.iat !== "number" || claims.iat > now + 60)
 		return { ok: false, reason: "issued_future" };
-	if (!claims.sub || !claims.instance_id || !claims.jti) return { ok: false, reason: "bad_claim" };
+	if (
+		typeof claims.sub !== "string" ||
+		!claims.sub ||
+		typeof claims.instance_id !== "string" ||
+		!claims.instance_id ||
+		typeof claims.jti !== "string" ||
+		!claims.jti
+	)
+		return { ok: false, reason: "bad_claim" };
+	const FP_RE = /^sha256:[0-9a-f]{64}$/;
+	if (options.expectedScope === "session.listen") {
+		if (!claims.sub.startsWith("home:")) return { ok: false, reason: "bad_claim" };
+		if (typeof claims.ca_fp !== "string" || !FP_RE.test(claims.ca_fp))
+			return { ok: false, reason: "bad_claim" };
+	} else {
+		if (!claims.sub.startsWith("device:")) return { ok: false, reason: "bad_claim" };
+		if (typeof claims.device_fp !== "string" || !FP_RE.test(claims.device_fp))
+			return { ok: false, reason: "bad_claim" };
+	}
 
 	return { ok: true, claims };
 }

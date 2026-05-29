@@ -47,6 +47,26 @@ export async function genSigningKeypair(kid = "test-kid-1"): Promise<SigningKeyp
 	};
 }
 
+export async function signClaims(
+	privateJwkRaw: string,
+	claims: Record<string, unknown>,
+): Promise<string> {
+	const jwk = JSON.parse(privateJwkRaw) as { kid: string };
+	const header = { alg: "EdDSA", typ: "JWT", kid: jwk.kid };
+	const headerB64 = base64UrlEncode(new TextEncoder().encode(JSON.stringify(header)));
+	const payloadB64 = base64UrlEncode(new TextEncoder().encode(JSON.stringify(claims)));
+	const signing = new TextEncoder().encode(`${headerB64}.${payloadB64}`);
+	const key = await crypto.subtle.importKey(
+		"jwk",
+		JSON.parse(privateJwkRaw),
+		{ name: "Ed25519" },
+		false,
+		["sign"],
+	);
+	const sig = await crypto.subtle.sign("Ed25519", key, signing);
+	return `${headerB64}.${payloadB64}.${base64UrlEncode(new Uint8Array(sig))}`;
+}
+
 export interface CaKeypair {
 	pubPem: string;
 	privateKey: CryptoKey;

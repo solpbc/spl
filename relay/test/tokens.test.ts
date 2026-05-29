@@ -9,16 +9,17 @@ import {
 	mintServiceToken,
 	verifyToken,
 } from "../src/tokens";
-import { genSigningKeypair } from "./fixtures";
+import { genSigningKeypair, signClaims } from "./fixtures";
 
 const ISSUER = "spl.test";
+const VALID_FP = `sha256:${"a".repeat(64)}`;
 
 describe("verifyToken", () => {
 	it("accepts a freshly minted service token with the correct scope", async () => {
 		const k = await genSigningKeypair();
 		const minted = await mintServiceToken(k.privateJwkRaw, {
 			instance_id: "inst-1",
-			ca_fp: "sha256:abc",
+			ca_fp: VALID_FP,
 			issuer: ISSUER,
 			ttlSeconds: 60,
 		});
@@ -41,7 +42,7 @@ describe("verifyToken", () => {
 		const minted = await mintDeviceToken(k.privateJwkRaw, {
 			instance_id: "inst-1",
 			device_id: "dev-1",
-			device_fp: "sha256:dev",
+			device_fp: VALID_FP,
 			issuer: ISSUER,
 			ttlSeconds: 60,
 		});
@@ -187,6 +188,144 @@ describe("verifyToken", () => {
 			expectedScope: "session.listen",
 		});
 		expect(r).toEqual({ ok: false, reason: "jwks_unavailable" });
+	});
+});
+
+describe("verifyToken claim binding (H6)", () => {
+	it("rejects listen tokens whose sub has a device prefix", async () => {
+		const k = await genSigningKeypair();
+		const now = Math.floor(Date.now() / 1000);
+		const token = await signClaims(k.privateJwkRaw, {
+			iss: ISSUER,
+			sub: "device:x",
+			aud: "spl-relay",
+			scope: "session.listen",
+			instance_id: "inst-1",
+			ca_fp: VALID_FP,
+			iat: now,
+			exp: now + 60,
+			jti: "jti-1",
+		});
+		const r = await verifyToken(token, {
+			jwksRaw: k.jwksPublicRaw,
+			expectedIssuer: ISSUER,
+			expectedScope: "session.listen",
+			now,
+		});
+		expect(r).toEqual({ ok: false, reason: "bad_claim" });
+	});
+
+	it("rejects listen tokens with omitted ca_fp", async () => {
+		const k = await genSigningKeypair();
+		const now = Math.floor(Date.now() / 1000);
+		const token = await signClaims(k.privateJwkRaw, {
+			iss: ISSUER,
+			sub: "home:x",
+			aud: "spl-relay",
+			scope: "session.listen",
+			instance_id: "inst-1",
+			iat: now,
+			exp: now + 60,
+			jti: "jti-1",
+		});
+		const r = await verifyToken(token, {
+			jwksRaw: k.jwksPublicRaw,
+			expectedIssuer: ISSUER,
+			expectedScope: "session.listen",
+			now,
+		});
+		expect(r).toEqual({ ok: false, reason: "bad_claim" });
+	});
+
+	it("rejects listen tokens with malformed ca_fp", async () => {
+		const k = await genSigningKeypair();
+		const now = Math.floor(Date.now() / 1000);
+		const token = await signClaims(k.privateJwkRaw, {
+			iss: ISSUER,
+			sub: "home:x",
+			aud: "spl-relay",
+			scope: "session.listen",
+			instance_id: "inst-1",
+			ca_fp: "sha256:abc",
+			iat: now,
+			exp: now + 60,
+			jti: "jti-1",
+		});
+		const r = await verifyToken(token, {
+			jwksRaw: k.jwksPublicRaw,
+			expectedIssuer: ISSUER,
+			expectedScope: "session.listen",
+			now,
+		});
+		expect(r).toEqual({ ok: false, reason: "bad_claim" });
+	});
+
+	it("rejects dial tokens whose sub has a home prefix", async () => {
+		const k = await genSigningKeypair();
+		const now = Math.floor(Date.now() / 1000);
+		const token = await signClaims(k.privateJwkRaw, {
+			iss: ISSUER,
+			sub: "home:x",
+			aud: "spl-relay",
+			scope: "session.dial",
+			instance_id: "inst-1",
+			device_fp: VALID_FP,
+			iat: now,
+			exp: now + 60,
+			jti: "jti-1",
+		});
+		const r = await verifyToken(token, {
+			jwksRaw: k.jwksPublicRaw,
+			expectedIssuer: ISSUER,
+			expectedScope: "session.dial",
+			now,
+		});
+		expect(r).toEqual({ ok: false, reason: "bad_claim" });
+	});
+
+	it("rejects dial tokens with omitted device_fp", async () => {
+		const k = await genSigningKeypair();
+		const now = Math.floor(Date.now() / 1000);
+		const token = await signClaims(k.privateJwkRaw, {
+			iss: ISSUER,
+			sub: "device:x",
+			aud: "spl-relay",
+			scope: "session.dial",
+			instance_id: "inst-1",
+			iat: now,
+			exp: now + 60,
+			jti: "jti-1",
+		});
+		const r = await verifyToken(token, {
+			jwksRaw: k.jwksPublicRaw,
+			expectedIssuer: ISSUER,
+			expectedScope: "session.dial",
+			now,
+		});
+		expect(r).toEqual({ ok: false, reason: "bad_claim" });
+	});
+
+	it("rejects dial tokens with malformed device_fp", async () => {
+		const k = await genSigningKeypair();
+		const now = Math.floor(Date.now() / 1000);
+		const token = await signClaims(k.privateJwkRaw, {
+			iss: ISSUER,
+			sub: "device:x",
+			aud: "spl-relay",
+			scope: "session.dial",
+			instance_id: "inst-1",
+			device_fp: "sha256:abc",
+			iat: now,
+			exp: now + 60,
+			jti: "jti-1",
+		});
+		const r = await verifyToken(token, {
+			jwksRaw: k.jwksPublicRaw,
+			expectedIssuer: ISSUER,
+			expectedScope: "session.dial",
+			now,
+		});
+		expect(r).toEqual({ ok: false, reason: "bad_claim" });
 	});
 });
 
