@@ -11,7 +11,7 @@ The end state of a successful pairing:
 
 This is a one-time ceremony per device. Re-pairing is identical (revoke first, pair again).
 
-v1 supports **LAN-primary pairing only.** The mobile and home must be on the same wifi at pair time. Off-LAN pairing fallback is **deferred to H2** — see *off-lan: deferred* at the end. Once paired, everyday use works from any network.
+v1 supports a LAN-direct pairing form and an off-LAN **relay-addressed** pairing form. The QR wire contract for both is specified below; see *off-lan: relay-addressed form* for the relay posture. Once paired, everyday use works from any network.
 
 ## actors
 
@@ -39,23 +39,66 @@ Step by step. Times are typical, not specified — the only enforced TTL is the 
 
 Convey calls into the local `spl.pair` HTTPS server (loopback, port chosen at solstone startup). The pair server:
 
-- Generates a 256-bit random **nonce**.
-- Records `(nonce, expires_at, used = false)` in an in-memory single-use table. `expires_at = now + 5 minutes`.
-- Returns a **pair URL** of the shape `https://<lan-ip>:<port>/pair?token=<nonce>`.
+- For direct (LAN) form: generates a 64-bit (8-byte) random **nonce**.
+- For relay form: generates a fresh 128-bit (16-byte) random **nonce**.
+- Records `(nonce, expires_at, used = false)` in an in-memory single-use table. Direct nonce TTL is 5 minutes; relay nonce TTL is approximately 30 seconds, one TOTP step.
+- Returns a **pair link** of the shape `https://link.solpbc.org/p#<uppercase Crockford base32 blob>`.
 
-`<lan-ip>` is the home's address on the local subnet (the same address convey is reachable on); `<port>` is the pair server's port. The nonce is the only sensitive material in the URL — without a valid nonce, the `/pair` endpoint refuses to enroll.
+In the direct form, the decoded blob carries `<lan-ip>` (the home's address on the local subnet), `<port>`, and the nonce. The nonce is the only sensitive material in the link — without a valid nonce, the `/pair` endpoint refuses to enroll.
 
 ### 2. convey displays the QR
 
-Convey renders a QR code encoding the pair URL plus a **CA fingerprint pin** (SHA-256 of the home CA's public key). The mobile app uses this pin to detect a man-in-the-middle on the local LAN — even on a hostile wifi, only the real home's self-signed cert chain will match.
+Convey renders a QR code encoding a link of the form:
 
-QR payload (URL-encoded query string format):
-
-```
-spl://pair?u=<base64url(pair_url)>&pin=<base64url(ca_fingerprint_sha256)>
+```text
+https://link.solpbc.org/p#<uppercase Crockford base32 blob>
 ```
 
-The `spl://` scheme is recognized by the iOS app via Universal Link or in-app camera scanner; the user can also paste the URL manually if the QR scan fails.
+The form is discriminated by the first decoded byte (`version`), never by URL path.
+
+Direct form, version `0x02` (32 bytes):
+
+| Offset | Len | Field | Encoding |
+|--------|-----|-------|----------|
+| 0 | 1 | version | `0x02` |
+| 1 | 1 | addr_type | `0x01` = IPv4 |
+| 2 | 4 | ipv4 | raw IPv4 bytes |
+| 6 | 2 | port | unsigned big-endian |
+| 8 | 8 | nonce | 64-bit single-use nonce |
+| 16 | 16 | ca_fp | first 16 bytes of SHA-256 over the CA cert DER |
+
+Relay form, version `0x03` (54 bytes + optional origin):
+
+| Offset | Len | Field | Encoding |
+|--------|-----|-------|----------|
+| 0 | 1 | version | `0x03` |
+| 1 | 16 | instance_id | raw UUID bytes |
+| 17 | 3 | current_totp | unsigned big-endian integer, value `0..999999` |
+| 20 | 16 | rotating_nonce | 128-bit single-use nonce |
+| 36 | 1 | ca_fp_tag | `0x01` = SHA-256 over DER SPKI, first 16 bytes |
+| 37 | 16 | ca_fp | first 16 bytes of SHA-256 over the CA DER SubjectPublicKeyInfo (SPKI) |
+| 53 | 1 | relay_origin_selector | `0x00` = well-known default relay; `N` (`1..255`) = custom origin byte length |
+| 54 | N | relay_origin | UTF-8 bytes of the custom origin string; omitted when selector is `0x00` |
+
+For relay form, `ca_fp` is exactly the `ca_fp` the relay stores at `/enroll/home`: SHA-256 over the DER SPKI produced from the submitted `ca_pubkey`. `current_totp` is the home-computed RFC 6238 TOTP (HMAC-SHA1, 30s step, 6 digits) that the phone forwards to the relay along with `instance_id`.
+
+**CA pin note:** direct and relay forms pin different CA hashes, disambiguated by version and, for relay, `ca_fp_tag`. Direct = SHA-256(cert DER) first 16 bytes, no tag. Relay = `0x01`-tagged SHA-256(SPKI DER) first 16 bytes. A parser MUST key the pin algorithm off version and tag so future native clients stay forward-compatible. The home's HTTP `pair-start` response also carries a human-facing `ca_fingerprint` field; that value stays the full cert-DER SHA-256 in both postures and is NOT the relay QR's SPKI pin.
+
+Conformance vectors use these fixed inputs: `instance_id=12345678-1234-5678-1234-567812345678`, `totp=123456`, `nonce=0123456789abcdef0123456789abcdef`, `ca_fp_spki=deadbeefcafebabe0123456789abcdef0123456789abcdef0123456789abcdef`.
+
+Well-known relay origin (`relay_origin=None`):
+
+```
+https://link.solpbc.org/p#0C938NKR28T5CY0J6HB7G4HMASW03RJ004HMASW9NF6YY0938NKRKAYDXW0XXBDYXZ5FXENY04HMASW9NF6YY00
+```
+
+Custom relay origin (`relay_origin=https://relay.example`):
+
+```
+https://link.solpbc.org/p#0C938NKR28T5CY0J6HB7G4HMASW03RJ004HMASW9NF6YY0938NKRKAYDXW0XXBDYXZ5FXENY04HMASW9NF6YY5B8EHT70WST5WQQ4SBCC5WJWSBRC5PQ0V35
+```
+
+The rest of this ceremony describes the direct LAN completion path. The phone-side completion ceremony for relay form is specified separately; this section fixes the QR wire contract.
 
 User-visible strings (per spec):
 
@@ -175,17 +218,13 @@ This means a leaked QR (over the user's shoulder, in a video call, accidental sc
 
 The mobile generates its own keypair so that the home (and `spl-relay`) never possess the device's private key. The home only ever sees the public key in the CSR. This is a structural property: even a compromised home cannot impersonate a paired device elsewhere; even a compromised `spl-relay` cannot mint a usable mobile identity (it can only mint device tokens, which are useless without the TLS-handshake-required client cert).
 
-## off-lan: deferred
+## off-lan: relay-addressed form
 
-An off-LAN fallback ceremony — bootstrapping a pair through `spl-relay` when the phone and home are not on the same wifi — is on the H2 roadmap. The shape would involve `spl-relay`'s control plane brokering a one-shot CSR exchange via short-TTL keys in CF KV, with the home polling its listen WS for an enrollment signal. The full flow is sketched in `cpo/research/market/2026-04-17-cf-tunnel-embedded-architecture.md`.
+Off-LAN pairing is the relay-addressed QR form specified above. It lets a phone pair from anywhere by carrying the home `instance_id`, rotating TOTP, 128-bit nonce, CA SPKI pin, and relay origin in the QR.
 
-v1 deliberately does not ship this. Reasons:
+The relay validates the TOTP by `instance_id` and mints the short-lived relay-side pairing authorization described in [`tokens.md`](tokens.md) and [`session.md`](session.md). The relay never sees the home-side pairing nonce, device role, CSR, client cert, or pairing payload.
 
-- LAN pairing is the trust-on-first-use moment users expect (matching AirPods, Apple TV, etc.). Putting that ceremony anywhere except "phone in front of solstone, on the same wifi" weakens the trust story.
-- An off-LAN fallback adds a code path through `spl-relay` that handles enrollment material — even briefly. The blind-by-construction posture is cleanest when `spl-relay` has no role in pairing whatsoever.
-- Alpha users will be technical and on home wifi at pair time. The constraint costs us nothing for v1.
-
-If alpha feedback demands off-LAN, H2 reopens this. v1 ships LAN-only.
+The blind-by-construction posture is preserved: `spl-relay` handles rendezvous authorization metadata (`instance_id` + TOTP) but not enrollment material. LAN pairing remains the shortest trust-on-first-use path when the phone is near the home; relay-addressed pairing exists for the off-LAN posture. The phone-side completion ceremony for the relay form is specified separately; this document fixes the QR wire contract.
 
 ## related
 
