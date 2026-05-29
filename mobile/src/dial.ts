@@ -14,6 +14,7 @@
 // close/error don't get lost). On top of TLS runs the spl multiplexer,
 // and each logical stream speaks HTTP/1.1 to the home's test app.
 
+import type { X509Certificate } from "node:crypto";
 import { Duplex } from "node:stream";
 import tls from "node:tls";
 
@@ -30,17 +31,46 @@ export interface DialOptions {
 
 export interface TunnelSession {
 	mux: Multiplexer;
+	peerLeaf?: X509Certificate;
 	close(): Promise<void>;
 	/** Resolves when the underlying WS disconnects or TLS aborts. */
 	closed: Promise<void>;
+}
+
+export type TrustMode =
+	| { mode: "ca"; caChain: string; cert: string; key: string }
+	| { mode: "pin" };
+
+export interface TunnelConfig {
+	endpoint: string;
+	path: string;
+	instanceId: string;
+	token: string;
+	trust: TrustMode;
 }
 
 export async function dial(options: DialOptions): Promise<TunnelSession> {
 	const { state } = options;
 	const endpoint = (options.relayEndpoint ?? state.relay_endpoint).replace(/\/+$/, "");
 	const token = options.deviceToken ?? state.device_token;
+	return openTunnel({
+		endpoint,
+		path: "/session/dial",
+		instanceId: state.instance_id,
+		token,
+		trust: {
+			mode: "ca",
+			caChain: state.ca_chain.join(""),
+			cert: state.client_cert,
+			key: state.client_key_pem,
+		},
+	});
+}
+
+export async function openTunnel(config: TunnelConfig): Promise<TunnelSession> {
+	const endpoint = config.endpoint.replace(/\/+$/, "");
 	const url = toWsUrl(
-		`${endpoint}/session/dial?instance=${encodeURIComponent(state.instance_id)}&token=${encodeURIComponent(token)}`,
+		`${endpoint}${config.path}?instance=${encodeURIComponent(config.instanceId)}&token=${encodeURIComponent(config.token)}`,
 	);
 
 	// Bun 1.1+ exposes a browser-compatible WebSocket global that works
@@ -58,22 +88,45 @@ export async function dial(options: DialOptions): Promise<TunnelSession> {
 
 	const wsDuplex = wsToDuplex(ws);
 
-	const ca = state.ca_chain.join("");
 	const tlsSocket = tls.connect({
 		socket: wsDuplex,
-		ca: [ca],
-		cert: state.client_cert,
-		key: state.client_key_pem,
 		minVersion: "TLSv1.3",
 		maxVersion: "TLSv1.3",
-		rejectUnauthorized: true,
 		// The home's TLS server cert CN is whatever the home labels it —
-		// we're already pinned by the CA, so skip hostname check.
+		// we're pinned by CA or QR flow, so skip hostname check.
 		checkServerIdentity: () => undefined,
+		...(config.trust.mode === "ca"
+			? {
+					ca: [config.trust.caChain],
+					cert: config.trust.cert,
+					key: config.trust.key,
+					rejectUnauthorized: true,
+				}
+			: {
+					rejectUnauthorized: false,
+				}),
 	});
+	let peerLeaf: X509Certificate | undefined;
 	await new Promise<void>((resolve, reject) => {
-		tlsSocket.once("secureConnect", resolve);
-		tlsSocket.once("error", reject);
+		const onSecureConnect = () => {
+			tlsSocket.removeListener("error", onError);
+			if (config.trust.mode === "pin") {
+				peerLeaf = tlsSocket.getPeerX509Certificate() ?? undefined;
+			}
+			resolve();
+		};
+		const onError = (err: Error) => {
+			tlsSocket.removeListener("secureConnect", onSecureConnect);
+			try {
+				tlsSocket.destroy();
+			} catch {}
+			try {
+				ws.close(1011, "tls-error");
+			} catch {}
+			reject(err);
+		};
+		tlsSocket.once("secureConnect", onSecureConnect);
+		tlsSocket.once("error", onError);
 	});
 
 	const mux = new Multiplexer((bytes) => {
@@ -99,6 +152,7 @@ export async function dial(options: DialOptions): Promise<TunnelSession> {
 
 	const session: TunnelSession = {
 		mux,
+		peerLeaf,
 		async close() {
 			try {
 				tlsSocket.end();
