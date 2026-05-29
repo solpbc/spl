@@ -1,6 +1,6 @@
 # tokens
 
-The two JWTs that authorize a side to establish a WebSocket with `spl-relay`. Both are issued by `spl-relay`'s control plane and signed by an Ed25519 key held only by sol pbc (or by the self-host operator, for self-hosted deployments). Both authorize **rendezvous only** — neither confers data access. Data access is gated by the TLS handshake inside the tunnel, against `authorized_clients.json` on the home.
+The two long-lived JWTs that authorize a side to establish a WebSocket with `spl-relay` are the service token and device token. A third JWT, the pair ticket, is short-lived and one-use; it authorizes only the off-LAN pairing dial. All are issued by `spl-relay`'s control plane and signed by an Ed25519 key held only by sol pbc (or by the self-host operator, for self-hosted deployments). All authorize **rendezvous only** — none confers data access. Data access is gated by the TLS handshake inside the tunnel, against `authorized_clients.json` on the home.
 
 This document specifies the token shape, claims, validation, and the JWKS-based rotation model. The signing-key lifecycle (generation, vault storage, provisioning, rotation cadence, compromise response) is out of scope here — see [`../docs/signing-keys.md`](../docs/signing-keys.md) for the public-facing playbook, and (for sol pbc internal operators only) `cso/playbooks/spl-signing-key-lifecycle.md`.
 
@@ -17,7 +17,7 @@ Different standards (JOSE vs. X.509/TLS), different ecosystems, different optima
 
 ## token types
 
-There are two.
+There are two long-lived rendezvous credentials, plus one short-lived pair ticket.
 
 ### service token
 
@@ -27,7 +27,11 @@ Authorizes a home to open a `/session/listen` WebSocket to `spl-relay`. Long-liv
 
 Authorizes a paired mobile device to open a `/session/dial` WebSocket to `spl-relay`, naming a specific home `instance_id`. Bound to (`instance_id`, client cert fingerprint). One per paired device.
 
-Both are JWTs with the same shell; the differences are in claims and TTL.
+### pair ticket
+
+Authorizes a mobile device in the off-LAN pairing flow to open one `/session/pair-dial` WebSocket to `spl-relay`, naming a specific home `instance_id`. Short-lived (60s), one-use, and instance-bound. Minted per pairing attempt after a TOTP check. It confers no data access and is consumed exactly once.
+
+The service and device tokens are JWTs with the same shell; the differences are in claims and TTL. The pair ticket is also a JWT, but it is intentionally short-lived and one-use.
 
 ## claim shape
 
@@ -75,18 +79,37 @@ JWT payload, device token:
 }
 ```
 
+JWT payload, pair ticket:
+
+```json
+{
+  "iss": "spl.solpbc.org",
+  "sub": "pair:<instance_id>",
+  "aud": "spl-relay",
+  "scope": "session.pair",
+  "instance_id": "<uuidv7>",
+  "iat": 1745006400,
+  "exp": 1745006460,
+  "jti": "<uuidv7>"
+}
+```
+
+The pair ticket carries no `ca_fp` and no `device_fp`.
+
 | claim | required | meaning |
 |---|---|---|
 | `iss` | yes | issuer hostname; for sol pbc deployments, `spl.solpbc.org`. Self-hosters use their own. |
-| `sub` | yes | subject; must be `home:<instance_id>` for `session.listen` and `device:<device_id>` for `session.dial`. |
+| `sub` | yes | subject; must be `home:<instance_id>` for `session.listen`, `device:<device_id>` for `session.dial`, and `pair:<instance_id>` for `session.pair`. |
 | `aud` | yes | audience; always `spl-relay`. |
-| `scope` | yes | one of `session.listen` (service token) or `session.dial` (device token). Workers reject mismatched scope at the route level. |
-| `instance_id` | yes | which home this token authorizes the bearer to act on. For service tokens, the home's own id. For device tokens, the paired home. |
+| `scope` | yes | one of `session.listen` (service token), `session.dial` (device token), or `session.pair` (pair ticket). Workers reject mismatched scope at the route level. |
+| `instance_id` | yes | which home this token authorizes the bearer to act on. For service tokens, the home's own id. For device tokens, the paired home. For pair tickets, the pairing target home. |
 | `ca_fp` | service only | SHA-256 of the home's local CA public key, registered at home enrollment. Required for `session.listen`, must match `^sha256:[0-9a-f]{64}$`, and corresponds to the `ca_pubkey_pem` used to verify `home_attestation` signatures at `/enroll/device`; the relay never receives or recomputes a client cert. |
 | `device_fp` | device only | SHA-256 of the mobile client cert. Required for `session.dial`, must match `^sha256:[0-9a-f]{64}$`, and is bound to a specific paired device. |
 | `iat` | yes | issued-at, seconds since epoch. |
 | `exp` | yes | expiration, seconds since epoch. |
-| `jti` | yes | unique token id; UUIDv7. Used for revocation lookups (D1 table) and replay defense. |
+| `jti` | yes | unique token id; UUIDv7. Used for revocation lookups and replay defense. Pair-ticket `jti`s are consumed in Durable Object storage. |
+
+For `session.pair`, `sub` MUST exactly equal `pair:<instance_id>`, tighter than the prefix checks on `session.listen` and `session.dial`.
 
 Workers MUST reject any token missing a required claim or carrying an unexpected `scope` for the requested route.
 
@@ -96,8 +119,11 @@ Workers MUST reject any token missing a required claim or carrying an unexpected
 |---|---|---|
 | service token | 365 days | re-issued automatically by the home on token age > 80% of TTL via the control-plane re-issue endpoint |
 | device token | 60 days | re-issued automatically by the mobile on next dial after age > 80% of TTL |
+| pair ticket | 60 seconds | one-use, consumed on first successful pair-dial attach; minted per pairing attempt, no rotation |
 
-Long TTLs are deliberate. Both tokens authorize the **rendezvous** only; they confer no data access. The TLS layer is the data-plane authoritative point. A leaked token grants only the right to open a WebSocket to `spl-relay`, which is useless without the matching mTLS material that lives only on the device.
+Long TTLs are deliberate for the service and device tokens. Both authorize the **rendezvous** only; they confer no data access. The TLS layer is the data-plane authoritative point. A leaked token grants only the right to open a WebSocket to `spl-relay`, which is useless without the matching mTLS material that lives only on the device.
+
+A pair ticket also authorizes rendezvous only. The home's pairing window plus the home-side nonce is the actual pairing gate.
 
 Rotation matters less than the signing-key rotation underneath (see *rotation* below). Token rotation is hygienic, not protective.
 
@@ -107,7 +133,7 @@ A short-TTL bearer model would force a control-plane round-trip on every dial. T
 
 ## issuance
 
-Two control-plane endpoints, both POST, both JSON.
+Three control-plane endpoints, all POST, all JSON.
 
 ### POST `/enroll/home`
 
@@ -122,7 +148,7 @@ Called once at solstone first run. Body:
 }
 ```
 
-`totp_secret` is optional, unpadded uppercase RFC-4648 base32 (`^[A-Z2-7]{16,128}$`). It is stored at rest and inert in v1: no TOTP code is validated yet. On same-instance re-enroll, omitting `totp_secret` preserves the stored value; providing it overwrites the stored value.
+`totp_secret` is optional, unpadded uppercase RFC-4648 base32 (`^[A-Z2-7]{16,128}$`). It is stored at rest for `/session/pair-ticket` validation. On same-instance re-enroll, omitting `totp_secret` preserves the stored value; providing it overwrites the stored value.
 
 Bodies over 32 KiB are rejected with 413 before parsing. A `ca_fp` backs at most one instance: a new enroll whose `ca_fp` matches a different instance is rejected with 409, distinct from the `ca_mismatch` 409 for an `instance_id` trying to change its own CA.
 
@@ -214,9 +240,37 @@ Response (on success):
 
 Re-issuance: a fresh `home_attestation` per pair ceremony mints a new device token; its `jti` is consumed once via `devices.attestation_jti UNIQUE`. Idempotency: if a successful enroll's HTTP response is lost and the mobile retries with the **same still-valid** attestation, `spl-relay` re-mints the **byte-identical** device token from the stored row rather than rejecting. A consumed `jti` re-presented with a different `(instance_id, device_fp)` — or one whose stored row predates the `device_id` column — is rejected as replay (409). The old device token's `jti` becomes eligible for the D1 revocation list if the home or operator wants defense-in-depth.
 
+### POST `/session/pair-ticket`
+
+Called by the mobile app during off-LAN pairing. The `?instance=<id>` query parameter routes the request to the per-instance Durable Object. Body:
+
+```json
+{
+  "instance_id": "<same id as the query parameter>",
+  "totp": "<6 digits>"
+}
+```
+
+`body.instance_id` must match the query parameter. Bodies over 2 KiB are rejected with 413 before parsing.
+
+The relay validates `totp` against the instance's stored `totp_secret` using RFC 6238: HMAC-SHA1, 30s step, 6 digits, and ±1 step skew. Successful issuance is rate-limited to at most one ticket per (`instance_id`, 30s step). On success:
+
+```json
+{
+  "pair_ticket": "<JWT>",
+  "expires_at": "<ISO8601>"
+}
+```
+
+Unknown instance, no stored TOTP secret, wrong code, and revoked instance all return the same client-visible `401` response. The relay performs the same HMAC work even when there is no usable secret, so the absence of a usable secret is not exposed as a timing oracle.
+
+The relay reads only `instance_id` and `totp` from the body. Any other field, including a `nonce`, is ignored and never logged. The relay never sees the home-side pairing nonce.
+
+The pair ticket's `jti` is one-use. The one-use consume record and the per-step issuance rate counter live in the per-instance Durable Object's SQLite storage, not D1, and survive hibernation and eviction. There is no new D1 table for pair tickets.
+
 ## validation in `spl-relay`
 
-On every WebSocket upgrade request to `/session/listen` or `/session/dial`, the Worker:
+On every WebSocket upgrade request to `/session/listen`, `/session/dial`, or `/session/pair-dial`, the Worker:
 
 1. Reads the `Authorization: Bearer <jwt>` header. Reject with 401 if absent or malformed.
 2. Parses the JOSE header, extracts `kid`.
@@ -227,11 +281,14 @@ On every WebSocket upgrade request to `/session/listen` or `/session/dial`, the 
    - `iss == <expected issuer for this deployment>` (`spl.solpbc.org` for sol pbc; configurable per self-host)
    - `exp > now`
    - `iat ≤ now + 60s` (allow 60s clock skew on the issued-at side)
-   - `scope` matches the route (`session.listen` for `/session/listen`; `session.dial` for `/session/dial`)
+   - `scope` matches the route (`session.listen` for `/session/listen`; `session.dial` for `/session/dial`; `session.pair` for `/session/pair-dial`)
    - for `session.listen`, `sub` starts with `home:` and `ca_fp` is present and matches `^sha256:[0-9a-f]{64}$`
    - for `session.dial`, `sub` starts with `device:` and `device_fp` is present and matches `^sha256:[0-9a-f]{64}$`
+   - for `session.pair`, `sub` exactly equals `pair:<instance_id>` and no fingerprint claim is required
 6. Verifies the `instance_id` exists in D1 and is not in the (D1) service-revocation table.
 7. For device tokens, verifies the `device_fp` is not in the (D1) device-revocation table for that instance_id.
+
+For pair tickets, `/session/pair-dial` consumes the ticket `jti` exactly once after a listening home is present and before the mobile WS is attached. Replay returns unauthorized. Pair-vs-dial selection is by request path, never by reading an unverified `scope`.
 
 If any check fails, the Worker closes the WebSocket with a clean close code (`4401` "unauthorized") and logs the failure with `tunnel_id` (none yet — pre-pair), token `jti`, route, and reason. **Never the token bytes, never claims-as-payload.**
 
@@ -316,6 +373,8 @@ CREATE TABLE devices (
 ```
 
 D1 is for non-payload metadata only — never for tunnel bytes, never for keys, never for `authorized_clients.json` content (that lives only on the home).
+
+Pair-ticket one-use consumption and issuance rate limiting use the per-instance Durable Object's SQLite storage (`pair_jti_consumed`, `pair_rate`), cleaned opportunistically past expiry. These tables store only token metadata and counters — never token bytes, never tunnel payload.
 
 ## what tokens do not authorize
 

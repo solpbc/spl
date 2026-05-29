@@ -6,11 +6,14 @@ This document is the contract for the WebSocket dance — what each side opens, 
 
 ## actors and surfaces
 
-Three WebSocket endpoints on `spl-relay`:
+Four WebSocket endpoints on `spl-relay`:
 
 - `GET /session/listen` — home upgrades to WS; carries a service-token bearer. One per home, held open indefinitely.
 - `GET /session/dial` — mobile upgrades to WS; carries a device-token bearer. One per mobile dial; **becomes** the mobile-side tunnel WS once paired.
+- `GET /session/pair-dial` — mobile upgrades to WS; carries a pair-ticket bearer. One per off-LAN pairing dial; **becomes** the mobile-side tunnel WS once paired, exactly like `/session/dial`.
 - `GET /tunnel/<id>` — home upgrades to WS; carries the service-token plus a `tunnel_id` minted by the relay. One per active tunnel on the home side; opened in response to a pair signal.
+
+One control-plane endpoint participates in off-LAN pairing: `POST /session/pair-ticket` is HTTPS, not a WebSocket surface, and mints the pair ticket used by `/session/pair-dial`.
 
 The asymmetry is deliberate. The mobile opens **one** WebSocket per dial (the dial WS becomes the tunnel WS — single-WS-per-side, prototype finding §11.1, saves ~40-80 ms per cold request). The home opens **one** persistent listen WS plus **one** transient tunnel WS per active tunnel.
 
@@ -54,6 +57,21 @@ Sec-WebSocket-Key: ...
 Query parameter `instance` names the home this dial targets; must match the `instance_id` claim on the device token.
 
 After upgrade, this **same WebSocket** becomes the mobile-side tunnel WS once the relay has paired it with a home tunnel WS. There is no second WS open from the mobile. The mobile waits for the relay to attach the home side, then begins TLS 1.3 over this WS toward the home.
+
+### pair-dial — mobile → spl-relay
+
+```
+GET /session/pair-dial?instance=<target_instance_id> HTTP/1.1
+Host: spl.solpbc.org
+Upgrade: websocket
+Connection: Upgrade
+Authorization: Bearer <pair_ticket>
+Sec-WebSocket-Key: ...
+```
+
+Query parameter `instance` names the home this pair-dial targets; must match the `instance_id` claim on the pair ticket.
+
+After upgrade, this **same WebSocket** becomes the mobile-side tunnel WS once the relay has paired it with a home tunnel WS. It is byte-for-byte the same relay tunnel shape as `/session/dial`; only the authorization scope and one-use ticket consume differ.
 
 ### tunnel — home → spl-relay
 
@@ -162,6 +180,28 @@ No HTTP parsing, no WSGI environ, no internal hand-off through a framework's req
 
 This choice is load-bearing. Image loads, SSE feeds, and **WebSocket upgrades** all flow through the same tunnel WS, multiplexed by stream id, because the tunnel layer sits below HTTP. Frameworks that hijack the underlying socket to service a protocol upgrade (`flask-sock`, `starlette`'s WebSocket endpoints, `Hypercorn` / `uvicorn` with HTTP/2 push, chunked-transfer responses) work without special cases in the link service — they would not work through a WSGI callable, which cannot surrender a socket.
 
+## off-LAN pairing (pair ticket + pair-dial)
+
+Off-LAN pairing reuses the same relay tunnel shape. The relay's role is limited to minting a short-lived rendezvous ticket and brokering an ordinary tunnel to a listening home.
+
+Flow at the relay boundary:
+
+1. The phone scans the home's rotating QR. The QR and nonce are home-side material; the relay never sees either.
+2. The phone calls `POST /session/pair-ticket?instance=<id>` with JSON body `{ "instance_id": "<id>", "totp": "<code>" }`.
+3. The relay validates the TOTP, rate-limits issuance to one ticket per 30s step, and mints a 60s one-use `session.pair` ticket.
+4. The phone opens `GET /session/pair-dial?instance=<id>` with that ticket.
+5. The relay brokers an ordinary tunnel. The home receives the byte-identical control message it gets for a normal dial:
+
+```json
+{ "type": "incoming", "tunnel_id": "<uuidv7>" }
+```
+
+There is no new WebSocket message type.
+
+The home admits the cert-less tunnel and runs its pairing handshake (`/pair` + `/enroll/device`) inside the inner TLS. That handshake is home-side and out of scope for `spl-relay`. Whether a pairing window is open is entirely a home-side gate; the relay brokers any validly-ticketed pair-dial to a listening home.
+
+Exposure bound: a single captured TOTP can yield an open tunnel for approximately `step + skew + ticket_TTL = 30 + 30 + 60 ≈ 120s` in the worst case. The ±1-step validation window puts the strict upper bound on code acceptance at about 90s, so all three parameters are kept minimal.
+
 ### blindness is structural
 
 The link service on the home side never parses, interprets, or transforms the application-layer protocol (HTTP, WS, SSE, HTTP/2, raw bytes) flowing through it. Its only two operations on stream contents are `socket.read` and `socket.write`. This is the blindness invariant made structural, not promise-based:
@@ -181,10 +221,12 @@ The discipline:
 
 **Acceptable at the WS layer:**
 
-- Dial signaling — the HTTP+upgrade exchanges on `/session/listen`, `/session/dial`, `/tunnel/<id>` and their `Authorization` bearer tokens.
+- Dial signaling — the HTTP+upgrade exchanges on `/session/listen`, `/session/dial`, `/session/pair-dial`, `/tunnel/<id>` and their `Authorization` bearer tokens.
 - The `incoming` / `tunnel_id` control message from relay to home (above, §3).
 - Opaque ciphertext payload of inner-TLS records, framed as binary WS messages.
 - WebSocket transport keepalive (library-level ping/pong; see *no app heartbeat* below).
+
+Pair-dial deliberately reuses the existing `incoming` control message and adds no new WS-layer message type. The founder gate for this surface was cleared 2026-05-29.
 
 **Not acceptable at the WS layer:**
 
@@ -310,17 +352,17 @@ For audit and debugging, the Worker emits structured log events at session bound
 - `tunnel_id` (uuid)
 - `instance_id` (uuid)
 - `direction` (one of `home → mobile`, `mobile → home`, or `meta`)
-- `event` (one of `pair`, `close`, `pending_buffer_overflow`, `unauthorized`, `cardinality_violation`)
+- `event` (one of `pair`, `close`, `pending_buffer_overflow`, `unauthorized`, `cardinality_violation`, `pair_ticket_issued`, `pair_ticket_rejected`, `pair_ticket_rate_limited`, `pair_dial_open`, `pair_ticket_replay`)
 - `byte_count` (when applicable)
 - `close_code` (when applicable)
 - `duration_ms` (on close events)
 - `timestamp`
 
-**Never** a payload byte. **Never** a token claim. **Never** a TLS handshake message. **Never** a `Authorization` header value. This is enforced by code review; the framework does not protect us from a sloppy `console.log`.
+**Never** a payload byte. **Never** a token claim. **Never** a TLS handshake message. **Never** a `Authorization` header value. **Never** the TOTP value, the `totp_secret`, a ticket JWT, or the home-side nonce. This is enforced by code review; the framework does not protect us from a sloppy `console.log`.
 
 ## related
 
 - [`framing.md`](framing.md) — what flows inside the tunnel after the session is established.
-- [`tokens.md`](tokens.md) — what authorizes the listen and dial WSes.
+- [`tokens.md`](tokens.md) — what authorizes the listen, dial, and pair-dial WSes.
 - [`pairing.md`](pairing.md) — how the device cert and device token come into being.
 - [`../docs/architecture.md`](../docs/architecture.md) — trust boundaries, blind-by-construction invariant.
