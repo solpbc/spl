@@ -39,7 +39,7 @@ Step by step. Times are typical, not specified — the only enforced TTL is the 
 
 Convey calls into the local `spl.pair` HTTPS server (loopback, port chosen at solstone startup). The pair server:
 
-- For direct (LAN) form: generates a 64-bit (8-byte) random **nonce**.
+- For direct (LAN) form: generates a 128-bit (16-byte) random **nonce**.
 - For relay form: generates a fresh 128-bit (16-byte) random **nonce**.
 - Records `(nonce, expires_at, used = false)` in an in-memory single-use table. Direct nonce TTL is 5 minutes; relay nonce TTL is approximately 30 seconds, one TOTP step.
 - Returns a **pair link** of the shape `https://link.solpbc.org/p#<uppercase Crockford base32 blob>`.
@@ -56,16 +56,16 @@ https://link.solpbc.org/p#<uppercase Crockford base32 blob>
 
 The form is discriminated by the first decoded byte (`version`), never by URL path.
 
-Direct form, version `0x02` (32 bytes):
+Direct form, version `0x04` (40 bytes):
 
 | Offset | Len | Field | Encoding |
 |--------|-----|-------|----------|
-| 0 | 1 | version | `0x02` |
+| 0 | 1 | version | `0x04` |
 | 1 | 1 | addr_type | `0x01` = IPv4 |
 | 2 | 4 | ipv4 | raw IPv4 bytes |
 | 6 | 2 | port | unsigned big-endian |
-| 8 | 8 | nonce | 64-bit single-use nonce |
-| 16 | 16 | ca_fp | first 16 bytes of SHA-256 over the CA cert DER |
+| 8 | 16 | nonce | 128-bit single-use nonce |
+| 24 | 16 | ca_fp | first 16 bytes of SHA-256 over the CA cert DER |
 
 Relay form, version `0x03` (54 bytes + optional origin):
 
@@ -96,6 +96,12 @@ Custom relay origin (`relay_origin=https://relay.example`):
 
 ```
 https://link.solpbc.org/p#0C938NKR28T5CY0J6HB7G4HMASW03RJ004HMASW9NF6YY0938NKRKAYDXW0XXBDYXZ5FXENY04HMASW9NF6YY5B8EHT70WST5WQQ4SBCC5WJWSBRC5PQ0V35
+```
+
+Direct form conformance vector uses fixed inputs: `addr_type=0x01`, `address=192.0.2.42`, `port=7070`, `nonce=a1b2c3d4e5f607181122334455667788`, `ca_fp=deadbeefcafebabe0123456789abcdef`.
+
+```
+https://link.solpbc.org/p#0G0W000258DSX8DJRFAEBXG7308J4CT4ANK7F26YNPZEZJQYQAZ028T5CY4TQKFF
 ```
 
 The rest of this ceremony describes the direct LAN completion path. The phone-side completion ceremony for relay form is specified separately; this section fixes the QR wire contract.

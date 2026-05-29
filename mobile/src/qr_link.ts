@@ -51,7 +51,7 @@ export function parsePairLink(s: string): PairLink {
 
 	const version = bytes[0];
 	if (version === 0x03) return parseRelay(bytes);
-	if (version === 0x02) return parseDirect(bytes);
+	if (version === 0x04) return parseDirect(bytes);
 	throw new Error(`unsupported pair-link version: 0x${version.toString(16).padStart(2, "0")}`);
 }
 
@@ -83,16 +83,16 @@ function parseRelay(bytes: Uint8Array): RelayPairLink {
 }
 
 function parseDirect(bytes: Uint8Array): DirectPairLink {
-	if (bytes.byteLength !== 32) {
-		throw new Error(`malformed direct pair link: expected 32 bytes, got ${bytes.byteLength}`);
+	if (bytes.byteLength !== 40) {
+		throw new Error(`malformed direct pair link: expected 40 bytes, got ${bytes.byteLength}`);
 	}
 	return {
 		kind: "direct",
 		addrType: bytes[1],
 		ipv4: Array.from(bytes.slice(2, 6)).join("."),
 		port: (bytes[6] << 8) | bytes[7],
-		nonce: hex(bytes.slice(8, 16)),
-		caFp: bytes.slice(16, 32),
+		nonce: hex(bytes.slice(8, 24)),
+		caFp: bytes.slice(24, 40),
 	};
 }
 

@@ -14,7 +14,7 @@ const CUSTOM_FRAGMENT =
 	"0C938NKR28T5CY0J6HB7G4HMASW03RJ004HMASW9NF6YY0938NKRKAYDXW0XXBDYXZ5FXENY04HMASW9NF6YY5B8EHT70WST5WQQ4SBCC5WJWSBRC5PQ0V35";
 const CUSTOM_HEX =
 	"031234567812345678123456781234567801e2400123456789abcdef0123456789abcdef01deadbeefcafebabe0123456789abcdef1568747470733a2f2f72656c61792e6578616d706c65";
-const DIRECT_FRAGMENT = "080W000258DSX8DJRFAEBXG733FAVFQFSBZBNFG14D2PF2DBSQQG";
+const DIRECT_FRAGMENT = "0G0W000258DSX8DJRFAEBXG7308J4CT4ANK7F26YNPZEZJQYQAZ028T5CY4TQKFF";
 
 describe("pair QR links", () => {
 	test("Crockford decode matches relay byte vectors", () => {
@@ -49,17 +49,26 @@ describe("pair QR links", () => {
 		expect(link.relayOrigin).toBe("https://relay.example");
 	});
 
-	test("parsePairLink dispatches version 0x02 as direct", () => {
+	test("parsePairLink dispatches version 0x04 as direct", () => {
+		expect(encode(decode(DIRECT_FRAGMENT))).toBe(DIRECT_FRAGMENT);
 		const link = parsePairLink(`https://link.solpbc.org/p#${DIRECT_FRAGMENT}`);
 		expect(link.kind).toBe("direct");
 		if (link.kind !== "direct") throw new Error("expected direct link");
 		expect(link.addrType).toBe(1);
 		expect(link.ipv4).toBe("192.0.2.42");
 		expect(link.port).toBe(7070);
-		expect(link.nonce).toBe("a1b2c3d4e5f60718");
+		expect(link.nonce).toBe("a1b2c3d4e5f607181122334455667788");
 		expect(Array.from(link.caFp)).toEqual(
 			Array.from(hexToBytes("deadbeefcafebabe0123456789abcdef")),
 		);
+	});
+
+	test("parsePairLink rejects old direct version 0x02", () => {
+		expect(() =>
+			parsePairLink(
+				"https://link.solpbc.org/p#080W000258DSX8DJRFAEBXG733FAVFQFSBZBNFG14D2PF2DBSQQG",
+			),
+		).toThrow("unsupported pair-link version: 0x02");
 	});
 
 	test("looksLikePairLink identifies link.solpbc.org pair URLs only", () => {
