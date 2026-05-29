@@ -139,12 +139,11 @@ Called by the mobile app after LAN pairing completes. Body:
 ```json
 {
   "instance_id": "<paired home>",
-  "client_cert": "<PEM>",
   "home_attestation": "<compact JWS, ES256>"
 }
 ```
 
-**`home_attestation`** is a short-lived JWT signed by the home's local CA private key during the pair ceremony (see [`pairing.md`](pairing.md) §7). Its role is to prove to `spl-relay` that the paired home intentionally issued *this specific* client cert in *this specific* pair ceremony — chain validity alone would only prove the home issued the cert at some point, which is a weaker claim.
+**`home_attestation`** is a short-lived JWT signed by the home's local CA private key during the pair ceremony (see [`pairing.md`](pairing.md) §7). Its role is to prove to `spl-relay` that the paired home intentionally authorized *this specific* device fingerprint in *this specific* pair ceremony — chain validity alone would only prove the home issued the cert at some point, which is a weaker claim.
 
 Header:
 
@@ -173,10 +172,10 @@ Claims:
 | `aud` | yes | literal `spl-relay`. |
 | `scope` | yes | literal `device.enroll`. |
 | `instance_id` | yes | home's instance_id; must match the request body's `instance_id`. |
-| `device_fp` | yes | `sha256:<hex>` of the DER-encoded `client_cert`. `spl-relay` recomputes this from the submitted cert and rejects on mismatch. |
+| `device_fp` | yes | `sha256:<64 lowercase hex>` fingerprint of the mobile client cert, asserted by the home in the attestation. `spl-relay` validates the claim's shape (`^sha256:[0-9a-f]{64}$`) and treats the verified claim as the device identity — it never receives or recomputes the client cert. |
 | `iat` | yes | issued-at, seconds since epoch. |
 | `exp` | yes | expiration, seconds since epoch. Must satisfy `exp > now` and `exp - iat ≤ 300` (5 min, matching the LAN pair nonce TTL). |
-| `jti` | yes | unique id (UUIDv7). Stored in D1 as `devices.attestation_jti UNIQUE`; a second `/enroll/device` presenting the same `jti` is rejected as replay. |
+| `jti` | yes | unique id (UUIDv7). Stored in D1 as `devices.attestation_jti UNIQUE`; a repeated still-valid attestation can re-mint only if the stored row matches `(instance_id, device_fp)` and has `device_id`, otherwise it is rejected as replay. |
 
 Signature algorithm is ES256 (ECDSA-P256 / SHA-256), in either JOSE raw (r||s, 64 bytes, preferred) or DER-encoded form. `spl-relay` accepts both — home implementations may differ in whichever their local library emits, and the cost of supporting both is trivial.
 
@@ -185,8 +184,8 @@ Signature algorithm is ES256 (ECDSA-P256 / SHA-256), in either JOSE raw (r||s, 6
 1. Load the home's `ca_pubkey_pem` from D1 for the named `instance_id`. If absent → 404.
 2. Parse the `home_attestation` header; reject if `alg ≠ ES256` or `typ ≠ home-attest`.
 3. Verify the ECDSA signature against the home's CA public key.
-4. Check claims per the table above, including the 5-minute lifetime cap and the `device_fp` match against `sha256(DER(client_cert))`.
-5. Attempt to INSERT the attestation's `jti` into `devices.attestation_jti`; UNIQUE constraint failure → 409 replay.
+4. Check claims per the table above, including the 5-minute lifetime cap and the `device_fp` shape (`^sha256:[0-9a-f]{64}$`).
+5. Attempt to INSERT the attestation's `jti` into `devices.attestation_jti`. A UNIQUE collision means the attestation was already consumed: if the stored row matches this request's `(instance_id, device_fp)` and carries a `device_id`, re-mint the **byte-identical** device token (idempotent retry, 200); otherwise reject as replay (409).
 6. On success, mint a device token (see below).
 
 **Why this shape (design O1):** CPO's open question O1 asked what proves a client cert was legitimately paired with a specific home before `spl-relay` will mint a device token. The alternatives considered:
@@ -206,7 +205,7 @@ Response (on success):
 }
 ```
 
-Re-issuance: same endpoint, a fresh `home_attestation` per call. The old attestation's `jti` is consumed and cannot be replayed; the old device token's `jti` becomes eligible for the D1 revocation list if the home or operator wants defense-in-depth.
+Re-issuance: a fresh `home_attestation` per pair ceremony mints a new device token; its `jti` is consumed once via `devices.attestation_jti UNIQUE`. Idempotency: if a successful enroll's HTTP response is lost and the mobile retries with the **same still-valid** attestation, `spl-relay` re-mints the **byte-identical** device token from the stored row rather than rejecting. A consumed `jti` re-presented with a different `(instance_id, device_fp)` — or one whose stored row predates the `device_id` column — is rejected as replay (409). The old device token's `jti` becomes eligible for the D1 revocation list if the home or operator wants defense-in-depth.
 
 ## validation in `spl-relay`
 

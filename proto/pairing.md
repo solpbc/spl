@@ -144,7 +144,6 @@ The mobile makes one HTTPS POST to `spl-relay`'s control plane:
 POST https://spl.solpbc.org/enroll/device
 {
   "instance_id": "<from step 7>",
-  "client_cert": "<PEM>",
   "home_attestation": "<from step 7>"
 }
 ```
