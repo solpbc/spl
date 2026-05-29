@@ -6,6 +6,7 @@ import {
 	base64UrlDecode,
 	base64UrlEncode,
 	mintDeviceToken,
+	mintPairTicket,
 	mintServiceToken,
 	verifyToken,
 } from "../src/tokens";
@@ -52,6 +53,48 @@ describe("verifyToken", () => {
 			expectedScope: "session.dial",
 		});
 		expect(r.ok).toBe(true);
+	});
+
+	it("accepts a freshly minted pair ticket with the correct scope", async () => {
+		const k = await genSigningKeypair();
+		const now = Math.floor(Date.now() / 1000);
+		const minted = await mintPairTicket(k.privateJwkRaw, {
+			instance_id: "inst-1",
+			issuer: ISSUER,
+			ttlSeconds: 60,
+			now,
+		});
+		const r = await verifyToken(minted.jwt, {
+			jwksRaw: k.jwksPublicRaw,
+			expectedIssuer: ISSUER,
+			expectedScope: "session.pair",
+			now,
+		});
+		expect(r.ok).toBe(true);
+		if (r.ok) {
+			expect(r.claims.scope).toBe("session.pair");
+			expect(r.claims.sub).toBe("pair:inst-1");
+			expect(r.claims.instance_id).toBe("inst-1");
+			expect(r.claims.iat).toBe(now);
+			expect(r.claims.exp).toBe(now + 60);
+			expect(r.claims.ca_fp).toBeUndefined();
+			expect(r.claims.device_fp).toBeUndefined();
+		}
+	});
+
+	it("rejects a pair ticket when a dial token is expected", async () => {
+		const k = await genSigningKeypair();
+		const minted = await mintPairTicket(k.privateJwkRaw, {
+			instance_id: "inst-1",
+			issuer: ISSUER,
+			ttlSeconds: 60,
+		});
+		const r = await verifyToken(minted.jwt, {
+			jwksRaw: k.jwksPublicRaw,
+			expectedIssuer: ISSUER,
+			expectedScope: "session.dial",
+		});
+		expect(r).toEqual({ ok: false, reason: "wrong_scope" });
 	});
 
 	it("rejects a token for the wrong scope", async () => {
@@ -326,6 +369,45 @@ describe("verifyToken claim binding (H6)", () => {
 			now,
 		});
 		expect(r).toEqual({ ok: false, reason: "bad_claim" });
+	});
+
+	it("rejects pair tickets whose sub does not exactly bind to instance_id", async () => {
+		const k = await genSigningKeypair();
+		const now = Math.floor(Date.now() / 1000);
+		const token = await signClaims(k.privateJwkRaw, {
+			iss: ISSUER,
+			sub: "pair:OTHER",
+			aud: "spl-relay",
+			scope: "session.pair",
+			instance_id: "inst-1",
+			iat: now,
+			exp: now + 60,
+			jti: "jti-1",
+		});
+		const r = await verifyToken(token, {
+			jwksRaw: k.jwksPublicRaw,
+			expectedIssuer: ISSUER,
+			expectedScope: "session.pair",
+			now,
+		});
+		expect(r).toEqual({ ok: false, reason: "bad_claim" });
+	});
+
+	it("rejects a dial token when a pair ticket is expected", async () => {
+		const k = await genSigningKeypair();
+		const minted = await mintDeviceToken(k.privateJwkRaw, {
+			instance_id: "inst-1",
+			device_id: "dev-1",
+			device_fp: VALID_FP,
+			issuer: ISSUER,
+			ttlSeconds: 60,
+		});
+		const r = await verifyToken(minted.jwt, {
+			jwksRaw: k.jwksPublicRaw,
+			expectedIssuer: ISSUER,
+			expectedScope: "session.pair",
+		});
+		expect(r).toEqual({ ok: false, reason: "wrong_scope" });
 	});
 });
 
