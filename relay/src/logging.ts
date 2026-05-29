@@ -34,6 +34,11 @@ export type LogEvent =
 	| "enroll_device_remint"
 	| "enroll_home_rotate"
 	| "enroll_rejected"
+	| "pair_ticket_issued"
+	| "pair_ticket_rejected"
+	| "pair_ticket_rate_limited"
+	| "pair_dial_open"
+	| "pair_ticket_replay"
 	| "internal_error";
 
 export type Direction = "home_to_mobile" | "mobile_to_home" | "meta";

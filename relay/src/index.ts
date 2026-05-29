@@ -9,6 +9,8 @@
 //   POST /enroll/device             — verify home attestation, mint device token
 //   GET  /session/listen?instance=  — home holds this open indefinitely
 //   GET  /session/dial?instance=    — mobile opens, becomes tunnel WS on pair
+//   POST /session/pair-ticket?instance= — TOTP-gated short-lived pair ticket
+//   GET  /session/pair-dial?instance=   — pair-ticket dial, becomes tunnel WS
 //   GET  /tunnel/<id>?instance=     — home opens per `incoming` signal
 //
 // Blind-by-construction invariant: the Worker NEVER reads, parses, stores,
@@ -35,12 +37,14 @@ export default {
 			return handleEnrollDevice(request, env);
 		}
 
-		// WebSocket upgrade surfaces are routed to the Durable Object for the
+		// Session and pairing surfaces are routed to the Durable Object for the
 		// named instance. The DO itself does auth (JWT verify) — doing it here
 		// too would just mean double-parsing the same token on every hop.
 		if (
 			url.pathname === "/session/listen" ||
 			url.pathname === "/session/dial" ||
+			url.pathname === "/session/pair-ticket" ||
+			url.pathname === "/session/pair-dial" ||
 			url.pathname.startsWith("/tunnel/")
 		) {
 			const instanceId = url.searchParams.get("instance");

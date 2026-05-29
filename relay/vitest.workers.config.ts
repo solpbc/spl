@@ -29,7 +29,7 @@ export default defineWorkersConfig({
 				miniflare: {
 					compatibilityDate: "2026-04-01",
 					compatibilityFlags: ["nodejs_compat"],
-					durableObjects: { INSTANCE: { className: "InstanceDO" } },
+					durableObjects: { INSTANCE: { className: "InstanceDO", useSQLite: true } },
 					d1Databases: ["DB"],
 					bindings: {
 						ENVIRONMENT: "test",
