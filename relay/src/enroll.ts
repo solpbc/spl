@@ -11,8 +11,10 @@
 
 import { fingerprintDer, importCaPublicKey, pemToDer, verifyAttestation } from "./attestation";
 import type { Env } from "./env";
+import { json, readJson } from "./http";
 import { log } from "./logging";
 import { mintDeviceToken, mintServiceToken } from "./tokens";
+import { TOTP_SECRET_RE } from "./totp";
 import { uuidv7 } from "./uuid";
 
 // 365 days / 60 days per proto/tokens.md §TTLs.
@@ -20,7 +22,6 @@ const SERVICE_TOKEN_TTL_SECONDS = 365 * 24 * 60 * 60;
 const DEVICE_TOKEN_TTL_SECONDS = 60 * 24 * 60 * 60;
 const MAX_ENROLL_HOME_BYTES = 32 * 1024;
 const MAX_ENROLL_DEVICE_BYTES = 16 * 1024;
-const TOTP_SECRET_RE = /^[A-Z2-7]{16,128}$/;
 
 interface EnrollHomeBody {
 	instance_id?: string;
@@ -308,42 +309,5 @@ export async function handleEnrollDevice(request: Request, env: Env): Promise<Re
 	return json({
 		device_token: minted.jwt,
 		expires_at: new Date(minted.exp * 1000).toISOString(),
-	});
-}
-
-type ReadResult<T> = { ok: true; value: T } | { ok: false; reason: "too_large" | "invalid" };
-
-async function readJson<T>(request: Request, maxBytes: number): Promise<ReadResult<T>> {
-	const ct = request.headers.get("content-type") ?? "";
-	if (!ct.includes("application/json")) return { ok: false, reason: "invalid" };
-
-	// Pre-parse size cap. content-length is the cheap signal for a fixed-length
-	// body; the measured byteLength below is the backstop when it is absent or
-	// understated. The body stream is consumed exactly once.
-	const declared = request.headers.get("content-length");
-	if (declared !== null) {
-		const n = Number(declared);
-		if (Number.isFinite(n) && n > maxBytes) return { ok: false, reason: "too_large" };
-	}
-
-	let raw: ArrayBuffer;
-	try {
-		raw = await request.arrayBuffer();
-	} catch {
-		return { ok: false, reason: "invalid" };
-	}
-	if (raw.byteLength > maxBytes) return { ok: false, reason: "too_large" };
-
-	try {
-		return { ok: true, value: JSON.parse(new TextDecoder().decode(raw)) as T };
-	} catch {
-		return { ok: false, reason: "invalid" };
-	}
-}
-
-function json(body: unknown, status = 200): Response {
-	return new Response(JSON.stringify(body), {
-		status,
-		headers: { "content-type": "application/json; charset=utf-8" },
 	});
 }
