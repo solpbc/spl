@@ -11,11 +11,12 @@ Thumbs.db
 .idea/
 .vscode/
 
-# spl-relay (Cloudflare Worker, TypeScript)
+# spl-relay (Cloudflare Worker, TypeScript; bun toolchain)
 relay/node_modules/
 relay/dist/
 relay/.wrangler/
 relay/.dev.vars
+relay/.bun-cache/
 
 # mobile (Bun/TypeScript)
 mobile/node_modules/

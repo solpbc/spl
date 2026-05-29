@@ -24,8 +24,8 @@ See [`../README.md`](../README.md#architecture) for the diagram and [`../AGENTS.
 
 ## prerequisites
 
-- **Node 20+** (tested on 20.x and 22.x)
-- **wrangler 4+** installed **globally** for any operation that touches a real CF account (`npm install -g wrangler` or `bun add -g wrangler`). `npx wrangler` is acceptable for local Miniflare dev only; do not use it for deploy or for any command that needs your OAuth session (R2, D1, secret put, tail).
+- **bun 1.2+** — the toolchain for this component (install, typecheck, lint, test, local dev). Matches `spl/mobile/`. The relay runs `bun install` rather than `npm install`: bun's installer cleanly resolves the platform-prebuilt native binaries that wrangler/miniflare pull in transitively, where npm currently falls back to a broken source build on modern hosts.
+- **wrangler 4+** installed **globally** for any operation that touches a real CF account (`bun add -g wrangler`). The project-local wrangler (`bun run wrangler`) is acceptable for local Miniflare dev only; do not use it for deploy or for any command that needs your OAuth session (R2, D1, secret put, tail).
 - A Cloudflare account (free tier is fine for local development; production needs Workers Paid, ~$5/mo)
 
 ## install
@@ -48,7 +48,7 @@ Runs the Worker under Miniflare. No CF account required. Secrets can be set in a
 make test
 ```
 
-Two suites. Unit tests (`test/`, vitest + node) cover the pure crypto helpers — JWT verify/mint, attestation verify, fingerprinting. Integration tests (`test-integration/`, vitest + `@cloudflare/vitest-pool-workers`) spin up the real Worker under Miniflare with D1 and InstanceDO bindings and exercise the full request path, WebSocket pairing, cardinality enforcement, and pending-buffer overflow.
+Two suites, both run via `bun run test` (vitest, driven by bun). Unit tests (`test/`) cover the pure crypto helpers — JWT verify/mint, attestation verify, fingerprinting. Integration tests (`test-integration/`, `@cloudflare/vitest-pool-workers`) spin up the real Worker under Miniflare with D1 and InstanceDO bindings and exercise the full request path, WebSocket pairing, cardinality enforcement, and pending-buffer overflow.
 
 A fresh Ed25519 signing keypair is minted at config-load time in `vitest.workers.config.ts`; no keys are committed. Full CI (`make ci`) runs typecheck + biome + both suites.
 
@@ -60,7 +60,7 @@ Production deploys are manual and run by an authenticated sol pbc operator from 
 make deploy
 ```
 
-This invokes the **global** `wrangler deploy`. The operator must have run `wrangler login` at least once. Do not use `npx wrangler` for this — it installs a temporary binary that loses the authenticated OAuth session and has been observed to cause R2/D1 visibility bugs.
+This invokes the **global** `wrangler deploy`. The operator must have run `wrangler login` at least once. Do not run the project-local wrangler (`bun run wrangler` / `npx wrangler`) for this — it loses the authenticated OAuth session and has been observed to cause R2/D1 visibility bugs.
 
 A deploy disconnects every live tunnel. It is not routine. Only deploy when the change is worth the customer-visible blip.
 
@@ -96,7 +96,7 @@ echo "$JWKS_ENVELOPE_JSON" | wrangler secret put JWKS_PUBLIC --env production
 
 Read in the Worker via `env.SIGNING_JWK` and `env.JWKS_PUBLIC`. The private key is the root of trust; see [`../docs/signing-keys.md`](../docs/signing-keys.md) for the full lifecycle (generation, rotation, compromise response).
 
-Run `npm run gen-key` to mint a self-host keypair — it writes to `~/.spl/signing-keypair.json` with mode 0600 and prints the exact `wrangler secret put` commands.
+Run `bun run gen-key` to mint a self-host keypair — it writes to `~/.spl/signing-keypair.json` with mode 0600 and prints the exact `wrangler secret put` commands.
 
 ## configuration
 

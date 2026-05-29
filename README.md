@@ -66,11 +66,11 @@ Clone, then:
 make install
 ```
 
-Orchestrates per-component installs (`relay/` → npm, `home/` → uv/pip). Per-component targets are also available: `make relay-install`, `make home-install`.
+Orchestrates per-component installs (`relay/` → bun, `mobile/` → bun, `home/` → uv/pip). Per-component targets are also available: `make relay-install`, `make home-install`, `make mobile-install`.
 
 Prerequisites:
 
-- **Node 20+** and **bun** or **npm** for `relay/`
+- **bun 1.2+** for `relay/` and `mobile/`
 - **Python 3.11+** and **uv** (or **pip**) for `home/`
 
 ## run
