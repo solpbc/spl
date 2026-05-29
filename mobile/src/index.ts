@@ -4,7 +4,7 @@
 
 // spl-mobile CLI.
 //
-//   spl-mobile pair <lan-url> <device-label> [--relay <endpoint>] [--pin <sha256-hex>] [--state <path>]
+//   spl-mobile pair <pair-link-or-lan-url> <device-label> [--relay <endpoint>] [--pin <sha256-hex>] [--state <path>]
 //   spl-mobile dial [--state <path>]
 //   spl-mobile test [--state <path>] [--n <int>]
 //
@@ -20,6 +20,8 @@ import { join } from "node:path";
 import { dial } from "./dial";
 import { httpRequest } from "./http_client";
 import { loadPairing, pair, savePairing } from "./pair";
+import { pairRelay } from "./pair_relay";
+import { looksLikePairLink, parsePairLink } from "./qr_link";
 
 const DEFAULT_STATE = join(homedir(), ".spl", "mobile", "state.json");
 const DEFAULT_RELAY = "https://spl.solpbc.org";
@@ -52,13 +54,17 @@ function printHelp(): void {
 			"spl-mobile — example mobile CLI for sol private link",
 			"",
 			"usage:",
-			"  spl-mobile pair <lan-url> <device-label> [options]",
+			"  spl-mobile pair <pair-link-or-lan-url> <device-label> [options]",
 			"  spl-mobile dial [options]",
 			"  spl-mobile test [options]",
 			"",
+			"pair targets:",
+			"  relay QR: https://link.solpbc.org/p#...",
+			"  LAN URL:  https://<ip>:<port>/pair?token=...",
+			"",
 			"options:",
 			"  --state <path>    pairing-state file (default: ~/.spl/mobile/state.json)",
-			"  --relay <url>     spl-relay endpoint (default: https://spl.solpbc.org)",
+			"  --relay <url>     relay endpoint for well-known relay QR/LAN enroll",
 			"  --pin <sha256>    home TLS cert fingerprint (hex) for LAN pair",
 			"  --insecure        test-only: skip LAN TLS verification (never in prod)",
 			"  --n <int>         test: request size / count (default 16)",
@@ -97,24 +103,48 @@ function expect(args: string[], i: number): string {
 
 async function cmdPair(args: string[]): Promise<number> {
 	const { positional, opts } = parseOptions(args);
-	const [lanUrl, deviceLabel] = positional;
-	if (!lanUrl || !deviceLabel) {
-		console.error("usage: spl-mobile pair <lan-url> <device-label>");
+	const [target, deviceLabel] = positional;
+	if (!target || !deviceLabel) {
+		console.error("usage: spl-mobile pair <pair-link-or-lan-url> <device-label>");
 		return 2;
 	}
-	console.log(`pairing with ${lanUrl} as "${deviceLabel}"`);
+
+	if (looksLikePairLink(target)) {
+		const link = parsePairLink(target);
+		if (link.kind === "relay") {
+			console.log(`pairing from relay QR as "${deviceLabel}"`);
+			const relayEndpoint = link.relayOrigin ?? opts.relay;
+			const { state } = await pairRelay({ link, deviceLabel, relayEndpoint });
+			await savePairing(opts.state, state);
+			printPairSummary(state, opts.state);
+			return 0;
+		}
+		console.error(
+			"direct/LAN QR pairing is not wired in the reference CLI; pass the home's LAN pair URL directly, e.g. spl-mobile pair https://<ip>:<port>/pair?token=<nonce> <label>",
+		);
+		return 2;
+	}
+
+	console.log(`pairing over LAN as "${deviceLabel}"`);
 	const { state } = await pair({
-		lanUrl,
+		lanUrl: target,
 		deviceLabel,
 		relayEndpoint: opts.relay,
 		caFingerprint: opts.pin,
 		insecureSkipLanVerify: opts.insecure,
 	});
 	await savePairing(opts.state, state);
+	printPairSummary(state, opts.state);
+	return 0;
+}
+
+function printPairSummary(
+	state: { home_label: string; instance_id: string; fingerprint: string },
+	path: string,
+): void {
 	console.log(`Paired with ${state.home_label} (instance ${state.instance_id}).`);
 	console.log(`  fingerprint: ${state.fingerprint}`);
-	console.log(`  state saved to: ${opts.state}`);
-	return 0;
+	console.log(`  state saved to: ${path}`);
 }
 
 async function cmdDial(args: string[]): Promise<number> {
