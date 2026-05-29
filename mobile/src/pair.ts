@@ -8,8 +8,8 @@
 // 3. POST to the home's local HTTPS pair URL, pinning the home's self-signed
 //    CA cert (pin fingerprint optionally provided out-of-band).
 // 4. Receive { client_cert, ca_chain, instance_id, home_label, home_attestation }.
-// 5. Forward the client_cert + home_attestation to spl-relay /enroll/device and
-//    store the resulting device_token alongside the local keypair.
+// 5. Forward the home_attestation to spl-relay /enroll/device and store the
+//    resulting device_token alongside the local keypair.
 
 import { webcrypto } from "node:crypto";
 import { chmod, readFile, writeFile } from "node:fs/promises";
@@ -90,19 +90,10 @@ export async function pair(input: PairInput): Promise<PairResult> {
 		fingerprint: string;
 	};
 
-	const enroll = await httpsPost(
-		`${input.relayEndpoint.replace(/\/+$/, "")}/enroll/device`,
-		JSON.stringify({
-			instance_id: pairJson.instance_id,
-			client_cert: pairJson.client_cert,
-			home_attestation: pairJson.home_attestation,
-		}),
-		{},
-	);
-	if (enroll.status !== 200) {
-		throw new Error(`/enroll/device failed: HTTP ${enroll.status}: ${enroll.body}`);
-	}
-	const enrollJson = JSON.parse(enroll.body) as { device_token: string };
+	const { device_token } = await enrollDevice(input.relayEndpoint, {
+		instance_id: pairJson.instance_id,
+		home_attestation: pairJson.home_attestation,
+	});
 
 	const state: PairingState = {
 		instance_id: pairJson.instance_id,
@@ -111,23 +102,45 @@ export async function pair(input: PairInput): Promise<PairResult> {
 		ca_chain: pairJson.ca_chain,
 		client_cert: pairJson.client_cert,
 		client_key_pem: clientKeyPem,
-		device_token: enrollJson.device_token,
+		device_token,
 		fingerprint: pairJson.fingerprint,
 	};
 	return { state };
 }
 
-interface HttpsOpts {
+export function buildEnrollBody(p: { instance_id: string; home_attestation: string }): {
+	instance_id: string;
+	home_attestation: string;
+} {
+	return { instance_id: p.instance_id, home_attestation: p.home_attestation };
+}
+
+export async function enrollDevice(
+	relayEndpoint: string,
+	p: { instance_id: string; home_attestation: string },
+): Promise<{ device_token: string }> {
+	const enroll = await httpsPost(
+		`${relayEndpoint.replace(/\/+$/, "")}/enroll/device`,
+		JSON.stringify(buildEnrollBody(p)),
+		{},
+	);
+	if (enroll.status !== 200) {
+		throw new Error(`/enroll/device failed: HTTP ${enroll.status}: ${enroll.body}`);
+	}
+	return JSON.parse(enroll.body) as { device_token: string };
+}
+
+export interface HttpsOpts {
 	caFingerprint?: string;
 	insecureSkipVerify?: boolean;
 }
 
-interface HttpResponse {
+export interface HttpResponse {
 	status: number;
 	body: string;
 }
 
-async function httpsPost(url: string, body: string, opts: HttpsOpts): Promise<HttpResponse> {
+export async function httpsPost(url: string, body: string, opts: HttpsOpts): Promise<HttpResponse> {
 	const https = await import("node:https");
 	const http = await import("node:http");
 	const crypto = await import("node:crypto");
