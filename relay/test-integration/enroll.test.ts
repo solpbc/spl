@@ -21,6 +21,8 @@ declare module "cloudflare:test" {
 	}
 }
 
+const VALID_TOTP_SECRET = "JBSWY3DPEHPK3PXP";
+
 beforeAll(async () => {
 	await applyD1Migrations(env.DB, migrations);
 });
@@ -91,6 +93,101 @@ describe("POST /enroll/home", () => {
 			.bind(instanceId)
 			.first<{ service_token_jti: string; rotated_at: number | null }>();
 		expect(instance?.rotated_at).not.toBeNull();
+	});
+
+	it("stores an optional totp_secret and preserves it on re-enroll", async () => {
+		const ca = await genCaKeypair();
+		const instanceId = newInstanceId();
+		const r1 = await SELF.fetch("http://spl.test/enroll/home", {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({
+				instance_id: instanceId,
+				ca_pubkey: ca.pubPem,
+				totp_secret: VALID_TOTP_SECRET,
+			}),
+		});
+		expect(r1.status).toBe(200);
+		const stored = await env.DB.prepare("SELECT totp_secret FROM instances WHERE instance_id = ?")
+			.bind(instanceId)
+			.first<{ totp_secret: string | null }>();
+		expect(stored?.totp_secret).toBe(VALID_TOTP_SECRET);
+
+		const r2 = await SELF.fetch("http://spl.test/enroll/home", {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({
+				instance_id: instanceId,
+				ca_pubkey: ca.pubPem,
+			}),
+		});
+		expect(r2.status).toBe(200);
+		const afterReenroll = await env.DB.prepare(
+			"SELECT totp_secret FROM instances WHERE instance_id = ?",
+		)
+			.bind(instanceId)
+			.first<{ totp_secret: string | null }>();
+		expect(afterReenroll?.totp_secret).toBe(VALID_TOTP_SECRET);
+
+		const noSecretInstanceId = newInstanceId();
+		const r3 = await SELF.fetch("http://spl.test/enroll/home", {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({
+				instance_id: noSecretInstanceId,
+				ca_pubkey: (await genCaKeypair()).pubPem,
+			}),
+		});
+		expect(r3.status).toBe(200);
+		const omitted = await env.DB.prepare("SELECT totp_secret FROM instances WHERE instance_id = ?")
+			.bind(noSecretInstanceId)
+			.first<{ totp_secret: string | null }>();
+		expect(omitted?.totp_secret).toBeNull();
+	});
+
+	it("rejects a malformed totp_secret", async () => {
+		const ca = await genCaKeypair();
+		const res = await SELF.fetch("http://spl.test/enroll/home", {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({
+				instance_id: newInstanceId(),
+				ca_pubkey: ca.pubPem,
+				totp_secret: "short",
+			}),
+		});
+		expect(res.status).toBe(400);
+	});
+
+	it("rejects a different instance presenting an already-registered ca_pubkey", async () => {
+		const ca = await genCaKeypair();
+		const r1 = await SELF.fetch("http://spl.test/enroll/home", {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({ instance_id: newInstanceId(), ca_pubkey: ca.pubPem }),
+		});
+		expect(r1.status).toBe(200);
+		const r2 = await SELF.fetch("http://spl.test/enroll/home", {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({ instance_id: newInstanceId(), ca_pubkey: ca.pubPem }),
+		});
+		expect(r2.status).toBe(409);
+		expect(await r2.text()).not.toContain("sha256:");
+	});
+
+	it("rejects an oversized /enroll/home body with 413", async () => {
+		const ca = await genCaKeypair();
+		const res = await SELF.fetch("http://spl.test/enroll/home", {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({
+				instance_id: newInstanceId(),
+				ca_pubkey: ca.pubPem,
+				home_label: "x".repeat(40000),
+			}),
+		});
+		expect(res.status).toBe(413);
 	});
 
 	it("rejects ca_pubkey mismatch on re-enroll (takeover attempt)", async () => {
@@ -219,6 +316,18 @@ describe("POST /enroll/device", () => {
 			body: JSON.stringify({ instance_id: instanceId }),
 		});
 		expect(res.status).toBe(400);
+	});
+
+	it("rejects an oversized /enroll/device body with 413", async () => {
+		const res = await SELF.fetch("http://spl.test/enroll/device", {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({
+				instance_id: newInstanceId(),
+				home_attestation: "x".repeat(20000),
+			}),
+		});
+		expect(res.status).toBe(413);
 	});
 
 	it("rejects device enroll for an unknown instance_id", async () => {

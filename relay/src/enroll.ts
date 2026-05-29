@@ -18,11 +18,15 @@ import { uuidv7 } from "./uuid";
 // 365 days / 60 days per proto/tokens.md §TTLs.
 const SERVICE_TOKEN_TTL_SECONDS = 365 * 24 * 60 * 60;
 const DEVICE_TOKEN_TTL_SECONDS = 60 * 24 * 60 * 60;
+const MAX_ENROLL_HOME_BYTES = 32 * 1024;
+const MAX_ENROLL_DEVICE_BYTES = 16 * 1024;
+const TOTP_SECRET_RE = /^[A-Z2-7]{16,128}$/;
 
 interface EnrollHomeBody {
 	instance_id?: string;
 	ca_pubkey?: string;
 	home_label?: string;
+	totp_secret?: string;
 }
 
 interface EnrollDeviceBody {
@@ -33,8 +37,17 @@ interface EnrollDeviceBody {
 export async function handleEnrollHome(request: Request, env: Env): Promise<Response> {
 	if (!env.SIGNING_JWK) return json({ error: "relay not provisioned" }, 503);
 
-	const body = (await readJson<EnrollHomeBody>(request)) ?? null;
-	if (!body || !body.instance_id || !body.ca_pubkey) {
+	const read = await readJson<EnrollHomeBody>(request, MAX_ENROLL_HOME_BYTES);
+	if (!read.ok) {
+		if (read.reason === "too_large") {
+			log({ event: "enroll_rejected", route: "/enroll/home", reason: "body_too_large" });
+			return json({ error: "request body too large" }, 413);
+		}
+		log({ event: "enroll_rejected", route: "/enroll/home", reason: "missing_fields" });
+		return json({ error: "instance_id and ca_pubkey required" }, 400);
+	}
+	const body = read.value;
+	if (!body.instance_id || !body.ca_pubkey) {
 		log({ event: "enroll_rejected", route: "/enroll/home", reason: "missing_fields" });
 		return json({ error: "instance_id and ca_pubkey required" }, 400);
 	}
@@ -43,6 +56,11 @@ export async function handleEnrollHome(request: Request, env: Env): Promise<Resp
 	if (!/^[0-9a-fA-F-]{10,64}$/.test(body.instance_id)) {
 		log({ event: "enroll_rejected", route: "/enroll/home", reason: "bad_instance_id" });
 		return json({ error: "bad instance_id" }, 400);
+	}
+
+	if (body.totp_secret !== undefined && !TOTP_SECRET_RE.test(body.totp_secret)) {
+		log({ event: "enroll_rejected", route: "/enroll/home", reason: "bad_totp_secret" });
+		return json({ error: "bad totp_secret" }, 400);
 	}
 
 	// ca_pubkey must be an ECDSA-P256 SPKI public key — matches the mTLS
@@ -87,17 +105,48 @@ export async function handleEnrollHome(request: Request, env: Env): Promise<Resp
 			return json({ error: "ca_pubkey mismatch — rotation not supported in v1" }, 409);
 		}
 		await env.DB.prepare(
-			"UPDATE instances SET ca_fp = ?, home_label = ?, service_token_jti = ?, rotated_at = ? WHERE instance_id = ?",
+			"UPDATE instances SET ca_fp = ?, home_label = ?, totp_secret = COALESCE(?, totp_secret), service_token_jti = ?, rotated_at = ? WHERE instance_id = ?",
 		)
-			.bind(caFp, body.home_label ?? null, minted.jti, minted.iat, body.instance_id)
+			.bind(
+				caFp,
+				body.home_label ?? null,
+				body.totp_secret ?? null,
+				minted.jti,
+				minted.iat,
+				body.instance_id,
+			)
 			.run();
 		log({ event: "enroll_home_rotate", instance_id: body.instance_id, jti: minted.jti });
 	} else {
-		await env.DB.prepare(
-			"INSERT INTO instances (instance_id, ca_fp, ca_pubkey_pem, home_label, created_at, service_token_jti) VALUES (?, ?, ?, ?, ?, ?)",
-		)
-			.bind(body.instance_id, caFp, body.ca_pubkey, body.home_label ?? null, minted.iat, minted.jti)
-			.run();
+		try {
+			await env.DB.prepare(
+				"INSERT INTO instances (instance_id, ca_fp, ca_pubkey_pem, home_label, totp_secret, created_at, service_token_jti) VALUES (?, ?, ?, ?, ?, ?, ?)",
+			)
+				.bind(
+					body.instance_id,
+					caFp,
+					body.ca_pubkey,
+					body.home_label ?? null,
+					body.totp_secret ?? null,
+					minted.iat,
+					minted.jti,
+				)
+				.run();
+		} catch (err) {
+			// instance_id PK can't collide here — we just SELECTed and found none.
+			// A UNIQUE failure is therefore the ca_fp index: a different instance
+			// already registered this CA. Reject without leaking the fp or the
+			// other instance's id.
+			const msg = err instanceof Error ? err.message : String(err);
+			if (!/UNIQUE/.test(msg)) throw err;
+			log({
+				event: "enroll_rejected",
+				route: "/enroll/home",
+				reason: "ca_fp_conflict",
+				instance_id: body.instance_id,
+			});
+			return json({ error: "ca_pubkey already registered to another instance" }, 409);
+		}
 		log({ event: "enroll_home", instance_id: body.instance_id, jti: minted.jti });
 	}
 
@@ -110,8 +159,21 @@ export async function handleEnrollHome(request: Request, env: Env): Promise<Resp
 export async function handleEnrollDevice(request: Request, env: Env): Promise<Response> {
 	if (!env.SIGNING_JWK) return json({ error: "relay not provisioned" }, 503);
 
-	const body = (await readJson<EnrollDeviceBody>(request)) ?? null;
-	if (!body || !body.instance_id || !body.home_attestation) {
+	const read = await readJson<EnrollDeviceBody>(request, MAX_ENROLL_DEVICE_BYTES);
+	if (!read.ok) {
+		if (read.reason === "too_large") {
+			log({ event: "enroll_rejected", route: "/enroll/device", reason: "body_too_large" });
+			return json({ error: "request body too large" }, 413);
+		}
+		log({
+			event: "enroll_rejected",
+			route: "/enroll/device",
+			reason: "missing_fields",
+		});
+		return json({ error: "instance_id and home_attestation required" }, 400);
+	}
+	const body = read.value;
+	if (!body.instance_id || !body.home_attestation) {
 		log({
 			event: "enroll_rejected",
 			route: "/enroll/device",
@@ -249,13 +311,33 @@ export async function handleEnrollDevice(request: Request, env: Env): Promise<Re
 	});
 }
 
-async function readJson<T>(request: Request): Promise<T | null> {
+type ReadResult<T> = { ok: true; value: T } | { ok: false; reason: "too_large" | "invalid" };
+
+async function readJson<T>(request: Request, maxBytes: number): Promise<ReadResult<T>> {
 	const ct = request.headers.get("content-type") ?? "";
-	if (!ct.includes("application/json")) return null;
+	if (!ct.includes("application/json")) return { ok: false, reason: "invalid" };
+
+	// Pre-parse size cap. content-length is the cheap signal for a fixed-length
+	// body; the measured byteLength below is the backstop when it is absent or
+	// understated. The body stream is consumed exactly once.
+	const declared = request.headers.get("content-length");
+	if (declared !== null) {
+		const n = Number(declared);
+		if (Number.isFinite(n) && n > maxBytes) return { ok: false, reason: "too_large" };
+	}
+
+	let raw: ArrayBuffer;
 	try {
-		return (await request.json()) as T;
+		raw = await request.arrayBuffer();
 	} catch {
-		return null;
+		return { ok: false, reason: "invalid" };
+	}
+	if (raw.byteLength > maxBytes) return { ok: false, reason: "too_large" };
+
+	try {
+		return { ok: true, value: JSON.parse(new TextDecoder().decode(raw)) as T };
+	} catch {
+		return { ok: false, reason: "invalid" };
 	}
 }
 

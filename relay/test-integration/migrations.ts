@@ -37,4 +37,11 @@ export const migrations = [
 		name: "0002_devices_add_device_id",
 		queries: ["ALTER TABLE devices ADD COLUMN device_id TEXT"],
 	},
+	{
+		name: "0004_instances_totp_ca_unique",
+		queries: [
+			"ALTER TABLE instances ADD COLUMN totp_secret TEXT",
+			"CREATE UNIQUE INDEX IF NOT EXISTS idx_instances_ca_fp ON instances(ca_fp)",
+		],
+	},
 ];
