@@ -19,7 +19,7 @@ Different standards (JOSE vs. X.509/TLS), different ecosystems, different optima
 
 There are two.
 
-### account token
+### service token
 
 Authorizes a home to open a `/session/listen` WebSocket to `spl-relay`. Long-lived. One per home install.
 
@@ -43,7 +43,7 @@ JOSE header:
 
 `kid` is required. It is how rotation works without disruption — see *rotation* below.
 
-JWT payload, account token:
+JWT payload, service token:
 
 ```json
 {
@@ -80,9 +80,9 @@ JWT payload, device token:
 | `iss` | yes | issuer hostname; for sol pbc deployments, `spl.solpbc.org`. Self-hosters use their own. |
 | `sub` | yes | subject; `home:<instance_id>` or `device:<device_id>`. |
 | `aud` | yes | audience; always `spl-relay`. |
-| `scope` | yes | one of `session.listen` (account token) or `session.dial` (device token). Workers reject mismatched scope at the route level. |
-| `instance_id` | yes | which home this token authorizes the bearer to act on. For account tokens, the home's own id. For device tokens, the paired home. |
-| `ca_fp` | account only | SHA-256 of the home's local CA public key, registered at home enrollment. Used by `spl-relay` to validate device-token enrollment requests (mobile presents a client cert; `spl-relay` checks the cert chains to a CA whose fingerprint a home has registered). |
+| `scope` | yes | one of `session.listen` (service token) or `session.dial` (device token). Workers reject mismatched scope at the route level. |
+| `instance_id` | yes | which home this token authorizes the bearer to act on. For service tokens, the home's own id. For device tokens, the paired home. |
+| `ca_fp` | service only | SHA-256 of the home's local CA public key, registered at home enrollment. Used by `spl-relay` to validate device-token enrollment requests (mobile presents a client cert; `spl-relay` checks the cert chains to a CA whose fingerprint a home has registered). |
 | `device_fp` | device only | SHA-256 of the mobile client cert. Bound to a specific paired device. |
 | `iat` | yes | issued-at, seconds since epoch. |
 | `exp` | yes | expiration, seconds since epoch. |
@@ -94,7 +94,7 @@ Workers MUST reject any token missing a required claim or carrying an unexpected
 
 | token | TTL | rotation |
 |---|---|---|
-| account token | 365 days | re-issued automatically by the home on token age > 80% of TTL via the control-plane re-issue endpoint |
+| service token | 365 days | re-issued automatically by the home on token age > 80% of TTL via the control-plane re-issue endpoint |
 | device token | 60 days | re-issued automatically by the mobile on next dial after age > 80% of TTL |
 
 Long TTLs are deliberate. Both tokens authorize the **rendezvous** only; they confer no data access. The TLS layer is the data-plane authoritative point. A leaked token grants only the right to open a WebSocket to `spl-relay`, which is useless without the matching mTLS material that lives only on the device.
@@ -121,11 +121,11 @@ Called once at solstone first run. Body:
 }
 ```
 
-`spl-relay` records (`instance_id`, `ca_fp = sha256(ca_pubkey)`, `home_label`, `created_at`) in D1 and issues an account token. Response:
+`spl-relay` records (`instance_id`, `ca_fp = sha256(ca_pubkey)`, `home_label`, `created_at`) in D1 and issues a service token. Response:
 
 ```json
 {
-  "account_token": "<JWT>",
+  "service_token": "<JWT>",
   "expires_at": "<ISO8601>"
 }
 ```
@@ -221,7 +221,7 @@ On every WebSocket upgrade request to `/session/listen` or `/session/dial`, the 
    - `exp > now`
    - `iat ≤ now + 60s` (allow 60s clock skew on the issued-at side)
    - `scope` matches the route (`session.listen` for `/session/listen`; `session.dial` for `/session/dial`)
-6. Verifies the `instance_id` exists in D1 and is not in the (D1) account-revocation table.
+6. Verifies the `instance_id` exists in D1 and is not in the (D1) service-revocation table.
 7. For device tokens, verifies the `device_fp` is not in the (D1) device-revocation table for that instance_id.
 
 If any check fails, the Worker closes the WebSocket with a clean close code (`4401` "unauthorized") and logs the failure with `tunnel_id` (none yet — pre-pair), token `jti`, route, and reason. **Never the token bytes, never claims-as-payload.**
@@ -288,7 +288,7 @@ CREATE TABLE instances (
   ca_fp TEXT NOT NULL,
   home_label TEXT,
   created_at INTEGER NOT NULL,
-  account_token_jti TEXT NOT NULL,
+  service_token_jti TEXT NOT NULL,
   revoked_at INTEGER
 );
 
@@ -312,7 +312,7 @@ Stated to make the trust boundary unambiguous:
 - **Tokens do not decrypt anything.** TLS material lives only on the home and the mobile device.
 - **Tokens do not name a fingerprint that the TLS layer trusts.** Adding a fingerprint to `authorized_clients.json` happens during pairing on the home, not via any token operation.
 - **Tokens do not bind a session to a user.** They bind a WebSocket to an `instance_id` for `spl-relay`'s rendezvous purposes. There is no concept of a "user" in `spl-relay`.
-- **Possession of a token is not possession of access.** A device token without the matching client cert is useless. A leaked account token without the home's CA private key cannot be turned into a working home install.
+- **Possession of a token is not possession of access.** A device token without the matching client cert is useless. A leaked service token without the home's CA private key cannot be turned into a working home install.
 
 This is the load-bearing trust statement: tokens are the rendezvous, not the data.
 

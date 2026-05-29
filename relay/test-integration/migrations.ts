@@ -15,7 +15,7 @@ export const migrations = [
 				ca_pubkey_pem     TEXT NOT NULL,
 				home_label        TEXT,
 				created_at        INTEGER NOT NULL,
-				account_token_jti TEXT NOT NULL,
+				service_token_jti TEXT NOT NULL,
 				rotated_at        INTEGER,
 				revoked_at        INTEGER
 			)`,

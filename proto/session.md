@@ -8,9 +8,9 @@ This document is the contract for the WebSocket dance — what each side opens, 
 
 Three WebSocket endpoints on `spl-relay`:
 
-- `GET /session/listen` — home upgrades to WS; carries an account-token bearer. One per home, held open indefinitely.
+- `GET /session/listen` — home upgrades to WS; carries a service-token bearer. One per home, held open indefinitely.
 - `GET /session/dial` — mobile upgrades to WS; carries a device-token bearer. One per mobile dial; **becomes** the mobile-side tunnel WS once paired.
-- `GET /tunnel/<id>` — home upgrades to WS; carries the account-token plus a `tunnel_id` minted by the relay. One per active tunnel on the home side; opened in response to a pair signal.
+- `GET /tunnel/<id>` — home upgrades to WS; carries the service-token plus a `tunnel_id` minted by the relay. One per active tunnel on the home side; opened in response to a pair signal.
 
 The asymmetry is deliberate. The mobile opens **one** WebSocket per dial (the dial WS becomes the tunnel WS — single-WS-per-side, prototype finding §11.1, saves ~40-80 ms per cold request). The home opens **one** persistent listen WS plus **one** transient tunnel WS per active tunnel.
 
@@ -23,7 +23,7 @@ GET /session/listen HTTP/1.1
 Host: spl.solpbc.org
 Upgrade: websocket
 Connection: Upgrade
-Authorization: Bearer <account_token>
+Authorization: Bearer <service_token>
 Sec-WebSocket-Key: ...
 ```
 
@@ -62,7 +62,7 @@ GET /tunnel/<tunnel_id> HTTP/1.1
 Host: spl.solpbc.org
 Upgrade: websocket
 Connection: Upgrade
-Authorization: Bearer <account_token>
+Authorization: Bearer <service_token>
 Sec-WebSocket-Key: ...
 ```
 
@@ -76,7 +76,7 @@ The home opens one tunnel WS per concurrent tunnel. The listen WS stays open acr
 home                          spl-relay                              mobile
 ----                          -----                              ------
 
-(1) listen WS open ─────────▶ validate account token
+(1) listen WS open ─────────▶ validate service token
                               hold WS open, register as
                               ready for instance_id
 
@@ -113,7 +113,7 @@ Numbered steps:
 
 ### 1. listen — home opens at solstone startup
 
-The home's `spl.tunnel` task opens `GET /session/listen` to `spl-relay` immediately on solstone startup. It carries the account token in the `Authorization` header. The relay validates the token (see [`tokens.md`](tokens.md)), records this WS as the ready listen socket for the home's `instance_id`, and holds the WS open. The home sends no further bytes on this WS — it only reads.
+The home's `spl.tunnel` task opens `GET /session/listen` to `spl-relay` immediately on solstone startup. It carries the service token in the `Authorization` header. The relay validates the token (see [`tokens.md`](tokens.md)), records this WS as the ready listen socket for the home's `instance_id`, and holds the WS open. The home sends no further bytes on this WS — it only reads.
 
 ### 2. dial — mobile opens when the user opens the app
 
@@ -131,7 +131,7 @@ This is a structured JSON message in a WebSocket text frame. It is the **only** 
 
 ### 4. tunnel — home opens on the signal
 
-The home reacts to the `incoming` signal by opening `GET /tunnel/<tunnel_id>` to `spl-relay`, carrying the account token and the `tunnel_id` from the signal. The relay matches the WS against the recorded entry by `tunnel_id`.
+The home reacts to the `incoming` signal by opening `GET /tunnel/<tunnel_id>` to `spl-relay`, carrying the service token and the `tunnel_id` from the signal. The relay matches the WS against the recorded entry by `tunnel_id`.
 
 ### 5. pair — relay matches the two WSes
 
@@ -264,7 +264,7 @@ Behavior:
 - Both sides observe a clean WebSocket close (typically code 1006 abnormal closure or 1012 service restart).
 - Both sides reconnect per the backoff rules above.
 - **Pair state is not preserved.** All in-flight `tunnel_id`s are invalidated. The mobile's next dial mints a new `tunnel_id`; the home opens a fresh tunnel WS in response to the new `incoming`.
-- **Pairing material is preserved.** The home's CA, the mobile's client cert, the device tokens, and the account tokens all survive — they live in their respective stores, not in the Worker. **No re-enrollment is required.**
+- **Pairing material is preserved.** The home's CA, the mobile's client cert, the device tokens, and the service tokens all survive — they live in their respective stores, not in the Worker. **No re-enrollment is required.**
 
 Acceptance criterion (per spec): clients reconnect within 10 seconds of a Worker redeploy without requiring re-pair. Prototype did not measure this directly (§7); MVP test suite covers it.
 

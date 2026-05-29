@@ -9,7 +9,7 @@
 
 import { SELF, applyD1Migrations, env } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
-import { mintAccountToken, mintDeviceToken } from "../src/tokens";
+import { mintDeviceToken, mintServiceToken } from "../src/tokens";
 import { migrations } from "./migrations";
 
 declare module "cloudflare:test" {
@@ -25,9 +25,9 @@ beforeAll(async () => {
 	await applyD1Migrations(env.DB, migrations);
 });
 
-async function mintAccount(instanceId: string): Promise<string> {
+async function mintService(instanceId: string): Promise<string> {
 	return (
-		await mintAccountToken(env.SIGNING_JWK, {
+		await mintServiceToken(env.SIGNING_JWK, {
 			instance_id: instanceId,
 			ca_fp: "sha256:test",
 			issuer: env.ISSUER,
@@ -60,7 +60,7 @@ async function wsOpen(url: string, token: string): Promise<WebSocket> {
 describe("pending buffer overflow closes the tunnel with 1009", () => {
 	it("mobile sends > 16 MiB before home attaches; overflow closes", async () => {
 		const instanceId = crypto.randomUUID();
-		const listenToken = await mintAccount(instanceId);
+		const listenToken = await mintService(instanceId);
 		const dialToken = await mintDevice(instanceId);
 
 		// Home holds listen WS open but deliberately does NOT attach the

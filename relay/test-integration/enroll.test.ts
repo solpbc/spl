@@ -33,7 +33,7 @@ function newInstanceId(): string {
 }
 
 describe("POST /enroll/home", () => {
-	it("enrolls a new home and returns a valid account token", async () => {
+	it("enrolls a new home and returns a valid service token", async () => {
 		const ca = await genCaKeypair();
 		const instanceId = newInstanceId();
 		const res = await SELF.fetch("http://spl.test/enroll/home", {
@@ -46,9 +46,9 @@ describe("POST /enroll/home", () => {
 			}),
 		});
 		expect(res.status).toBe(200);
-		const body = (await res.json()) as { account_token: string; expires_at: string };
-		expect(body.account_token).toBeTruthy();
-		const verified = await verifyToken(body.account_token, {
+		const body = (await res.json()) as { service_token: string; expires_at: string };
+		expect(body.service_token).toBeTruthy();
+		const verified = await verifyToken(body.service_token, {
 			jwksRaw: env.JWKS_PUBLIC,
 			expectedIssuer: env.ISSUER,
 			expectedScope: "session.listen",
@@ -75,21 +75,21 @@ describe("POST /enroll/home", () => {
 			body: JSON.stringify(body),
 		});
 		expect(r1.status).toBe(200);
-		const t1 = (await r1.json()) as { account_token: string };
+		const t1 = (await r1.json()) as { service_token: string };
 		const r2 = await SELF.fetch("http://spl.test/enroll/home", {
 			method: "POST",
 			headers: { "content-type": "application/json" },
 			body: JSON.stringify(body),
 		});
 		expect(r2.status).toBe(200);
-		const t2 = (await r2.json()) as { account_token: string };
-		expect(t1.account_token).not.toBe(t2.account_token);
+		const t2 = (await r2.json()) as { service_token: string };
+		expect(t1.service_token).not.toBe(t2.service_token);
 
 		const instance = await env.DB.prepare(
-			"SELECT account_token_jti, rotated_at FROM instances WHERE instance_id = ?",
+			"SELECT service_token_jti, rotated_at FROM instances WHERE instance_id = ?",
 		)
 			.bind(instanceId)
-			.first<{ account_token_jti: string; rotated_at: number | null }>();
+			.first<{ service_token_jti: string; rotated_at: number | null }>();
 		expect(instance?.rotated_at).not.toBeNull();
 	});
 

@@ -4,7 +4,7 @@
 // Control-plane enrollment endpoints. HTTPS-only; never reachable on the
 // WebSocket upgrade path.
 //
-// POST /enroll/home   — home install → account token
+// POST /enroll/home   — home install → service token
 // POST /enroll/device — paired mobile → device token
 //
 // See proto/tokens.md §issuance for the on-the-wire payloads and TTL rules.
@@ -12,11 +12,11 @@
 import { fingerprintDer, importCaPublicKey, pemToDer, verifyAttestation } from "./attestation";
 import type { Env } from "./env";
 import { log } from "./logging";
-import { mintAccountToken, mintDeviceToken } from "./tokens";
+import { mintDeviceToken, mintServiceToken } from "./tokens";
 import { uuidv7 } from "./uuid";
 
 // 365 days / 60 days per proto/tokens.md §TTLs.
-const ACCOUNT_TOKEN_TTL_SECONDS = 365 * 24 * 60 * 60;
+const SERVICE_TOKEN_TTL_SECONDS = 365 * 24 * 60 * 60;
 const DEVICE_TOKEN_TTL_SECONDS = 60 * 24 * 60 * 60;
 
 interface EnrollHomeBody {
@@ -61,11 +61,11 @@ export async function handleEnrollHome(request: Request, env: Env): Promise<Resp
 	}
 	const caFp = await fingerprintDer(caDer);
 
-	const minted = await mintAccountToken(env.SIGNING_JWK, {
+	const minted = await mintServiceToken(env.SIGNING_JWK, {
 		instance_id: body.instance_id,
 		ca_fp: caFp,
 		issuer: env.ISSUER,
-		ttlSeconds: ACCOUNT_TOKEN_TTL_SECONDS,
+		ttlSeconds: SERVICE_TOKEN_TTL_SECONDS,
 	});
 
 	// Idempotent: same instance_id rotates the token. Preserves ca_pubkey
@@ -87,14 +87,14 @@ export async function handleEnrollHome(request: Request, env: Env): Promise<Resp
 			return json({ error: "ca_pubkey mismatch — rotation not supported in v1" }, 409);
 		}
 		await env.DB.prepare(
-			"UPDATE instances SET ca_fp = ?, home_label = ?, account_token_jti = ?, rotated_at = ? WHERE instance_id = ?",
+			"UPDATE instances SET ca_fp = ?, home_label = ?, service_token_jti = ?, rotated_at = ? WHERE instance_id = ?",
 		)
 			.bind(caFp, body.home_label ?? null, minted.jti, minted.iat, body.instance_id)
 			.run();
 		log({ event: "enroll_home_rotate", instance_id: body.instance_id, jti: minted.jti });
 	} else {
 		await env.DB.prepare(
-			"INSERT INTO instances (instance_id, ca_fp, ca_pubkey_pem, home_label, created_at, account_token_jti) VALUES (?, ?, ?, ?, ?, ?)",
+			"INSERT INTO instances (instance_id, ca_fp, ca_pubkey_pem, home_label, created_at, service_token_jti) VALUES (?, ?, ?, ?, ?, ?)",
 		)
 			.bind(body.instance_id, caFp, body.ca_pubkey, body.home_label ?? null, minted.iat, minted.jti)
 			.run();
@@ -102,7 +102,7 @@ export async function handleEnrollHome(request: Request, env: Env): Promise<Resp
 	}
 
 	return json({
-		account_token: minted.jwt,
+		service_token: minted.jwt,
 		expires_at: new Date(minted.exp * 1000).toISOString(),
 	});
 }

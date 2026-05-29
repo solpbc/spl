@@ -23,7 +23,7 @@ export interface Env {
 	// See ../docs/signing-keys.md for the lifecycle and ../proto/tokens.md
 	// for the wire format.
 	//
-	// SIGNING_JWK is the PRIVATE Ed25519 JWK used to mint account/device
+	// SIGNING_JWK is the PRIVATE Ed25519 JWK used to mint service/device
 	// tokens at the /enroll/* control-plane endpoints.
 	//
 	// JWKS_PUBLIC is a JSON envelope { "keys": [<public JWK>, ...] } used

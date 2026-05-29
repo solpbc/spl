@@ -5,7 +5,7 @@
 //
 // Routes:
 //   GET  /.well-known/jwks.json     — transparency mirror of env.JWKS_PUBLIC
-//   POST /enroll/home               — mint account token, store CA pubkey
+//   POST /enroll/home               — mint service token, store CA pubkey
 //   POST /enroll/device             — verify home attestation, mint device token
 //   GET  /session/listen?instance=  — home holds this open indefinitely
 //   GET  /session/dial?instance=    — mobile opens, becomes tunnel WS on pair

@@ -22,7 +22,7 @@ export interface TokenClaims {
 	iat: number;
 	exp: number;
 	jti: string;
-	// account token only
+	// service token only
 	ca_fp?: string;
 	// device token only
 	device_fp?: string;
@@ -131,7 +131,7 @@ export async function verifyToken(token: string, options: VerifyOptions): Promis
 
 // Token minting — called ONLY from the control-plane enroll handlers, over
 // HTTPS, never from the WebSocket upgrade path.
-export interface MintAccountTokenInput {
+export interface MintServiceTokenInput {
 	instance_id: string;
 	ca_fp: string;
 	issuer: string;
@@ -156,9 +156,9 @@ export interface MintedToken {
 	exp: number;
 }
 
-export async function mintAccountToken(
+export async function mintServiceToken(
 	signingJwkRaw: string,
-	input: MintAccountTokenInput,
+	input: MintServiceTokenInput,
 ): Promise<MintedToken> {
 	const now = input.now ?? Math.floor(Date.now() / 1000);
 	const jti = uuidv7();

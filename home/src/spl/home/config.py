@@ -4,12 +4,12 @@
 """Home config — persisted state between `start` and `pair` invocations.
 
 The config file lives at `<state_dir>/config.json` and is the source of
-truth for: instance_id, home_label, relay endpoint, account token, paths
+truth for: instance_id, home_label, relay endpoint, service token, paths
 to the CA key/cert, authorized_clients.json, and the nonces file used by
 the pair ceremony.
 
 First-run bootstrap creates the CA, registers with the relay via
-/enroll/home, stores the account token, and writes the config. Subsequent
+/enroll/home, stores the service token, and writes the config. Subsequent
 runs load it. If the relay invalidates the token (rotation, reinstall),
 `start` re-registers idempotently.
 """
@@ -29,7 +29,7 @@ class Config:
     instance_id: str
     home_label: str
     relay_endpoint: str  # e.g. "https://spl.example.org" — trailing slash stripped
-    account_token: str | None
+    service_token: str | None
     ca_path: Path  # base path; actual files are <ca_path>.crt.pem + <ca_path>.key.pem
     ca_passphrase_file: Path
     authorized_clients_path: Path
@@ -51,7 +51,7 @@ class Config:
             instance_id=raw["instance_id"],
             home_label=raw["home_label"],
             relay_endpoint=raw["relay_endpoint"].rstrip("/"),
-            account_token=raw.get("account_token"),
+            service_token=raw.get("service_token"),
             ca_path=Path(raw["ca_path"]),
             ca_passphrase_file=Path(raw["ca_passphrase_file"]),
             authorized_clients_path=Path(raw["authorized_clients_path"]),
@@ -95,7 +95,7 @@ def default_config(
         instance_id=str(uuid.uuid4()),
         home_label=home_label,
         relay_endpoint=relay_endpoint.rstrip("/"),
-        account_token=None,
+        service_token=None,
         ca_path=state_dir / "ca",
         ca_passphrase_file=state_dir / "ca.pass",
         authorized_clients_path=state_dir / "authorized_clients.json",

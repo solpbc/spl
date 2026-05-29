@@ -86,7 +86,7 @@ Never commit a secret. For production:
 
 ```sh
 # Private Ed25519 signing JWK (JSON; the private half used to mint
-# account/device tokens):
+# service/device tokens):
 echo "$PRIVATE_JWK_JSON" | wrangler secret put SIGNING_JWK --env production
 
 # Public JWKS envelope (JSON; the public half the Worker verifies against —

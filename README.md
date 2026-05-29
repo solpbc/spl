@@ -18,7 +18,7 @@ spl gives two paired endpoints (today: a solstone home server and a paired mobil
 solstone (home, python)          sol-pbc CF ("spl-relay")            mobile app (swift/kotlin)
 -----------------------          --------------------            ------------------------
 POST /session/listen ────────▶   Workers: validate
-  Authorization: account_token     account token
+  Authorization: service_token     service token
                                   DO.setReady(instance_id)
                               ◀── hold-open WS (the "listen" socket)
 

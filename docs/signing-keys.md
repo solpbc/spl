@@ -154,7 +154,7 @@ There is **no graceful migration window** on compromise. A migration window exte
    wrangler secret put SIGNING_JWK --env production
    ```
 
-5. **Force re-enroll.** Notify the control plane (or the home / mobile client logic, depending on your deployment) to purge cached account tokens and force re-issuance on next check-in. Paired devices that hold a now-invalid device token will get TLS-handshake-failure-style errors at the relay (rendezvous fails); the user re-pairs through convey.
+5. **Force re-enroll.** Notify the control plane (or the home / mobile client logic, depending on your deployment) to purge cached service tokens and force re-issuance on next check-in. Paired devices that hold a now-invalid device token will get TLS-handshake-failure-style errors at the relay (rendezvous fails); the user re-pairs through convey.
 6. **Archive the compromised keypair** with metadata noting compromise, root cause, and remediation. Do not delete — keep for forensic review.
 7. **Self-hoster note.** If you operate your own relay, this runbook is yours to execute. Your users (the people you've paired devices for) must re-enroll their devices through the home; the home itself re-enrolls automatically against your new key. There is no sol pbc support path for self-hosted compromise — the trust chain is end-to-end yours.
 

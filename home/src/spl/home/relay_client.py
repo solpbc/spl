@@ -4,8 +4,8 @@
 """Listen WS + tunnel WS orchestrator.
 
 On startup:
-  1. If no account_token stored, POST /enroll/home to mint one (idempotent).
-  2. Open listen WS to spl-relay with the account token.
+  1. If no service_token stored, POST /enroll/home to mint one (idempotent).
+  2. Open listen WS to spl-relay with the service token.
   3. Loop: wait for {"type":"incoming","tunnel_id":...} control message.
      On each signal, spawn a tunnel task that opens /tunnel/<id>, drives
      pyOpenSSL TLS 1.3 in memory-BIO mode, and pipes each multiplexed
@@ -55,7 +55,7 @@ _RECONNECT_MAX = 60.0
 
 @dataclass
 class EnrollResult:
-    account_token: str
+    service_token: str
 
 
 class RelayClient:
@@ -88,7 +88,7 @@ class RelayClient:
         )
 
     async def enroll_if_needed(self) -> None:
-        if self._config.account_token:
+        if self._config.service_token:
             return
         endpoint = f"{self._config.relay_endpoint}/enroll/home"
         body = {
@@ -97,11 +97,11 @@ class RelayClient:
             "home_label": self._config.home_label,
         }
         log.info("enrolling home with relay at %s", endpoint)
-        account_token = await _post_json(endpoint, body)
-        token = account_token.get("account_token")
+        resp = await _post_json(endpoint, body)
+        token = resp.get("service_token")
         if not isinstance(token, str) or not token:
-            raise RuntimeError("relay returned no account_token")
-        self._config.account_token = token
+            raise RuntimeError("relay returned no service_token")
+        self._config.service_token = token
 
     async def run(self) -> None:
         self._running = True
@@ -129,8 +129,8 @@ class RelayClient:
 
     async def _run_once(self) -> None:
         await self.enroll_if_needed()
-        listen_url = self._url_for("/session/listen", token=self._config.account_token)
-        headers = _auth_header(self._config.account_token)
+        listen_url = self._url_for("/session/listen", token=self._config.service_token)
+        headers = _auth_header(self._config.service_token)
         log.info("opening listen WS to %s", _redact(listen_url))
         async with websockets.connect(
             listen_url,
@@ -151,9 +151,9 @@ class RelayClient:
                     )
 
     async def _handle_tunnel(self, tunnel_id: str) -> None:
-        assert self._config.account_token is not None
-        url = self._url_for(f"/tunnel/{tunnel_id}", token=self._config.account_token)
-        headers = _auth_header(self._config.account_token)
+        assert self._config.service_token is not None
+        url = self._url_for(f"/tunnel/{tunnel_id}", token=self._config.service_token)
+        headers = _auth_header(self._config.service_token)
         try:
             async with websockets.connect(
                 url,

@@ -5,8 +5,8 @@ import { describe, expect, it } from "vitest";
 import {
 	base64UrlDecode,
 	base64UrlEncode,
-	mintAccountToken,
 	mintDeviceToken,
+	mintServiceToken,
 	verifyToken,
 } from "../src/tokens";
 import { genSigningKeypair } from "./fixtures";
@@ -14,9 +14,9 @@ import { genSigningKeypair } from "./fixtures";
 const ISSUER = "spl.test";
 
 describe("verifyToken", () => {
-	it("accepts a freshly minted account token with the correct scope", async () => {
+	it("accepts a freshly minted service token with the correct scope", async () => {
 		const k = await genSigningKeypair();
-		const minted = await mintAccountToken(k.privateJwkRaw, {
+		const minted = await mintServiceToken(k.privateJwkRaw, {
 			instance_id: "inst-1",
 			ca_fp: "sha256:abc",
 			issuer: ISSUER,
@@ -55,7 +55,7 @@ describe("verifyToken", () => {
 
 	it("rejects a token for the wrong scope", async () => {
 		const k = await genSigningKeypair();
-		const minted = await mintAccountToken(k.privateJwkRaw, {
+		const minted = await mintServiceToken(k.privateJwkRaw, {
 			instance_id: "inst-1",
 			ca_fp: "sha256:abc",
 			issuer: ISSUER,
@@ -72,7 +72,7 @@ describe("verifyToken", () => {
 	it("rejects a token signed with an unknown kid", async () => {
 		const k1 = await genSigningKeypair("kid-A");
 		const k2 = await genSigningKeypair("kid-B");
-		const minted = await mintAccountToken(k1.privateJwkRaw, {
+		const minted = await mintServiceToken(k1.privateJwkRaw, {
 			instance_id: "inst-1",
 			ca_fp: "sha256:abc",
 			issuer: ISSUER,
@@ -90,7 +90,7 @@ describe("verifyToken", () => {
 	it("rejects a token signed with a key not in the JWKS (signature fails after kid match)", async () => {
 		// Construct a JWKS with the right kid but the wrong `x` (public) value.
 		const k = await genSigningKeypair();
-		const minted = await mintAccountToken(k.privateJwkRaw, {
+		const minted = await mintServiceToken(k.privateJwkRaw, {
 			instance_id: "inst-1",
 			ca_fp: "sha256:abc",
 			issuer: ISSUER,
@@ -112,7 +112,7 @@ describe("verifyToken", () => {
 	it("rejects expired tokens", async () => {
 		const k = await genSigningKeypair();
 		const now = Math.floor(Date.now() / 1000);
-		const minted = await mintAccountToken(k.privateJwkRaw, {
+		const minted = await mintServiceToken(k.privateJwkRaw, {
 			instance_id: "inst-1",
 			ca_fp: "sha256:abc",
 			issuer: ISSUER,
@@ -131,7 +131,7 @@ describe("verifyToken", () => {
 	it("rejects tokens with iat too far in the future", async () => {
 		const k = await genSigningKeypair();
 		const now = Math.floor(Date.now() / 1000);
-		const minted = await mintAccountToken(k.privateJwkRaw, {
+		const minted = await mintServiceToken(k.privateJwkRaw, {
 			instance_id: "inst-1",
 			ca_fp: "sha256:abc",
 			issuer: ISSUER,
@@ -149,7 +149,7 @@ describe("verifyToken", () => {
 
 	it("rejects tokens with the wrong issuer", async () => {
 		const k = await genSigningKeypair();
-		const minted = await mintAccountToken(k.privateJwkRaw, {
+		const minted = await mintServiceToken(k.privateJwkRaw, {
 			instance_id: "inst-1",
 			ca_fp: "sha256:abc",
 			issuer: "other.iss",
@@ -175,7 +175,7 @@ describe("verifyToken", () => {
 
 	it("returns jwks_unavailable when JWKS is not provisioned", async () => {
 		const k = await genSigningKeypair();
-		const minted = await mintAccountToken(k.privateJwkRaw, {
+		const minted = await mintServiceToken(k.privateJwkRaw, {
 			instance_id: "inst-1",
 			ca_fp: "sha256:abc",
 			issuer: ISSUER,

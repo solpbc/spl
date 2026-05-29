@@ -52,7 +52,7 @@ Full statement, rationale, and examples in [`../proto/session.md`](../proto/sess
 
 ## what the operator can see
 
-- Which account-token established which listen socket.
+- Which service-token established which listen socket.
 - Which device-token dialed which target.
 - Byte counts and timing of relayed frames.
 - WebSocket connection liveness (connect, disconnect, wake).

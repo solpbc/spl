@@ -100,7 +100,7 @@ Additional targets (`make dev`, `make deploy` in `relay/`) are fine. These five 
 
 - **Dev:** `.env.local` at the component root. Gitignored. Load via the language's dotenv library.
 - **spl-relay prod:** `wrangler secret put <NAME>`. Encrypted server-side by CF. Read via `env.NAME` in the Worker.
-- **Signing keys** (account-token / device-token signing): live in sol pbc's vault. Install into `spl-relay` via `wrangler secret put SIGNING_KEY < key.pem`. Never written to the repo, never echoed to logs, never returned in an API response.
+- **Signing keys** (service-token / device-token signing): live in sol pbc's vault. Install into `spl-relay` via `wrangler secret put SIGNING_KEY < key.pem`. Never written to the repo, never echoed to logs, never returned in an API response.
 
 ### testing
 

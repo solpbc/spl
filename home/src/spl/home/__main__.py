@@ -125,7 +125,7 @@ def _cmd_start(args: argparse.Namespace) -> int:
 
     async def run() -> None:
         await relay_client.enroll_if_needed()
-        config.save(state_dir)  # persist the account_token after enroll
+        config.save(state_dir)  # persist the service_token after enroll
         stop_event = asyncio.Event()
         loop = asyncio.get_running_loop()
         for sig in (signal.SIGINT, signal.SIGTERM):

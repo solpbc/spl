@@ -189,7 +189,7 @@ If alpha feedback demands off-LAN, H2 reopens this. v1 ships LAN-only.
 
 ## related
 
-- [`tokens.md`](tokens.md) — the device token issued in step 8, and the account token the home uses to register its CA fingerprint with `spl-relay`.
+- [`tokens.md`](tokens.md) — the device token issued in step 8, and the service token the home uses to register its CA fingerprint with `spl-relay`.
 - [`session.md`](session.md) — what the mobile does with the cert + token after pairing completes (dial, tunnel, TLS handshake).
 - [`framing.md`](framing.md) — the multiplex inside the tunnel that pairing makes reachable.
 - [`../docs/architecture.md`](../docs/architecture.md) — trust boundaries that explain why pairing has the shape it does.

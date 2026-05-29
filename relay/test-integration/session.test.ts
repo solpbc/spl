@@ -7,7 +7,7 @@
 
 import { SELF, applyD1Migrations, env } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
-import { mintAccountToken, mintDeviceToken } from "../src/tokens";
+import { mintDeviceToken, mintServiceToken } from "../src/tokens";
 import { migrations } from "./migrations";
 
 declare module "cloudflare:test" {
@@ -27,8 +27,8 @@ function newInstanceId(): string {
 	return crypto.randomUUID();
 }
 
-async function mintAccount(instanceId: string): Promise<string> {
-	const m = await mintAccountToken(env.SIGNING_JWK, {
+async function mintService(instanceId: string): Promise<string> {
+	const m = await mintServiceToken(env.SIGNING_JWK, {
 		instance_id: instanceId,
 		ca_fp: "sha256:test",
 		issuer: env.ISSUER,
@@ -117,9 +117,9 @@ describe("/session/listen auth", () => {
 		expect(res.status).toBe(401);
 	});
 
-	it("accepts a valid account token and holds the WS open", async () => {
+	it("accepts a valid service token and holds the WS open", async () => {
 		const instanceId = newInstanceId();
-		const token = await mintAccount(instanceId);
+		const token = await mintService(instanceId);
 		const ws = await wsOpen(`http://spl.test/session/listen?instance=${instanceId}`, token);
 		ws.close(1000, "test_done");
 	});
@@ -128,7 +128,7 @@ describe("/session/listen auth", () => {
 describe("pair signal + tunnel pairing", () => {
 	it("minted dial triggers an incoming message on the home listen WS", async () => {
 		const instanceId = newInstanceId();
-		const listenToken = await mintAccount(instanceId);
+		const listenToken = await mintService(instanceId);
 		const dialToken = await mintDevice(instanceId);
 
 		const home = await wsOpen(`http://spl.test/session/listen?instance=${instanceId}`, listenToken);
@@ -146,7 +146,7 @@ describe("pair signal + tunnel pairing", () => {
 
 	it("home tunnel WS + mobile tunnel WS relay opaque bytes after pair", async () => {
 		const instanceId = newInstanceId();
-		const listenToken = await mintAccount(instanceId);
+		const listenToken = await mintService(instanceId);
 		const dialToken = await mintDevice(instanceId);
 
 		const home = await wsOpen(`http://spl.test/session/listen?instance=${instanceId}`, listenToken);
@@ -176,7 +176,7 @@ describe("pair signal + tunnel pairing", () => {
 
 	it("/tunnel/<id> returns 404 if mobile never attached", async () => {
 		const instanceId = newInstanceId();
-		const listenToken = await mintAccount(instanceId);
+		const listenToken = await mintService(instanceId);
 		const home = await wsOpen(`http://spl.test/session/listen?instance=${instanceId}`, listenToken);
 		const res = await SELF.fetch(
 			`http://spl.test/tunnel/${crypto.randomUUID()}?instance=${instanceId}`,
@@ -195,7 +195,7 @@ describe("pair signal + tunnel pairing", () => {
 describe("WS-tag cardinality enforcement", () => {
 	it("second listen WS replaces the first", async () => {
 		const instanceId = newInstanceId();
-		const token = await mintAccount(instanceId);
+		const token = await mintService(instanceId);
 		const first = await wsOpen(`http://spl.test/session/listen?instance=${instanceId}`, token);
 		const firstClose = onClose(first);
 		const second = await wsOpen(`http://spl.test/session/listen?instance=${instanceId}`, token);
