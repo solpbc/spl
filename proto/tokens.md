@@ -52,7 +52,7 @@ JWT payload, service token:
   "aud": "spl-relay",
   "scope": "session.listen",
   "instance_id": "<uuidv7>",
-  "ca_fp": "sha256:<hex>",
+  "ca_fp": "sha256:<64 lowercase hex>",
   "iat": 1745006400,
   "exp": 1776542400,
   "jti": "<uuidv7>"
@@ -68,7 +68,7 @@ JWT payload, device token:
   "aud": "spl-relay",
   "scope": "session.dial",
   "instance_id": "<paired home instance_id>",
-  "device_fp": "sha256:<hex>",
+  "device_fp": "sha256:<64 lowercase hex>",
   "iat": 1745006400,
   "exp": 1750190400,
   "jti": "<uuidv7>"
@@ -78,12 +78,12 @@ JWT payload, device token:
 | claim | required | meaning |
 |---|---|---|
 | `iss` | yes | issuer hostname; for sol pbc deployments, `spl.solpbc.org`. Self-hosters use their own. |
-| `sub` | yes | subject; `home:<instance_id>` or `device:<device_id>`. |
+| `sub` | yes | subject; must be `home:<instance_id>` for `session.listen` and `device:<device_id>` for `session.dial`. |
 | `aud` | yes | audience; always `spl-relay`. |
 | `scope` | yes | one of `session.listen` (service token) or `session.dial` (device token). Workers reject mismatched scope at the route level. |
 | `instance_id` | yes | which home this token authorizes the bearer to act on. For service tokens, the home's own id. For device tokens, the paired home. |
-| `ca_fp` | service only | SHA-256 of the home's local CA public key, registered at home enrollment. Used by `spl-relay` to validate device-token enrollment requests (mobile presents a client cert; `spl-relay` checks the cert chains to a CA whose fingerprint a home has registered). |
-| `device_fp` | device only | SHA-256 of the mobile client cert. Bound to a specific paired device. |
+| `ca_fp` | service only | SHA-256 of the home's local CA public key, registered at home enrollment. Required for `session.listen`, must match `^sha256:[0-9a-f]{64}$`, and corresponds to the `ca_pubkey_pem` used to verify `home_attestation` signatures at `/enroll/device`; the relay never receives or recomputes a client cert. |
+| `device_fp` | device only | SHA-256 of the mobile client cert. Required for `session.dial`, must match `^sha256:[0-9a-f]{64}$`, and is bound to a specific paired device. |
 | `iat` | yes | issued-at, seconds since epoch. |
 | `exp` | yes | expiration, seconds since epoch. |
 | `jti` | yes | unique token id; UUIDv7. Used for revocation lookups (D1 table) and replay defense. |
@@ -117,11 +117,16 @@ Called once at solstone first run. Body:
 {
   "instance_id": "<freshly generated UUIDv7>",
   "ca_pubkey": "<PEM>",
-  "home_label": "<user-named home>"
+  "home_label": "<user-named home>",
+  "totp_secret": "<base32, optional>"
 }
 ```
 
-`spl-relay` records (`instance_id`, `ca_fp = sha256(ca_pubkey)`, `home_label`, `created_at`) in D1 and issues a service token. Response:
+`totp_secret` is optional, unpadded uppercase RFC-4648 base32 (`^[A-Z2-7]{16,128}$`). It is stored at rest and inert in v1: no TOTP code is validated yet. On same-instance re-enroll, omitting `totp_secret` preserves the stored value; providing it overwrites the stored value.
+
+Bodies over 32 KiB are rejected with 413 before parsing. A `ca_fp` backs at most one instance: a new enroll whose `ca_fp` matches a different instance is rejected with 409, distinct from the `ca_mismatch` 409 for an `instance_id` trying to change its own CA.
+
+`spl-relay` records (`instance_id`, `ca_fp = sha256(ca_pubkey)`, `home_label`, `totp_secret`, `created_at`) in D1 and issues a service token. Response:
 
 ```json
 {
@@ -142,6 +147,8 @@ Called by the mobile app after LAN pairing completes. Body:
   "home_attestation": "<compact JWS, ES256>"
 }
 ```
+
+Bodies over 16 KiB are rejected with 413 before parsing.
 
 **`home_attestation`** is a short-lived JWT signed by the home's local CA private key during the pair ceremony (see [`pairing.md`](pairing.md) §7). Its role is to prove to `spl-relay` that the paired home intentionally authorized *this specific* device fingerprint in *this specific* pair ceremony — chain validity alone would only prove the home issued the cert at some point, which is a weaker claim.
 
@@ -221,6 +228,8 @@ On every WebSocket upgrade request to `/session/listen` or `/session/dial`, the 
    - `exp > now`
    - `iat ≤ now + 60s` (allow 60s clock skew on the issued-at side)
    - `scope` matches the route (`session.listen` for `/session/listen`; `session.dial` for `/session/dial`)
+   - for `session.listen`, `sub` starts with `home:` and `ca_fp` is present and matches `^sha256:[0-9a-f]{64}$`
+   - for `session.dial`, `sub` starts with `device:` and `device_fp` is present and matches `^sha256:[0-9a-f]{64}$`
 6. Verifies the `instance_id` exists in D1 and is not in the (D1) service-revocation table.
 7. For device tokens, verifies the `device_fp` is not in the (D1) device-revocation table for that instance_id.
 
@@ -287,10 +296,13 @@ CREATE TABLE instances (
   instance_id TEXT PRIMARY KEY,
   ca_fp TEXT NOT NULL,
   home_label TEXT,
+  totp_secret TEXT,
   created_at INTEGER NOT NULL,
   service_token_jti TEXT NOT NULL,
   revoked_at INTEGER
 );
+
+CREATE UNIQUE INDEX idx_instances_ca_fp ON instances(ca_fp);
 
 CREATE TABLE devices (
   device_jti TEXT PRIMARY KEY,
