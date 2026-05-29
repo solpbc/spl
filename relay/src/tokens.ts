@@ -146,6 +146,7 @@ export interface MintDeviceTokenInput {
 	issuer: string;
 	ttlSeconds: number;
 	now?: number;
+	jti?: string;
 }
 
 export interface MintedToken {
@@ -184,7 +185,7 @@ export async function mintDeviceToken(
 	input: MintDeviceTokenInput,
 ): Promise<MintedToken> {
 	const now = input.now ?? Math.floor(Date.now() / 1000);
-	const jti = uuidv7();
+	const jti = input.jti ?? uuidv7();
 	const exp = now + input.ttlSeconds;
 
 	const claims: TokenClaims = {

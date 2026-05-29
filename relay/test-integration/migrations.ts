@@ -33,4 +33,8 @@ export const migrations = [
 			"CREATE INDEX IF NOT EXISTS idx_devices_fp ON devices(instance_id, device_fp)",
 		],
 	},
+	{
+		name: "0002_devices_add_device_id",
+		queries: ["ALTER TABLE devices ADD COLUMN device_id TEXT"],
+	},
 ];

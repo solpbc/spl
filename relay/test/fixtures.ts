@@ -93,6 +93,7 @@ export interface AttestationInput {
 	overrideScope?: string;
 	overrideDeviceFp?: string;
 	overrideInstanceId?: string;
+	overrideJti?: string;
 }
 
 export async function mintAttestation(input: AttestationInput): Promise<string> {
@@ -107,7 +108,7 @@ export async function mintAttestation(input: AttestationInput): Promise<string> 
 		device_fp: input.overrideDeviceFp ?? input.deviceFp,
 		iat: now,
 		exp,
-		jti: `jti-${now}-${Math.random().toString(16).slice(2, 8)}`,
+		jti: input.overrideJti ?? `jti-${now}-${Math.random().toString(16).slice(2, 8)}`,
 	};
 	const headerB64 = base64UrlEncode(new TextEncoder().encode(JSON.stringify(header)));
 	const payloadB64 = base64UrlEncode(new TextEncoder().encode(JSON.stringify(claims)));

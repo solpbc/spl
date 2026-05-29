@@ -23,11 +23,12 @@
 //   * exp > now, iat ≤ now + 60s skew
 //   * exp - iat ≤ 300s (short-lived; anti-replay bound)
 //   * iss == "home:<instance_id>" and matches the request's instance_id
-//   * device_fp matches sha256(DER(client_cert)) computed by the relay
+//   * device_fp is present and well-formed: "sha256:<64 lowercase hex>".
+//     The relay trusts this verified claim as the device identity — it
+//     never receives or recomputes a client cert.
 //   * signature verifies against the CA public key stored at /enroll/home
-//   * jti has not been consumed (single-use — tracked in D1 devices table
-//     via the device_jti primary key; attestation jti is distinct from the
-//     issued device token jti)
+//   * jti is recorded in devices.attestation_jti. A matching retry may
+//     re-mint from the stored device row; mismatched or legacy-null rows reject.
 //
 // Why a home-signed JWT and not "client cert chains to registered CA" alone:
 // chain validity only proves the home issued the cert at some point. The
@@ -63,8 +64,7 @@ export type AttestationFailReason =
 	| "wrong_issuer"
 	| "wrong_audience"
 	| "wrong_scope"
-	| "wrong_instance"
-	| "fp_mismatch";
+	| "wrong_instance";
 
 // Max attestation lifetime. Matches the LAN pair ceremony nonce TTL (5 min)
 // per proto/pairing.md §1.
@@ -74,7 +74,6 @@ interface VerifyInput {
 	attestation: string;
 	caPubkeyPem: string;
 	expectedInstanceId: string;
-	expectedDeviceFp: string;
 	now?: number;
 }
 
@@ -122,8 +121,13 @@ export async function verifyAttestation(input: VerifyInput): Promise<Attestation
 		return { ok: false, reason: "issued_future" };
 	if (claims.exp - claims.iat > MAX_ATTESTATION_LIFETIME_SECONDS)
 		return { ok: false, reason: "too_long_lived" };
-	if (!claims.jti || !claims.device_fp) return { ok: false, reason: "bad_claim" };
-	if (claims.device_fp !== input.expectedDeviceFp) return { ok: false, reason: "fp_mismatch" };
+	if (
+		!claims.jti ||
+		typeof claims.device_fp !== "string" ||
+		!/^sha256:[0-9a-f]{64}$/.test(claims.device_fp)
+	) {
+		return { ok: false, reason: "bad_claim" };
+	}
 
 	return { ok: true, claims };
 }

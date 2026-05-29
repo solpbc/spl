@@ -19,7 +19,6 @@ describe("verifyAttestation", () => {
 			attestation,
 			caPubkeyPem: ca.pubPem,
 			expectedInstanceId: "inst-1",
-			expectedDeviceFp: fp,
 		});
 		expect(r.ok).toBe(true);
 	});
@@ -38,30 +37,26 @@ describe("verifyAttestation", () => {
 			attestation,
 			caPubkeyPem: realCa.pubPem,
 			expectedInstanceId: "inst-1",
-			expectedDeviceFp: fp,
 		});
 		expect(r).toEqual({ ok: false, reason: "bad_signature" });
 	});
 
-	it("rejects an attestation whose device_fp doesn't match the computed fingerprint", async () => {
+	it("rejects an attestation whose device_fp claim is malformed", async () => {
 		const ca = await genCaKeypair();
-		const cert1 = await genClientCertDer("a");
-		const cert2 = await genClientCertDer("b");
-		const fp1 = await fingerprintDer(cert1);
-		const fp2 = await fingerprintDer(cert2);
-		expect(fp1).not.toBe(fp2);
-		const attestation = await mintAttestation({
-			caPrivateKey: ca.privateKey,
-			instanceId: "inst-1",
-			deviceFp: fp1,
-		});
-		const r = await verifyAttestation({
-			attestation,
-			caPubkeyPem: ca.pubPem,
-			expectedInstanceId: "inst-1",
-			expectedDeviceFp: fp2,
-		});
-		expect(r).toEqual({ ok: false, reason: "fp_mismatch" });
+		for (const bad of [`sha256:${"A".repeat(64)}`, "sha256:abc", `${"a".repeat(64)}`]) {
+			const attestation = await mintAttestation({
+				caPrivateKey: ca.privateKey,
+				instanceId: "inst-1",
+				deviceFp: "ignored",
+				overrideDeviceFp: bad,
+			});
+			const r = await verifyAttestation({
+				attestation,
+				caPubkeyPem: ca.pubPem,
+				expectedInstanceId: "inst-1",
+			});
+			expect(r).toEqual({ ok: false, reason: "bad_claim" });
+		}
 	});
 
 	it("rejects an attestation for a different instance_id", async () => {
@@ -77,7 +72,6 @@ describe("verifyAttestation", () => {
 			attestation,
 			caPubkeyPem: ca.pubPem,
 			expectedInstanceId: "inst-2",
-			expectedDeviceFp: fp,
 		});
 		expect(r.ok).toBe(false);
 	});
@@ -98,7 +92,6 @@ describe("verifyAttestation", () => {
 			attestation,
 			caPubkeyPem: ca.pubPem,
 			expectedInstanceId: "inst-1",
-			expectedDeviceFp: fp,
 			now,
 		});
 		expect(r).toEqual({ ok: false, reason: "expired" });
@@ -120,7 +113,6 @@ describe("verifyAttestation", () => {
 			attestation,
 			caPubkeyPem: ca.pubPem,
 			expectedInstanceId: "inst-1",
-			expectedDeviceFp: fp,
 			now,
 		});
 		expect(r).toEqual({ ok: false, reason: "too_long_lived" });
@@ -140,7 +132,6 @@ describe("verifyAttestation", () => {
 			attestation,
 			caPubkeyPem: ca.pubPem,
 			expectedInstanceId: "inst-1",
-			expectedDeviceFp: fp,
 		});
 		expect(r).toEqual({ ok: false, reason: "wrong_audience" });
 	});

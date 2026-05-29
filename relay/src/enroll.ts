@@ -27,7 +27,6 @@ interface EnrollHomeBody {
 
 interface EnrollDeviceBody {
 	instance_id?: string;
-	client_cert?: string;
 	home_attestation?: string;
 }
 
@@ -112,13 +111,13 @@ export async function handleEnrollDevice(request: Request, env: Env): Promise<Re
 	if (!env.SIGNING_JWK) return json({ error: "relay not provisioned" }, 503);
 
 	const body = (await readJson<EnrollDeviceBody>(request)) ?? null;
-	if (!body || !body.instance_id || !body.client_cert || !body.home_attestation) {
+	if (!body || !body.instance_id || !body.home_attestation) {
 		log({
 			event: "enroll_rejected",
 			route: "/enroll/device",
 			reason: "missing_fields",
 		});
-		return json({ error: "instance_id, client_cert, and home_attestation required" }, 400);
+		return json({ error: "instance_id and home_attestation required" }, 400);
 	}
 
 	const instance = await env.DB.prepare(
@@ -146,23 +145,10 @@ export async function handleEnrollDevice(request: Request, env: Env): Promise<Re
 		return json({ error: "instance revoked" }, 403);
 	}
 
-	const certDer = pemToDer(body.client_cert);
-	if (!certDer) {
-		log({
-			event: "enroll_rejected",
-			route: "/enroll/device",
-			reason: "bad_client_cert",
-			instance_id: body.instance_id,
-		});
-		return json({ error: "client_cert must be PEM" }, 400);
-	}
-	const deviceFp = await fingerprintDer(certDer);
-
 	const result = await verifyAttestation({
 		attestation: body.home_attestation,
 		caPubkeyPem: instance.ca_pubkey_pem,
 		expectedInstanceId: body.instance_id,
-		expectedDeviceFp: deviceFp,
 	});
 	if (!result.ok) {
 		log({
@@ -173,10 +159,11 @@ export async function handleEnrollDevice(request: Request, env: Env): Promise<Re
 		});
 		return json({ error: `attestation invalid: ${result.reason}` }, 401);
 	}
+	const deviceFp = result.claims.device_fp;
 
-	// Single-use attestation: refuse if this jti has already been consumed
-	// for this instance. INSERT with jti as part of the PK gives us atomic
-	// replay defense.
+	// Each enroll generates a fresh device_id (the token's sub). We persist
+	// it so a retried request whose response was lost can re-mint the
+	// byte-identical device token instead of failing replay defense.
 	const device_id = uuidv7();
 	const minted = await mintDeviceToken(env.SIGNING_JWK, {
 		instance_id: body.instance_id,
@@ -188,24 +175,66 @@ export async function handleEnrollDevice(request: Request, env: Env): Promise<Re
 
 	try {
 		await env.DB.prepare(
-			"INSERT INTO devices (device_jti, instance_id, device_fp, device_label, created_at, attestation_jti) VALUES (?, ?, ?, ?, ?, ?)",
+			"INSERT INTO devices (device_jti, device_id, instance_id, device_fp, device_label, created_at, attestation_jti) VALUES (?, ?, ?, ?, ?, ?, ?)",
 		)
-			.bind(minted.jti, body.instance_id, deviceFp, null, minted.iat, result.claims.jti)
+			.bind(minted.jti, device_id, body.instance_id, deviceFp, null, minted.iat, result.claims.jti)
 			.run();
 	} catch (err) {
-		// UNIQUE constraint on attestation_jti prevents replay.
+		// UNIQUE(attestation_jti) means this attestation was already consumed.
+		// If a prior *successful* enroll of the same (instance_id, device_fp)
+		// consumed it, this is a retry whose response was lost — re-mint the
+		// byte-identical device token from the stored row (idempotent).
+		// Anything else (different instance/fp, or a pre-migration row with no
+		// device_id to reconstruct sub from) is a genuine replay → 409.
 		const msg = err instanceof Error ? err.message : String(err);
-		if (/UNIQUE/.test(msg)) {
-			log({
-				event: "enroll_rejected",
-				route: "/enroll/device",
-				reason: "attestation_replay",
-				instance_id: body.instance_id,
-				jti: result.claims.jti,
+		if (!/UNIQUE/.test(msg)) throw err;
+
+		const existing = await env.DB.prepare(
+			"SELECT device_jti, device_id, instance_id, device_fp, created_at FROM devices WHERE attestation_jti = ?",
+		)
+			.bind(result.claims.jti)
+			.first<{
+				device_jti: string;
+				device_id: string | null;
+				instance_id: string;
+				device_fp: string;
+				created_at: number;
+			}>();
+
+		if (
+			existing &&
+			existing.device_id !== null &&
+			existing.instance_id === body.instance_id &&
+			existing.device_fp === deviceFp
+		) {
+			const reminted = await mintDeviceToken(env.SIGNING_JWK, {
+				instance_id: existing.instance_id,
+				device_id: existing.device_id,
+				device_fp: existing.device_fp,
+				issuer: env.ISSUER,
+				ttlSeconds: DEVICE_TOKEN_TTL_SECONDS,
+				now: existing.created_at,
+				jti: existing.device_jti,
 			});
-			return json({ error: "attestation already consumed" }, 409);
+			log({
+				event: "enroll_device_remint",
+				instance_id: body.instance_id,
+				jti: existing.device_jti,
+			});
+			return json({
+				device_token: reminted.jwt,
+				expires_at: new Date(reminted.exp * 1000).toISOString(),
+			});
 		}
-		throw err;
+
+		log({
+			event: "enroll_rejected",
+			route: "/enroll/device",
+			reason: "attestation_replay",
+			instance_id: body.instance_id,
+			jti: result.claims.jti,
+		});
+		return json({ error: "attestation already consumed" }, 409);
 	}
 
 	log({

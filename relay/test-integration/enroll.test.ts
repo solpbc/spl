@@ -8,7 +8,7 @@
 import { SELF, applyD1Migrations, env } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import { fingerprintDer } from "../src/attestation";
-import { verifyToken } from "../src/tokens";
+import { base64UrlDecode, verifyToken } from "../src/tokens";
 import { genCaKeypair, genClientCertDer, mintAttestation } from "../test/fixtures";
 import { migrations } from "./migrations";
 
@@ -149,8 +149,8 @@ describe("POST /enroll/device", () => {
 		return { instanceId, ca };
 	}
 
-	function certPem(der: Uint8Array): string {
-		return `-----BEGIN CERTIFICATE-----\n${Buffer.from(der).toString("base64")}\n-----END CERTIFICATE-----\n`;
+	function payload(jwt: string): unknown {
+		return JSON.parse(new TextDecoder().decode(base64UrlDecode(jwt.split(".")[1])));
 	}
 
 	it("issues a device token given a valid home attestation", async () => {
@@ -167,7 +167,6 @@ describe("POST /enroll/device", () => {
 			headers: { "content-type": "application/json" },
 			body: JSON.stringify({
 				instance_id: instanceId,
-				client_cert: certPem(certDer),
 				home_attestation: attestation,
 			}),
 		});
@@ -185,10 +184,9 @@ describe("POST /enroll/device", () => {
 		}
 	});
 
-	it("refuses to reuse an attestation (replay defense)", async () => {
+	it("re-mints the byte-identical device token on replay of a still-valid attestation", async () => {
 		const { instanceId, ca } = await setupEnrolled();
-		const certDer = await genClientCertDer();
-		const fp = await fingerprintDer(certDer);
+		const fp = await fingerprintDer(await genClientCertDer());
 		const attestation = await mintAttestation({
 			caPrivateKey: ca.privateKey,
 			instanceId,
@@ -196,27 +194,36 @@ describe("POST /enroll/device", () => {
 		});
 		const body = JSON.stringify({
 			instance_id: instanceId,
-			client_cert: certPem(certDer),
 			home_attestation: attestation,
 		});
-		const r1 = await SELF.fetch("http://spl.test/enroll/device", {
+		const opts = {
 			method: "POST",
 			headers: { "content-type": "application/json" },
 			body,
-		});
+		};
+		const r1 = await SELF.fetch("http://spl.test/enroll/device", opts);
 		expect(r1.status).toBe(200);
-		const r2 = await SELF.fetch("http://spl.test/enroll/device", {
+		const r2 = await SELF.fetch("http://spl.test/enroll/device", opts);
+		expect(r2.status).toBe(200);
+		const t1 = (await r1.json()) as { device_token: string };
+		const t2 = (await r2.json()) as { device_token: string };
+		expect(t2.device_token).toBe(t1.device_token);
+		expect(payload(t2.device_token)).toEqual(payload(t1.device_token));
+	});
+
+	it("rejects a device enroll missing home_attestation", async () => {
+		const { instanceId } = await setupEnrolled();
+		const res = await SELF.fetch("http://spl.test/enroll/device", {
 			method: "POST",
 			headers: { "content-type": "application/json" },
-			body,
+			body: JSON.stringify({ instance_id: instanceId }),
 		});
-		expect(r2.status).toBe(409);
+		expect(res.status).toBe(400);
 	});
 
 	it("rejects device enroll for an unknown instance_id", async () => {
 		const ca = await genCaKeypair();
-		const certDer = await genClientCertDer();
-		const fp = await fingerprintDer(certDer);
+		const fp = await fingerprintDer(await genClientCertDer());
 		const instanceId = newInstanceId();
 		const attestation = await mintAttestation({
 			caPrivateKey: ca.privateKey,
@@ -228,7 +235,6 @@ describe("POST /enroll/device", () => {
 			headers: { "content-type": "application/json" },
 			body: JSON.stringify({
 				instance_id: instanceId,
-				client_cert: certPem(certDer),
 				home_attestation: attestation,
 			}),
 		});
@@ -238,8 +244,7 @@ describe("POST /enroll/device", () => {
 	it("rejects attestation signed with the wrong CA", async () => {
 		const { instanceId } = await setupEnrolled();
 		const attackerCa = await genCaKeypair();
-		const certDer = await genClientCertDer();
-		const fp = await fingerprintDer(certDer);
+		const fp = await fingerprintDer(await genClientCertDer());
 		const badAttestation = await mintAttestation({
 			caPrivateKey: attackerCa.privateKey,
 			instanceId,
@@ -250,33 +255,80 @@ describe("POST /enroll/device", () => {
 			headers: { "content-type": "application/json" },
 			body: JSON.stringify({
 				instance_id: instanceId,
-				client_cert: certPem(certDer),
 				home_attestation: badAttestation,
 			}),
 		});
 		expect(res.status).toBe(401);
 	});
 
-	it("rejects attestation whose device_fp doesn't match the presented client_cert", async () => {
+	it("rejects an attestation with a malformed device_fp (M4)", async () => {
 		const { instanceId, ca } = await setupEnrolled();
-		const cert1 = await genClientCertDer("a");
-		const cert2 = await genClientCertDer("b");
-		const fp1 = await fingerprintDer(cert1);
 		const attestation = await mintAttestation({
 			caPrivateKey: ca.privateKey,
 			instanceId,
-			deviceFp: fp1,
+			deviceFp: "ignored",
+			overrideDeviceFp: `sha256:${"A".repeat(64)}`,
 		});
 		const res = await SELF.fetch("http://spl.test/enroll/device", {
 			method: "POST",
 			headers: { "content-type": "application/json" },
 			body: JSON.stringify({
 				instance_id: instanceId,
-				client_cert: certPem(cert2),
 				home_attestation: attestation,
 			}),
 		});
 		expect(res.status).toBe(401);
+	});
+
+	it("rejects a consumed attestation_jti re-presented with a different device_fp (M5)", async () => {
+		const { instanceId, ca } = await setupEnrolled();
+		const jti = `jti-collide-${instanceId}`;
+		const fp1 = await fingerprintDer(await genClientCertDer("a"));
+		const fp2 = await fingerprintDer(await genClientCertDer("b"));
+		const a1 = await mintAttestation({
+			caPrivateKey: ca.privateKey,
+			instanceId,
+			deviceFp: fp1,
+			overrideJti: jti,
+		});
+		const a2 = await mintAttestation({
+			caPrivateKey: ca.privateKey,
+			instanceId,
+			deviceFp: fp2,
+			overrideJti: jti,
+		});
+		const r1 = await SELF.fetch("http://spl.test/enroll/device", {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({ instance_id: instanceId, home_attestation: a1 }),
+		});
+		expect(r1.status).toBe(200);
+		const r2 = await SELF.fetch("http://spl.test/enroll/device", {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({ instance_id: instanceId, home_attestation: a2 }),
+		});
+		expect(r2.status).toBe(409);
+	});
+
+	it("ignores a legacy client_cert field and still succeeds", async () => {
+		const { instanceId, ca } = await setupEnrolled();
+		const fp = await fingerprintDer(await genClientCertDer());
+		const attestation = await mintAttestation({
+			caPrivateKey: ca.privateKey,
+			instanceId,
+			deviceFp: fp,
+		});
+		const res = await SELF.fetch("http://spl.test/enroll/device", {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({
+				instance_id: instanceId,
+				client_cert: "-----BEGIN CERTIFICATE-----\nignored\n-----END CERTIFICATE-----\n",
+				home_attestation: attestation,
+			}),
+		});
+		expect(res.status).toBe(200);
 	});
 });
 

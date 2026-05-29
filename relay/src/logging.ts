@@ -31,6 +31,7 @@ export type LogEvent =
 	| "cardinality_violation"
 	| "enroll_home"
 	| "enroll_device"
+	| "enroll_device_remint"
 	| "enroll_home_rotate"
 	| "enroll_rejected"
 	| "internal_error";
