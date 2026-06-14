@@ -11,7 +11,7 @@ export interface Env {
 	// payload bytes.
 	DB: D1Database;
 
-	// Deployment environment: "development" | "staging" | "production".
+	// Deployment environment, e.g. "development" or "production".
 	ENVIRONMENT: string;
 
 	// Expected JWT issuer for this deployment. Sol pbc hosted: "link.solstone.app".

@@ -272,7 +272,7 @@ async def _post_json(url: str, body: dict[str, Any]) -> dict[str, Any]:
         data = json.dumps(body).encode("utf-8")
         # URL comes from config (sol pbc relay endpoint); scheme is http/https only.
         # Cloudflare's edge rejects UA-less requests with 403 on some zones;
-        # send a stable client identifier so staging + prod both accept us.
+        # send a stable client identifier so Cloudflare accepts the request.
         req = urllib.request.Request(  # noqa: S310 — URL scheme validated below
             url,
             data=data,

@@ -100,7 +100,7 @@ Run `bun run gen-key` to mint a self-host keypair — it writes to `~/.spl/signi
 
 ## configuration
 
-`wrangler.toml` is checked in and contains no secrets. The top-level block is a dev-only placeholder; `[env.staging]` and `[env.production]` hold the real deploy targets. The sol pbc production env deploys Worker `spl-relay`, D1 database `spl-relay`, and custom domain `link.solstone.app`. Fill in each env's `database_id` (from `wrangler d1 create ...`) before deploying your own copy. Signing keys and tokens are secrets, provisioned via `wrangler secret put`.
+`wrangler.toml` is checked in and contains no secrets. The top-level block is a dev-only placeholder; `[env.production]` is sol pbc's hosted deploy target. It deploys Worker `spl-relay`, D1 database `spl-relay`, and custom domain `link.solstone.app`. Fill in the target env's `database_id` (from `wrangler d1 create ...`) before deploying your own copy. Signing keys and tokens are secrets, provisioned via `wrangler secret put`.
 
 ## logging policy
 

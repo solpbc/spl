@@ -60,4 +60,4 @@ exit code.
 **Harness complete, not yet exercised in CI.** The full top-level
 `make integration-test` requires all three toolchains present and
 currently must be run manually. Wire-up to CI is a post-MVP follow-up
-once staging is stood up.
+once there is a dedicated remote test environment.

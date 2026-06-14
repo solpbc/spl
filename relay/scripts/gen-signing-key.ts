@@ -11,12 +11,12 @@
 // This is the root of trust for token signing. See ../docs/signing-keys.md
 // for the full lifecycle (rotation, compromise response, layer separation).
 
-import { mkdir, writeFile, chmod } from "node:fs/promises";
-import { existsSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { homedir } from "node:os";
-import { argv, exit, stdout } from "node:process";
 import { webcrypto as crypto } from "node:crypto";
+import { existsSync } from "node:fs";
+import { chmod, mkdir, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
+import { dirname, resolve } from "node:path";
+import { argv, exit, stdout } from "node:process";
 
 interface PublicJwk {
 	kty: "OKP";
@@ -113,7 +113,11 @@ function uuidv7(): string {
 	].join("-");
 }
 
-async function generateKeypair(): Promise<{ publicJwk: PublicJwk; privateJwk: PrivateJwk; kid: string }> {
+async function generateKeypair(): Promise<{
+	publicJwk: PublicJwk;
+	privateJwk: PrivateJwk;
+	kid: string;
+}> {
 	const kid = uuidv7();
 
 	const keypair = await crypto.subtle.generateKey(
@@ -187,7 +191,7 @@ async function main(): Promise<void> {
 			"",
 			`Wrote keypair to ${out}`,
 			`  kid: ${kid}`,
-			`  alg: EdDSA (Ed25519)`,
+			"  alg: EdDSA (Ed25519)",
 			"",
 			"⚠  This file is the root of trust for your tunnel.",
 			"   Lose it and every paired device must re-enroll.",
@@ -201,10 +205,9 @@ async function main(): Promise<void> {
 			`  echo '${signingJwkPayload}' | wrangler secret put SIGNING_JWK --env production`,
 			`  echo '${jwksPayload}' | wrangler secret put JWKS_PUBLIC --env production`,
 			"",
-			"For staging (use a separate keypair — re-run with --out):",
+			"For any additional deployment, use a separate keypair:",
 			"",
-			`  echo '${signingJwkPayload}' | wrangler secret put SIGNING_JWK --env staging`,
-			`  echo '${jwksPayload}' | wrangler secret put JWKS_PUBLIC --env staging`,
+			"  # Re-run with --out <different-path>, then provision that deployment's env.",
 			"",
 			"After provisioning, your spl-relay will serve the public JWKS at",
 			"  https://<your-relay-host>/.well-known/jwks.json",

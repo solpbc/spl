@@ -40,26 +40,6 @@ database_name = "spl-relay-dev"
 database_id = ""
 migrations_dir = "migrations"
 
-# Staging environment. Historical pre-release/TestFlight relay, not production.
-# It uses its own D1 database and its own SIGNING_JWK + JWKS_PUBLIC secrets.
-[env.staging]
-name = "spl-relay-staging"
-vars = { ENVIRONMENT = "staging", ISSUER = "spl-staging.solpbc.org" }
-
-[[env.staging.d1_databases]]
-binding = "DB"
-database_name = "spl-relay-staging"
-database_id = "778edf39-815e-49df-8d92-fb05e454a118"
-migrations_dir = "migrations"
-
-[[env.staging.durable_objects.bindings]]
-name = "INSTANCE"
-class_name = "InstanceDO"
-
-[[env.staging.migrations]]
-tag = "v1"
-new_sqlite_classes = ["InstanceDO"]
-
 # Production environment. Secrets are provisioned with `wrangler secret put`;
 # the custom domain route is created by `wrangler deploy --env production`.
 [env.production]

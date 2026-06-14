@@ -9,7 +9,7 @@ import { defineWorkersConfig } from "@cloudflare/vitest-pool-workers/config";
 //
 // A fresh Ed25519 signing keypair is minted at config-load time and wired
 // into the Worker's bindings. This is test-only material — never used in
-// staging or prod. Tests can import the same keypair via
+// any deployed relay. Tests can import the same keypair via
 // `./test/test-keys.json` (written when this config loads).
 
 const { privateJwkRaw, jwksPublicRaw } = await genSigningKeypair();

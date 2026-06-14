@@ -10,7 +10,7 @@
 # blind byte-relay binds no Images) — bun just installs the prebuilt and
 # moves on. See the relay README and the spl decision log.
 
-.PHONY: install test ci format clean dev deploy deploy-staging typecheck lint
+.PHONY: install test ci format clean dev deploy typecheck lint
 
 install:
 	bun install
@@ -41,9 +41,6 @@ dev:
 # visibility bugs. See README.md prerequisites.
 deploy:
 	wrangler deploy --env production
-
-deploy-staging:
-	wrangler deploy --env staging
 
 clean:
 	rm -rf node_modules/ dist/ .wrangler/ .bun-cache/

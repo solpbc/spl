@@ -55,7 +55,7 @@ cd relay
 npm run gen-key
 ```
 
-(Or invoke directly: `npm run gen-key -- --out ~/.spl/staging-keypair.json` to override the path.)
+(Or invoke directly: `npm run gen-key -- --out ~/.spl/alternate-keypair.json` to override the path.)
 
 The script:
 
@@ -166,15 +166,15 @@ The blind-by-construction architecture means a JWT signing key compromise has a 
 
 - **No payload data is exposed.** Tokens authorize the rendezvous, not the data. An attacker with a forged token can open a WebSocket to the relay, but cannot complete the inner TLS handshake without the matching mobile client cert (which lives only on a real paired device's Keychain).
 - **No past sessions are decrypted.** TLS material is held by the home and the mobile device. The signing key never sees TLS plaintext.
-- **No other deployments are affected.** Each environment (prod / staging) and each self-host has its own keypair.
+- **No other deployments are affected.** Each deployment environment and each self-host has its own keypair.
 
 That said: *while the compromised key is live*, an attacker can mint tokens that pass relay validation. Combined with a separate compromise of either the home's CA or a paired device's Keychain, the rendezvous-layer access becomes meaningful. Defense-in-depth says: rotate fast, force re-enroll, treat the relay-side compromise seriously even though it can't decrypt anything alone.
 
-## staging vs. production
+## environment isolation
 
-Use **separate keypairs per environment, no exceptions.** A staging-signed token must never be accepted in production. The bundled generator can produce both — pass `--out ~/.spl/staging-keypair.json` for staging — and the wrangler secret commands take `--env staging` or `--env production`.
+Use **separate keypairs per environment, no exceptions.** A token signed by one deployment must never be accepted by another deployment. The bundled generator can produce additional keypairs with `--out <path>`, and the wrangler secret commands take `--env <name>` for whichever environments you define in `wrangler.toml`.
 
-If you operate both environments, rotate on the same 12-month cadence but **out of phase by 6 months**. You never want to be rotating both at once; reduces the blast radius of a rotation script bug.
+If you operate multiple environments, rotate on the same 12-month cadence but **out of phase**. You never want to be rotating all keys at once; that reduces the blast radius of a rotation script bug.
 
 ## self-host vs. sol pbc internal
 
