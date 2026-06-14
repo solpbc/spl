@@ -2,7 +2,7 @@
 
 The Cloudflare Worker + Durable Object that relays opaque bytes between two paired endpoints.
 
-`spl-relay` is the hosted server component of spl. sol pbc runs it at the canonical endpoint; you can run your own against a clean Cloudflare account by following the steps below. That self-host path is first-class — we ship `spl-relay` with the same trust claim as the hosted relay because *the code is the claim*.
+`spl-relay` is the hosted server component of spl. sol pbc runs it at the canonical endpoint `https://link.solstone.app`; you can run your own against a clean Cloudflare account by following the steps below. That self-host path is first-class — we ship `spl-relay` with the same trust claim as the hosted relay because *the code is the claim*.
 
 ## status
 
@@ -57,10 +57,10 @@ A fresh Ed25519 signing keypair is minted at config-load time in `vitest.workers
 Production deploys are manual and run by an authenticated sol pbc operator from their local machine:
 
 ```sh
-make deploy
+wrangler deploy --env production
 ```
 
-This invokes the **global** `wrangler deploy`. The operator must have run `wrangler login` at least once. Do not run the project-local wrangler (`bun run wrangler` / `npx wrangler`) for this — it loses the authenticated OAuth session and has been observed to cause R2/D1 visibility bugs.
+`make deploy` runs the same command. The operator must have run `wrangler login` at least once. Do not run the project-local wrangler (`bun run wrangler` / `npx wrangler`) for this — it loses the authenticated OAuth session and has been observed to cause R2/D1 visibility bugs.
 
 A deploy disconnects every live tunnel. It is not routine. Only deploy when the change is worth the customer-visible blip.
 
@@ -100,7 +100,7 @@ Run `bun run gen-key` to mint a self-host keypair — it writes to `~/.spl/signi
 
 ## configuration
 
-`wrangler.toml` is checked in and contains no secrets. The top-level block is a dev-only placeholder; `[env.staging]` and `[env.production]` hold the real deploy targets. Fill in each env's `database_id` (from `wrangler d1 create ...`) before deploying. Signing keys and tokens are secrets, provisioned via `wrangler secret put`.
+`wrangler.toml` is checked in and contains no secrets. The top-level block is a dev-only placeholder; `[env.staging]` and `[env.production]` hold the real deploy targets. The sol pbc production env deploys Worker `spl-relay`, D1 database `spl-relay`, and custom domain `link.solstone.app`. Fill in each env's `database_id` (from `wrangler d1 create ...`) before deploying your own copy. Signing keys and tokens are secrets, provisioned via `wrangler secret put`.
 
 ## logging policy
 

@@ -24,7 +24,7 @@ import { pairRelay } from "./pair_relay";
 import { looksLikePairLink, parsePairLink } from "./qr_link";
 
 const DEFAULT_STATE = join(homedir(), ".spl", "mobile", "state.json");
-const DEFAULT_RELAY = "https://spl.solpbc.org";
+const DEFAULT_RELAY = "https://link.solstone.app";
 
 async function main(argv: string[]): Promise<number> {
 	const [cmd, ...rest] = argv;

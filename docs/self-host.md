@@ -1,6 +1,6 @@
 # self-hosting spl-relay
 
-Running your own `spl-relay` relay against a clean Cloudflare account is a first-class path. The hosted relay at `solpbc.org` is a convenience; the code is the claim.
+Running your own `spl-relay` relay against a clean Cloudflare account is a first-class path. The sol pbc hosted relay at `link.solstone.app` is a convenience; the code is the claim.
 
 ## status
 

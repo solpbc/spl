@@ -3,11 +3,11 @@ main = "src/index.ts"
 compatibility_date = "2026-04-01"
 compatibility_flags = ["nodejs_compat"]
 
-# Production routes are wired by sol pbc at deploy time; self-hosters replace
-# these values with their own hostnames before `wrangler deploy`. Sol pbc's
-# hosted relay is at spl.solpbc.org.
+# Production routes are wired per environment; self-hosters replace these
+# values with their own hostnames before `wrangler deploy`. Sol pbc's hosted
+# relay is at link.solstone.app.
 # routes = [
-#   { pattern = "spl.solpbc.org", custom_domain = true }
+#   { pattern = "link.solstone.app", custom_domain = true }
 # ]
 
 [observability]
@@ -40,10 +40,8 @@ database_name = "spl-relay-dev"
 database_id = ""
 migrations_dir = "migrations"
 
-# Staging environment. Operator fills in database_id after `wrangler d1
-# create spl-relay-staging --env staging` and provisions SIGNING_JWK +
-# JWKS_PUBLIC via `wrangler secret put`. Staging is deployed autonomously by
-# VPE/CTO per CTO coordination; production deploys require founder approval.
+# Staging environment. Historical pre-release/TestFlight relay, not production.
+# It uses its own D1 database and its own SIGNING_JWK + JWKS_PUBLIC secrets.
 [env.staging]
 name = "spl-relay-staging"
 vars = { ENVIRONMENT = "staging", ISSUER = "spl-staging.solpbc.org" }
@@ -62,16 +60,17 @@ class_name = "InstanceDO"
 tag = "v1"
 new_sqlite_classes = ["InstanceDO"]
 
-# Production environment. database_id + secrets are provisioned at deploy.
-# Production deploys require founder approval per AGENTS.md §4.
+# Production environment. Secrets are provisioned with `wrangler secret put`;
+# the custom domain route is created by `wrangler deploy --env production`.
 [env.production]
 name = "spl-relay"
-vars = { ENVIRONMENT = "production", ISSUER = "spl.solpbc.org" }
+routes = [{ pattern = "link.solstone.app", custom_domain = true }]
+vars = { ENVIRONMENT = "production", ISSUER = "link.solstone.app" }
 
 [[env.production.d1_databases]]
 binding = "DB"
 database_name = "spl-relay"
-database_id = ""
+database_id = "989a04e6-09b0-4176-a228-e49b61401908"
 migrations_dir = "migrations"
 
 [[env.production.durable_objects.bindings]]

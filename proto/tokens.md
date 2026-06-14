@@ -51,7 +51,7 @@ JWT payload, service token:
 
 ```json
 {
-  "iss": "spl.solpbc.org",
+  "iss": "link.solstone.app",
   "sub": "home:<instance_id>",
   "aud": "spl-relay",
   "scope": "session.listen",
@@ -67,7 +67,7 @@ JWT payload, device token:
 
 ```json
 {
-  "iss": "spl.solpbc.org",
+  "iss": "link.solstone.app",
   "sub": "device:<device_id>",
   "aud": "spl-relay",
   "scope": "session.dial",
@@ -83,7 +83,7 @@ JWT payload, pair ticket:
 
 ```json
 {
-  "iss": "spl.solpbc.org",
+  "iss": "link.solstone.app",
   "sub": "pair:<instance_id>",
   "aud": "spl-relay",
   "scope": "session.pair",
@@ -98,7 +98,7 @@ The pair ticket carries no `ca_fp` and no `device_fp`.
 
 | claim | required | meaning |
 |---|---|---|
-| `iss` | yes | issuer hostname; for sol pbc deployments, `spl.solpbc.org`. Self-hosters use their own. |
+| `iss` | yes | issuer hostname; for sol pbc deployments, `link.solstone.app`. Self-hosters use their own. |
 | `sub` | yes | subject; must be `home:<instance_id>` for `session.listen`, `device:<device_id>` for `session.dial`, and `pair:<instance_id>` for `session.pair`. |
 | `aud` | yes | audience; always `spl-relay`. |
 | `scope` | yes | one of `session.listen` (service token), `session.dial` (device token), or `session.pair` (pair ticket). Workers reject mismatched scope at the route level. |
@@ -278,7 +278,7 @@ On every WebSocket upgrade request to `/session/listen`, `/session/dial`, or `/s
 4. Verifies the Ed25519 signature using the matched public key.
 5. Verifies the standard claims:
    - `aud == "spl-relay"`
-   - `iss == <expected issuer for this deployment>` (`spl.solpbc.org` for sol pbc; configurable per self-host)
+   - `iss == <expected issuer for this deployment>` (`link.solstone.app` for sol pbc; configurable per self-host)
    - `exp > now`
    - `iat ≤ now + 60s` (allow 60s clock skew on the issued-at side)
    - `scope` matches the route (`session.listen` for `/session/listen`; `session.dial` for `/session/dial`; `session.pair` for `/session/pair-dial`)
@@ -316,7 +316,7 @@ The compromise runbook collapses this — see `../docs/signing-keys.md` for the 
 `spl-relay` publishes the **public** JWKS at:
 
 ```
-GET https://spl.solpbc.org/.well-known/jwks.json
+GET https://link.solstone.app/.well-known/jwks.json
 ```
 
 (Self-hosters serve from their own `spl-relay` deployment's hostname.)

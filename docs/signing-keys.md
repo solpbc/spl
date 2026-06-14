@@ -100,7 +100,7 @@ GET https://<your-relay-host>/.well-known/jwks.json
 
 This is the transparency endpoint. Anyone can verify what key the relay is currently signing with — no internal access required. The endpoint is unauthenticated, returns a JSON object of the same shape stored in the secret, and is cached for 5 minutes.
 
-For sol pbc's hosted deployment: `https://spl.solpbc.org/.well-known/jwks.json`.
+For sol pbc's hosted deployment: `https://link.solstone.app/.well-known/jwks.json`.
 
 ## rotation
 

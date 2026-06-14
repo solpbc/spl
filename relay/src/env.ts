@@ -14,7 +14,7 @@ export interface Env {
 	// Deployment environment: "development" | "staging" | "production".
 	ENVIRONMENT: string;
 
-	// Expected JWT issuer for this deployment. Sol pbc hosted: "spl.solpbc.org".
+	// Expected JWT issuer for this deployment. Sol pbc hosted: "link.solstone.app".
 	// Self-hosted: operator's domain. Tokens whose `iss` claim does not match
 	// are rejected.
 	ISSUER: string;

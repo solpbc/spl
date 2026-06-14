@@ -190,7 +190,7 @@ The mobile stores `client_cert`, the matching private key (already in Keychain f
 The mobile makes one HTTPS POST to `spl-relay`'s control plane:
 
 ```
-POST https://spl.solpbc.org/enroll/device
+POST https://link.solstone.app/enroll/device
 {
   "instance_id": "<from step 7>",
   "home_attestation": "<from step 7>"

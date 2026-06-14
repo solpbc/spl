@@ -23,7 +23,7 @@ The asymmetry is deliberate. The mobile opens **one** WebSocket per dial (the di
 
 ```
 GET /session/listen HTTP/1.1
-Host: spl.solpbc.org
+Host: link.solstone.app
 Upgrade: websocket
 Connection: Upgrade
 Authorization: Bearer <service_token>
@@ -47,7 +47,7 @@ Reconnect: see *home reconnect* below.
 
 ```
 GET /session/dial?instance=<paired_instance_id> HTTP/1.1
-Host: spl.solpbc.org
+Host: link.solstone.app
 Upgrade: websocket
 Connection: Upgrade
 Authorization: Bearer <device_token>
@@ -62,7 +62,7 @@ After upgrade, this **same WebSocket** becomes the mobile-side tunnel WS once th
 
 ```
 GET /session/pair-dial?instance=<target_instance_id> HTTP/1.1
-Host: spl.solpbc.org
+Host: link.solstone.app
 Upgrade: websocket
 Connection: Upgrade
 Authorization: Bearer <pair_ticket>
@@ -77,7 +77,7 @@ After upgrade, this **same WebSocket** becomes the mobile-side tunnel WS once th
 
 ```
 GET /tunnel/<tunnel_id> HTTP/1.1
-Host: spl.solpbc.org
+Host: link.solstone.app
 Upgrade: websocket
 Connection: Upgrade
 Authorization: Bearer <service_token>

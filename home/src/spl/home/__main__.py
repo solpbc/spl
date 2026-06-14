@@ -53,7 +53,7 @@ def main(argv: list[str] | None = None) -> int:
     start = sub.add_parser("start", help="run the tunnel module")
     start.add_argument(
         "--relay",
-        default="https://spl.solpbc.org",
+        default="https://link.solstone.app",
         help="spl-relay endpoint (defaults to sol pbc hosted)",
     )
     start.add_argument("--home-label", default="spl home")

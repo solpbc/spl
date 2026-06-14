@@ -10,7 +10,7 @@
 # blind byte-relay binds no Images) — bun just installs the prebuilt and
 # moves on. See the relay README and the spl decision log.
 
-.PHONY: install test ci format clean dev deploy typecheck lint
+.PHONY: install test ci format clean dev deploy deploy-staging typecheck lint
 
 install:
 	bun install
@@ -35,12 +35,15 @@ format:
 dev:
 	bun run wrangler dev
 
-# Manual production deploy. Operator must be authenticated (`wrangler login`)
-# against the *global* wrangler binary — running the project-local wrangler
-# (`bun run wrangler` / `npx wrangler`) loses the OAuth session and exhibits
-# R2/D1 visibility bugs. See README.md prerequisites.
+# Manual deploys. Operator must be authenticated (`wrangler login`) against the
+# *global* wrangler binary — running the project-local wrangler (`bun run
+# wrangler` / `npx wrangler`) loses the OAuth session and exhibits R2/D1
+# visibility bugs. See README.md prerequisites.
 deploy:
-	wrangler deploy
+	wrangler deploy --env production
+
+deploy-staging:
+	wrangler deploy --env staging
 
 clean:
 	rm -rf node_modules/ dist/ .wrangler/ .bun-cache/
