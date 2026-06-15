@@ -31,4 +31,12 @@ export interface Env {
 	// rotation via `kid` lookup.
 	SIGNING_JWK?: string;
 	JWKS_PUBLIC?: string;
+
+	// Admin grant endpoint bearer secret — provisioned via
+	// `wrangler secret put GRANT_SECRET`; never committed.
+	GRANT_SECRET?: string;
+
+	// Session entitlement gate. Only the exact string "true" enables the gate;
+	// unset/off by default so self-hosted relays are unaffected.
+	ENTITLEMENT_REQUIRED?: string;
 }

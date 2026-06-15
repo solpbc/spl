@@ -39,6 +39,9 @@ export type LogEvent =
 	| "pair_ticket_rate_limited"
 	| "pair_dial_open"
 	| "pair_ticket_replay"
+	| "entitlement_set"
+	| "entitlement_revoke"
+	| "not_entitled"
 	| "internal_error";
 
 export type Direction = "home_to_mobile" | "mobile_to_home" | "meta";

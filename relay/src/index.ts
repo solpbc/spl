@@ -7,6 +7,7 @@
 //   GET  /.well-known/jwks.json     — transparency mirror of env.JWKS_PUBLIC
 //   POST /enroll/home               — mint service token, store CA pubkey
 //   POST /enroll/device             — verify home attestation, mint device token
+//   POST /admin/entitlement         — grant/revoke paid-tier session access
 //   GET  /session/listen?instance=  — home holds this open indefinitely
 //   GET  /session/dial?instance=    — mobile opens, becomes tunnel WS on pair
 //   POST /session/pair-ticket?instance= — TOTP-gated short-lived pair ticket
@@ -18,6 +19,7 @@
 // it does not inspect them. See AGENTS.md §3.
 
 import { handleEnrollDevice, handleEnrollHome } from "./enroll";
+import { handleSetEntitlement } from "./entitlement";
 import type { Env } from "./env";
 
 export { InstanceDO } from "./instance-do";
@@ -35,6 +37,9 @@ export default {
 		}
 		if (request.method === "POST" && url.pathname === "/enroll/device") {
 			return handleEnrollDevice(request, env);
+		}
+		if (request.method === "POST" && url.pathname === "/admin/entitlement") {
+			return handleSetEntitlement(request, env);
 		}
 
 		// Session and pairing surfaces are routed to the Durable Object for the

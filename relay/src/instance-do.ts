@@ -48,6 +48,9 @@ const CLOSE_CODE_NORMAL = 1000;
 // 4401 is the unauthorized-close code per proto/tokens.md §validation.
 const CLOSE_CODE_UNAUTHORIZED = 4401;
 
+// 4402 is the not-entitled-close code for the opt-in session gate.
+const CLOSE_CODE_NOT_ENTITLED = 4402;
+
 const PAIR_TICKET_TTL_SECONDS = 60;
 const MAX_PAIR_TICKET_BYTES = 2 * 1024;
 // Fixed valid-shape base32, used ONLY to make the no-usable-secret path do the
@@ -114,6 +117,10 @@ export class InstanceDO extends DurableObject<Env> {
 		if (result.claims.instance_id !== instanceId) {
 			return unauthorizedWithLog("/session/listen", "instance_mismatch", instanceId);
 		}
+		if (this.env.ENTITLEMENT_REQUIRED === "true" && !(await this.isEntitled(instanceId))) {
+			log({ event: "not_entitled", route: "/session/listen", instance_id: instanceId });
+			return notEntitledResponse();
+		}
 
 		// WS-tag cardinality: at most one active listen WS per instance.
 		const existing = this.ctx.getWebSockets(tagListen(instanceId));
@@ -153,6 +160,10 @@ export class InstanceDO extends DurableObject<Env> {
 		if (!result.ok) return unauthorizedWithLog("/session/dial", result.reason, instanceId);
 		if (result.claims.instance_id !== instanceId) {
 			return unauthorizedWithLog("/session/dial", "instance_mismatch", instanceId);
+		}
+		if (this.env.ENTITLEMENT_REQUIRED === "true" && !(await this.isEntitled(instanceId))) {
+			log({ event: "not_entitled", route: "/session/dial", instance_id: instanceId });
+			return notEntitledResponse();
 		}
 
 		const listeners = this.ctx.getWebSockets(tagListen(instanceId));
@@ -444,6 +455,18 @@ export class InstanceDO extends DurableObject<Env> {
 
 	// Helpers
 
+	private async isEntitled(instanceId: string): Promise<boolean> {
+		const now = Math.floor(Date.now() / 1000);
+		const row = await this.env.DB.prepare(
+			"SELECT entitled_until, revoked_at FROM instances WHERE instance_id = ?",
+		)
+			.bind(instanceId)
+			.first<{ entitled_until: number | null; revoked_at: number | null }>();
+
+		if (!row || row.revoked_at !== null || row.entitled_until === null) return false;
+		return row.entitled_until > now;
+	}
+
 	private consumePairJti(jti: string, expiresAt: number, now: number): boolean {
 		this.ctx.storage.sql.exec("DELETE FROM pair_jti_consumed WHERE expires_at < ?", now);
 		try {
@@ -613,6 +636,13 @@ function unauthorizedResponse(): Response {
 	return new Response("unauthorized", {
 		status: 401,
 		headers: { "x-close-code": String(CLOSE_CODE_UNAUTHORIZED) },
+	});
+}
+
+function notEntitledResponse(): Response {
+	return new Response("not entitled", {
+		status: 402,
+		headers: { "x-close-code": String(CLOSE_CODE_NOT_ENTITLED) },
 	});
 }
 

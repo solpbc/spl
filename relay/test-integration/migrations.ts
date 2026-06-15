@@ -44,4 +44,8 @@ export const migrations = [
 			"CREATE UNIQUE INDEX IF NOT EXISTS idx_instances_ca_fp ON instances(ca_fp)",
 		],
 	},
+	{
+		name: "0005_instances_entitled_until",
+		queries: ["ALTER TABLE instances ADD COLUMN entitled_until INTEGER"],
+	},
 ];

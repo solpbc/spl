@@ -18,7 +18,8 @@
     "test/**/*.ts",
     "test-integration/**/*.ts",
     "vitest.config.ts",
-    "vitest.workers.config.ts"
+    "vitest.workers.config.ts",
+    "vitest.workers.gate.config.ts"
   ],
   "exclude": ["node_modules", "dist", ".wrangler"]
 }

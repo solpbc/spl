@@ -22,10 +22,11 @@ bindings = [
 tag = "v1"
 new_sqlite_classes = ["InstanceDO"]
 
-# Non-secret configuration. Secrets (SIGNING_JWK, JWKS_PUBLIC) are set via
-# `wrangler secret put` and are NEVER committed here. ISSUER is the JWT
-# `iss` claim the Worker enforces on every verify; self-hosters override in
-# their env block.
+# Non-secret configuration. Secrets (SIGNING_JWK, JWKS_PUBLIC, GRANT_SECRET)
+# are set via `wrangler secret put` and are NEVER committed here. ISSUER is the
+# JWT `iss` claim the Worker enforces on every verify; self-hosters override in
+# their env block. ENTITLEMENT_REQUIRED is off by default; only the exact string
+# "true" enables the session gate.
 [vars]
 ENVIRONMENT = "development"
 ISSUER = "spl.local"
@@ -45,7 +46,7 @@ migrations_dir = "migrations"
 [env.production]
 name = "spl-relay"
 routes = [{ pattern = "link.solstone.app", custom_domain = true }]
-vars = { ENVIRONMENT = "production", ISSUER = "link.solstone.app" }
+vars = { ENVIRONMENT = "production", ISSUER = "link.solstone.app", ENTITLEMENT_REQUIRED = "true" }
 
 [[env.production.d1_databases]]
 binding = "DB"

@@ -9,9 +9,10 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "test": "vitest run --config vitest.config.ts && vitest run --config vitest.workers.config.ts",
+    "test": "vitest run --config vitest.config.ts && vitest run --config vitest.workers.config.ts && vitest run --config vitest.workers.gate.config.ts",
     "test:unit": "vitest run --config vitest.config.ts",
     "test:integration": "vitest run --config vitest.workers.config.ts",
+    "test:gate": "vitest run --config vitest.workers.gate.config.ts",
     "test:watch": "vitest --config vitest.config.ts",
     "typecheck": "tsc --noEmit",
     "lint": "biome check src/",
