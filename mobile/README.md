@@ -14,7 +14,7 @@ MVP — feature-complete for the v1 scope:
   client cert + home_attestation, forwards to spl-relay `/enroll/device`,
   stores the resulting device token alongside the keypair.
 - The same `pair` command auto-detects a relay-addressed QR link
-  (`https://link.solpbc.org/p#...`) and runs the off-LAN pair ceremony through
+  (`https://go.solstone.app/p#...`) and runs the off-LAN pair ceremony through
   `/session/pair-ticket` + `/session/pair-dial`.
 - `spl-mobile dial` opens the WS to spl-relay, runs TLS 1.3 inside the
   tunnel, and blocks until disconnect.
@@ -46,7 +46,7 @@ spl-mobile pair "https://192.168.1.10:8443/pair?token=<nonce>" "My Laptop" \
     --relay https://spl.example.org
 
 # Or pair from a relay-addressed QR link:
-spl-mobile pair "https://link.solpbc.org/p#<fragment>" "My Laptop" \
+spl-mobile pair "https://go.solstone.app/p#<fragment>" "My Laptop" \
     --relay https://spl.example.org
 
 # Verify the tunnel works end-to-end:

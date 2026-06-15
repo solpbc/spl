@@ -30,7 +30,7 @@ describe("pair QR links", () => {
 	});
 
 	test("parsePairLink extracts well-known relay fields", () => {
-		const link = parsePairLink(`https://link.solpbc.org/p#${WELL_KNOWN_FRAGMENT}`);
+		const link = parsePairLink(`https://go.solstone.app/p#${WELL_KNOWN_FRAGMENT}`);
 		expect(link.kind).toBe("relay");
 		if (link.kind !== "relay") throw new Error("expected relay link");
 		expect(link.instanceId).toBe("12345678-1234-5678-1234-567812345678");
@@ -43,7 +43,7 @@ describe("pair QR links", () => {
 	});
 
 	test("parsePairLink extracts custom relay origin", () => {
-		const link = parsePairLink(`https://link.solpbc.org/p#${CUSTOM_FRAGMENT}`);
+		const link = parsePairLink(`https://go.solstone.app/p#${CUSTOM_FRAGMENT}`);
 		expect(link.kind).toBe("relay");
 		if (link.kind !== "relay") throw new Error("expected relay link");
 		expect(link.relayOrigin).toBe("https://relay.example");
@@ -51,7 +51,7 @@ describe("pair QR links", () => {
 
 	test("parsePairLink dispatches version 0x04 as direct", () => {
 		expect(encode(decode(DIRECT_FRAGMENT))).toBe(DIRECT_FRAGMENT);
-		const link = parsePairLink(`https://link.solpbc.org/p#${DIRECT_FRAGMENT}`);
+		const link = parsePairLink(`https://go.solstone.app/p#${DIRECT_FRAGMENT}`);
 		expect(link.kind).toBe("direct");
 		if (link.kind !== "direct") throw new Error("expected direct link");
 		expect(link.addrType).toBe(1);
@@ -66,13 +66,13 @@ describe("pair QR links", () => {
 	test("parsePairLink rejects old direct version 0x02", () => {
 		expect(() =>
 			parsePairLink(
-				"https://link.solpbc.org/p#080W000258DSX8DJRFAEBXG733FAVFQFSBZBNFG14D2PF2DBSQQG",
+				"https://go.solstone.app/p#080W000258DSX8DJRFAEBXG733FAVFQFSBZBNFG14D2PF2DBSQQG",
 			),
 		).toThrow("unsupported pair-link version: 0x02");
 	});
 
-	test("looksLikePairLink identifies link.solpbc.org pair URLs only", () => {
-		expect(looksLikePairLink(`https://link.solpbc.org/p#${WELL_KNOWN_FRAGMENT}`)).toBe(true);
+	test("looksLikePairLink identifies go.solstone.app pair URLs only", () => {
+		expect(looksLikePairLink(`https://go.solstone.app/p#${WELL_KNOWN_FRAGMENT}`)).toBe(true);
 		expect(looksLikePairLink("https://192.168.1.10:8443/pair?token=x")).toBe(false);
 	});
 });

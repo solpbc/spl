@@ -59,7 +59,7 @@ function printHelp(): void {
 			"  spl-mobile test [options]",
 			"",
 			"pair targets:",
-			"  relay QR: https://link.solpbc.org/p#...",
+			"  relay QR: https://go.solstone.app/p#...",
 			"  LAN URL:  https://<ip>:<port>/pair?token=...",
 			"",
 			"options:",

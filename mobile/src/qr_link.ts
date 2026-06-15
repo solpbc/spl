@@ -32,7 +32,7 @@ export function looksLikePairLink(s: string): boolean {
 		const url = new URL(s);
 		return (
 			url.protocol === "https:" &&
-			url.hostname === "link.solpbc.org" &&
+			url.hostname === "go.solstone.app" &&
 			url.pathname === "/p" &&
 			url.hash.length > 1
 		);

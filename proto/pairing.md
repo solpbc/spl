@@ -13,11 +13,11 @@ This is a one-time ceremony per device. Re-pairing is identical (revoke first, p
 
 v1 supports a LAN-direct pairing form and an off-LAN **relay-addressed** pairing form. The QR wire contract for both is specified below; see *off-lan: relay-addressed form* for the relay posture. Once paired, everyday use works from any network.
 
-> **Two hosts, by design.** This ceremony deliberately touches two different domains, and they are not interchangeable:
-> - **`link.solpbc.org`** is the **pair-link / universal-link host** — every QR encodes `https://link.solpbc.org/p#…`, which opens the app (or the install-fallback page). It serves only the app-association files and the landing page; it holds no keys and relays nothing.
-> - **`link.solstone.app`** is the **`spl-relay` endpoint** — where the device enrolls and dials (`/enroll/device`, `/session/*`, `/tunnel/*`) and the JWT issuer. Self-hosters substitute their own relay origin (carried in the QR's `relay_origin`); the pair-link host stays `link.solpbc.org`.
+> **Two hosts, by design.** This ceremony deliberately touches two different hosts, and they are not interchangeable:
+> - **`go.solstone.app`** is the **pair-link / universal-link host** — every QR encodes `https://go.solstone.app/p#…`, which opens the app (or the install-fallback page). It serves only the app-association files and the landing page; it holds no keys and relays nothing.
+> - **`link.solstone.app`** is the **`spl-relay` endpoint** — where the device enrolls and dials (`/enroll/device`, `/session/*`, `/tunnel/*`) and the JWT issuer. Self-hosters substitute their own relay origin (carried in the QR's `relay_origin`); the pair-link host stays `go.solstone.app`.
 >
-> Seeing both in this doc is correct. A QR host is always `link.solpbc.org`; an enroll/session/token host is always `link.solstone.app`.
+> Seeing both in this doc is correct. A QR host is always `go.solstone.app`; an enroll/session/token host is always `link.solstone.app`.
 
 ## actors
 
@@ -48,7 +48,7 @@ Convey calls into the local `spl.pair` HTTPS server (loopback, port chosen at so
 - For direct (LAN) form: generates a 128-bit (16-byte) random **nonce**.
 - For relay form: generates a fresh 128-bit (16-byte) random **nonce**.
 - Records `(nonce, expires_at, used = false)` in an in-memory single-use table. Direct nonce TTL is 5 minutes; relay nonce TTL is approximately 30 seconds, one TOTP step.
-- Returns a **pair link** of the shape `https://link.solpbc.org/p#<uppercase Crockford base32 blob>`.
+- Returns a **pair link** of the shape `https://go.solstone.app/p#<uppercase Crockford base32 blob>`.
 
 In the direct form, the decoded blob carries `<lan-ip>` (the home's address on the local subnet), `<port>`, and the nonce. The nonce is the only sensitive material in the link — without a valid nonce, the `/pair` endpoint refuses to enroll.
 
@@ -57,7 +57,7 @@ In the direct form, the decoded blob carries `<lan-ip>` (the home's address on t
 Convey renders a QR code encoding a link of the form:
 
 ```text
-https://link.solpbc.org/p#<uppercase Crockford base32 blob>
+https://go.solstone.app/p#<uppercase Crockford base32 blob>
 ```
 
 The form is discriminated by the first decoded byte (`version`), never by URL path.
@@ -95,19 +95,19 @@ Conformance vectors use these fixed inputs: `instance_id=12345678-1234-5678-1234
 Well-known relay origin (`relay_origin=None`):
 
 ```
-https://link.solpbc.org/p#0C938NKR28T5CY0J6HB7G4HMASW03RJ004HMASW9NF6YY0938NKRKAYDXW0XXBDYXZ5FXENY04HMASW9NF6YY00
+https://go.solstone.app/p#0C938NKR28T5CY0J6HB7G4HMASW03RJ004HMASW9NF6YY0938NKRKAYDXW0XXBDYXZ5FXENY04HMASW9NF6YY00
 ```
 
 Custom relay origin (`relay_origin=https://relay.example`):
 
 ```
-https://link.solpbc.org/p#0C938NKR28T5CY0J6HB7G4HMASW03RJ004HMASW9NF6YY0938NKRKAYDXW0XXBDYXZ5FXENY04HMASW9NF6YY5B8EHT70WST5WQQ4SBCC5WJWSBRC5PQ0V35
+https://go.solstone.app/p#0C938NKR28T5CY0J6HB7G4HMASW03RJ004HMASW9NF6YY0938NKRKAYDXW0XXBDYXZ5FXENY04HMASW9NF6YY5B8EHT70WST5WQQ4SBCC5WJWSBRC5PQ0V35
 ```
 
 Direct form conformance vector uses fixed inputs: `addr_type=0x01`, `address=192.0.2.42`, `port=7070`, `nonce=a1b2c3d4e5f607181122334455667788`, `ca_fp=deadbeefcafebabe0123456789abcdef`.
 
 ```
-https://link.solpbc.org/p#0G0W000258DSX8DJRFAEBXG7308J4CT4ANK7F26YNPZEZJQYQAZ028T5CY4TQKFF
+https://go.solstone.app/p#0G0W000258DSX8DJRFAEBXG7308J4CT4ANK7F26YNPZEZJQYQAZ028T5CY4TQKFF
 ```
 
 The rest of this ceremony describes the direct LAN completion path. The phone-side completion ceremony for relay form is specified separately; this section fixes the QR wire contract.
