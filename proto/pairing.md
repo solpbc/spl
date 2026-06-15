@@ -13,6 +13,12 @@ This is a one-time ceremony per device. Re-pairing is identical (revoke first, p
 
 v1 supports a LAN-direct pairing form and an off-LAN **relay-addressed** pairing form. The QR wire contract for both is specified below; see *off-lan: relay-addressed form* for the relay posture. Once paired, everyday use works from any network.
 
+> **Two hosts, by design.** This ceremony deliberately touches two different domains, and they are not interchangeable:
+> - **`link.solpbc.org`** is the **pair-link / universal-link host** — every QR encodes `https://link.solpbc.org/p#…`, which opens the app (or the install-fallback page). It serves only the app-association files and the landing page; it holds no keys and relays nothing.
+> - **`link.solstone.app`** is the **`spl-relay` endpoint** — where the device enrolls and dials (`/enroll/device`, `/session/*`, `/tunnel/*`) and the JWT issuer. Self-hosters substitute their own relay origin (carried in the QR's `relay_origin`); the pair-link host stays `link.solpbc.org`.
+>
+> Seeing both in this doc is correct. A QR host is always `link.solpbc.org`; an enroll/session/token host is always `link.solstone.app`.
+
 ## actors
 
 - **home** — the python `spl.pair` server inside solstone, plus the local CA. Generates the QR. Signs the CSR. Updates `authorized_clients.json`.
