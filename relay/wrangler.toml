@@ -43,10 +43,18 @@ migrations_dir = "migrations"
 
 # Production environment. Secrets are provisioned with `wrangler secret put`;
 # the custom domain route is created by `wrangler deploy --env production`.
+#
+# ENTITLEMENT_REQUIRED stays "false" until the deliberate paid-tier go-live.
+# link.solstone.app already serves live SPL users (pair-from-anywhere) who hold
+# NO entitlement grant — flipping the gate on before billing is live + existing
+# instances are grandfathered would 402-lock every current user. Go-live order:
+# (1) deploy the account-portal billing rail to prod + provision its secrets;
+# (2) push grants for all existing/comp instances (grandfather);
+# (3) THEN set this to "true" and redeploy; (4) gated on sales-tax/DPA/payout/credits.
 [env.production]
 name = "spl-relay"
 routes = [{ pattern = "link.solstone.app", custom_domain = true }]
-vars = { ENVIRONMENT = "production", ISSUER = "link.solstone.app", ENTITLEMENT_REQUIRED = "true" }
+vars = { ENVIRONMENT = "production", ISSUER = "link.solstone.app", ENTITLEMENT_REQUIRED = "false" }
 
 [[env.production.d1_databases]]
 binding = "DB"
