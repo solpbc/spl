@@ -129,6 +129,61 @@ export async function openTunnel(config: TunnelConfig): Promise<TunnelSession> {
 		tlsSocket.once("error", onError);
 	});
 
+	return buildTunnelSession(tlsSocket, peerLeaf, () => {
+		try {
+			ws.close(1000, "test_done");
+		} catch {}
+	});
+}
+
+export interface DirectTunnelConfig {
+	host: string;
+	port: number;
+}
+
+// LAN-direct (v0x04) pairing: TLS straight to the home over TCP, no relay WS.
+// The home is self-signed, so the handshake is cert-less (rejectUnauthorized
+// false); trust is established afterward by pinning the QR CA fingerprint
+// against the returned ca_chain and binding it to this captured peer leaf
+// (see assertDirectCaPin). Mirrors the relay pin posture, minus the tunnel.
+export async function openDirectTunnel(config: DirectTunnelConfig): Promise<TunnelSession> {
+	const tlsSocket = tls.connect({
+		host: config.host,
+		port: config.port,
+		minVersion: "TLSv1.3",
+		maxVersion: "TLSv1.3",
+		checkServerIdentity: () => undefined,
+		rejectUnauthorized: false,
+	});
+	let peerLeaf: X509Certificate | undefined;
+	await new Promise<void>((resolve, reject) => {
+		const onSecureConnect = () => {
+			tlsSocket.removeListener("error", onError);
+			peerLeaf = tlsSocket.getPeerX509Certificate() ?? undefined;
+			resolve();
+		};
+		const onError = (err: Error) => {
+			tlsSocket.removeListener("secureConnect", onSecureConnect);
+			try {
+				tlsSocket.destroy();
+			} catch {}
+			reject(err);
+		};
+		tlsSocket.once("secureConnect", onSecureConnect);
+		tlsSocket.once("error", onError);
+	});
+	return buildTunnelSession(tlsSocket, peerLeaf, () => {});
+}
+
+// Shared mux + session wiring for both the relay tunnel and the LAN-direct
+// socket: pump TLS plaintext into the multiplexer, resolve `closed` on
+// teardown, and expose `close()` that ends TLS then runs the transport-
+// specific `onClose` (relay WS close, or a no-op for a raw socket).
+function buildTunnelSession(
+	tlsSocket: tls.TLSSocket,
+	peerLeaf: X509Certificate | undefined,
+	onClose: () => void,
+): TunnelSession {
 	const mux = new Multiplexer((bytes) => {
 		tlsSocket.write(bytes);
 	});
@@ -150,21 +205,18 @@ export async function openTunnel(config: TunnelConfig): Promise<TunnelSession> {
 		closedResolver();
 	});
 
-	const session: TunnelSession = {
+	return {
 		mux,
 		peerLeaf,
 		async close() {
 			try {
 				tlsSocket.end();
 			} catch {}
-			try {
-				ws.close(1000, "test_done");
-			} catch {}
+			onClose();
 			await closed;
 		},
 		closed,
 	};
-	return session;
 }
 
 // Adapt a browser-compatible WebSocket to a Node Duplex that carries raw

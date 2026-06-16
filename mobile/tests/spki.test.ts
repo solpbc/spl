@@ -4,9 +4,19 @@
 import { describe, expect, test } from "bun:test";
 import { X509Certificate } from "node:crypto";
 
-import { PinningError, assertCaPin, caCertSpkiFp16, spkiFp16 } from "../src/spki";
+import {
+	PinningError,
+	assertCaPin,
+	assertDirectCaPin,
+	caCertDerFp16,
+	caCertSpkiFp16,
+	spkiFp16,
+} from "../src/spki";
 
 const CA_FP16_HEX = "616a75b8113d89062796b4f591d1165f";
+// SHA-256 over the CA *certificate* DER (first 16 bytes) — the v0x04 LAN-direct
+// pin domain, distinct from the SPKI fingerprint above.
+const CA_CERT_DER_FP16_HEX = "4afec3136a8f4c7a0610f723f1887461";
 const CA_SPKI_DER_HEX =
 	"3059301306072a8648ce3d020106082a8648ce3d030107034200043ed1477e38da335b5fc5e2257cdc28961b7b0a8ce45a7a2994df6cfcb1a877ac470fdf1db556f7e4e673cd7614afe9f01b999590f72f9235ad00d6a7e57d8807";
 
@@ -82,6 +92,66 @@ describe("SPKI pinning", () => {
 				caPem: CA_PEM,
 				expectedFp16: hexToBytes(CA_FP16_HEX),
 				peerLeaf: new X509Certificate(OTHER_PEM),
+			}),
+		).toThrow(PinningError);
+	});
+});
+
+describe("LAN-direct (cert-DER) pinning", () => {
+	test("computes CA cert-DER fingerprint", () => {
+		expect(hex(caCertDerFp16(CA_PEM))).toBe(CA_CERT_DER_FP16_HEX);
+	});
+
+	test("cert-DER and SPKI fingerprints differ (separate pin domains)", () => {
+		expect(hex(caCertDerFp16(CA_PEM))).not.toBe(hex(caCertSpkiFp16(CA_PEM)));
+	});
+
+	test("assertDirectCaPin accepts a leaf signed by the pinned CA", () => {
+		expect(() =>
+			assertDirectCaPin({
+				caPem: CA_PEM,
+				expectedFp16: hexToBytes(CA_CERT_DER_FP16_HEX),
+				peerLeaf: new X509Certificate(LEAF_PEM),
+			}),
+		).not.toThrow();
+	});
+
+	test("assertDirectCaPin rejects a wrong cert-DER fingerprint", () => {
+		expect(() =>
+			assertDirectCaPin({
+				caPem: CA_PEM,
+				expectedFp16: hexToBytes("00000000000000000000000000000000"),
+				peerLeaf: new X509Certificate(LEAF_PEM),
+			}),
+		).toThrow(PinningError);
+	});
+
+	test("assertDirectCaPin rejects an SPKI fingerprint (wrong domain)", () => {
+		expect(() =>
+			assertDirectCaPin({
+				caPem: CA_PEM,
+				expectedFp16: hexToBytes(CA_FP16_HEX),
+				peerLeaf: new X509Certificate(LEAF_PEM),
+			}),
+		).toThrow(PinningError);
+	});
+
+	test("assertDirectCaPin rejects a leaf not signed by the pinned CA", () => {
+		expect(() =>
+			assertDirectCaPin({
+				caPem: CA_PEM,
+				expectedFp16: hexToBytes(CA_CERT_DER_FP16_HEX),
+				peerLeaf: new X509Certificate(OTHER_PEM),
+			}),
+		).toThrow(PinningError);
+	});
+
+	test("assertDirectCaPin rejects a missing peer leaf", () => {
+		expect(() =>
+			assertDirectCaPin({
+				caPem: CA_PEM,
+				expectedFp16: hexToBytes(CA_CERT_DER_FP16_HEX),
+				peerLeaf: undefined,
 			}),
 		).toThrow(PinningError);
 	});

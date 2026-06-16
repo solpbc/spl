@@ -45,6 +45,33 @@ export function assertCaPin(args: {
 	}
 }
 
+// The LAN-direct (v0x04) pair-link embeds the first 16 bytes of SHA-256 over
+// the CA *certificate* DER — not the SPKI form the relay (v0x03) link tags.
+// Keep the two fingerprint domains separate so a direct link cannot be checked
+// against an SPKI pin or vice-versa.
+export function caCertDerFp16(caPem: string): Uint8Array {
+	const caX = new X509Certificate(caPem);
+	return new Uint8Array(createHash("sha256").update(caX.raw).digest().subarray(0, 16));
+}
+
+export function assertDirectCaPin(args: {
+	caPem: string;
+	expectedFp16: Uint8Array;
+	peerLeaf: X509Certificate | undefined;
+}): void {
+	const caX = new X509Certificate(args.caPem);
+	const actualFp16 = caCertDerFp16(args.caPem);
+	if (!bytesEqual(actualFp16, args.expectedFp16)) {
+		throw new PinningError("CA cert pin mismatch: presented CA does not match the QR fingerprint");
+	}
+	if (!args.peerLeaf || !args.peerLeaf.verify(caX.publicKey)) {
+		throw new PinningError("TLS leaf is not signed by the pinned CA — possible LAN MITM");
+	}
+	if (!caX.verify(caX.publicKey)) {
+		throw new PinningError("pinned CA is not self-signed");
+	}
+}
+
 function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
 	if (a.byteLength !== b.byteLength) return false;
 	let diff = 0;

@@ -63,34 +63,48 @@ spl-mobile test
   credit as bytes drain.
 - `src/_csr_internal.ts` — ASN.1 DER + PKCS#10 CSR + PKCS#8 key builders.
   Extracted from `pair.ts` so tests can import without the network side.
-- `src/pair.ts` — LAN pair flow. CA fingerprint pin via
-  `tls.checkServerIdentity`; SHA-256 over the peer's DER cert compared
-  to the supplied `--pin`.
+- `src/pair.ts` — legacy manual LAN pair flow (`<ip>:<port>/pair?token=` via
+  plain HTTPS). CA fingerprint pin via `tls.checkServerIdentity`; SHA-256 over
+  the peer's DER cert compared to the supplied `--pin`. The QR-driven LAN path
+  is `pair_direct.ts`.
+- `src/pair_direct.ts` — LAN-direct (v0x04) QR pair flow. Opens cert-less TLS
+  straight to the home's `<ip>:<port>` from the pair-link, runs the mux, posts
+  the CSR to `/app/link/pair?token=`, then pins the QR's embedded CA cert-DER
+  fingerprint against the returned `ca_chain` and binds it to the live peer
+  leaf (`assertDirectCaPin`). Same pin posture as the relay flow, no tunnel.
 - `src/pair_relay.ts` — relay-addressed off-LAN pair flow. Requests a
   pair-ticket, opens `/session/pair-dial`, posts the CSR through the tunnel,
   then enrolls the returned home attestation.
 - `src/qr_link.ts` / `src/crockford32.ts` — pair-link parser and Crockford
-  base32 codec shared by the relay QR flow and tests.
-- `src/spki.ts` — CA SPKI pin helpers for relay pairing.
-- `src/dial.ts` — WS open → TLS 1.3 inside the WS (via Node's `tls`
-  module on a Duplex adapter per prototype finding §11.6) → mux on top.
+  base32 codec shared by the relay + LAN-direct QR flows and tests.
+- `src/spki.ts` — CA pin helpers: SPKI fingerprint for relay pairing
+  (`assertCaPin`) and cert-DER fingerprint for LAN-direct (`assertDirectCaPin`).
+- `src/dial.ts` — relay tunnel (WS open → TLS 1.3 inside the WS via Node's
+  `tls` module on a Duplex adapter per prototype finding §11.6 → mux on top)
+  and `openDirectTunnel` (TLS straight to a LAN socket → mux), sharing one
+  mux/session builder.
 - `src/http_client.ts` — minimal HTTP/1.1 client over a mux stream.
 - `src/index.ts` — CLI dispatch.
 
-## Off-LAN Pairing: Security Limitation
+## Pairing: pin posture and limitation
 
-This reference CLI opens cert-less TLS for relay pairing and pins the home's CA
-from the `/pair` response: it compares the first 16 bytes of SHA-256 over the
-CA SPKI to the QR fingerprint, and verifies the live TLS leaf is signed by that
-CA.
+Both QR pair flows open cert-less TLS and pin the home's CA from the `/pair`
+response. The relay flow (`assertCaPin`) compares the first 16 bytes of SHA-256
+over the CA **SPKI** to the v0x03 QR fingerprint; the LAN-direct flow
+(`assertDirectCaPin`) compares the first 16 bytes of SHA-256 over the CA
+**certificate DER** to the v0x04 QR fingerprint. Both then verify the live TLS
+leaf is signed by that pinned CA, and that the CA is self-signed — so a relay
+or on-path LAN attacker cannot terminate TLS with its own key while proxying
+the real home's `ca_chain`.
 
-Bun's `node:tls` compatibility exposes only the peer leaf certificate after
-this cert-less handshake, not the presented CA chain. That means this CLI cannot
-pin before the one-use nonce is sent through the tunnel. An active malicious
-relay could harvest that nonce during off-LAN pairing. Full pin-before-nonce
-active-MITM resistance is the iOS client's responsibility, because the
-production client can walk the presented chain at TLS time. This CLI is a
-wire-format reference and test harness, not the production security boundary.
+Bun's `node:tls` compatibility exposes only the peer leaf certificate after a
+cert-less handshake, not the presented CA chain. So this CLI pins *after* the
+one-use nonce is sent, not before — an active malicious relay (off-LAN) or
+on-path attacker (LAN) could harvest that nonce during the pairing window. Full
+pin-before-nonce active-MITM resistance is the production native client's
+responsibility, because it can walk the presented chain at TLS time. This CLI
+is a wire-format reference and test harness, not the production security
+boundary.
 
 ## test
 
@@ -98,8 +112,9 @@ wire-format reference and test harness, not the production security boundary.
 make test
 ```
 
-18 unit tests — framing encode/decode roundtrip, flag validation, WINDOW
-+ RESET parsing, and a **wire-compat snapshot** that hardcodes Python-
-side byte encodings to detect any TS/Python drift. Integration tests
-(full pair → dial → test) against the other two components live in the
-top-level `../Makefile`.
+38 unit tests — framing encode/decode roundtrip, flag validation, WINDOW
++ RESET parsing, pair-link parsing (relay + LAN-direct), CA pin helpers
+(SPKI + cert-DER, accept/reject/wrong-domain/unsigned-leaf), and a
+**wire-compat snapshot** that hardcodes Python-side byte encodings to detect
+any TS/Python drift. Integration tests (full pair → dial → test) against the
+other two components live in the top-level `../Makefile`.

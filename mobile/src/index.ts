@@ -20,6 +20,7 @@ import { join } from "node:path";
 import { dial } from "./dial";
 import { httpRequest } from "./http_client";
 import { loadPairing, pair, savePairing } from "./pair";
+import { pairDirect } from "./pair_direct";
 import { pairRelay } from "./pair_relay";
 import { looksLikePairLink, parsePairLink } from "./qr_link";
 
@@ -59,8 +60,8 @@ function printHelp(): void {
 			"  spl-mobile test [options]",
 			"",
 			"pair targets:",
-			"  relay QR: https://go.solstone.app/p#...",
-			"  LAN URL:  https://<ip>:<port>/pair?token=...",
+			"  pair QR:  https://go.solstone.app/p#...  (relay or LAN-direct)",
+			"  LAN URL:  https://<ip>:<port>/pair?token=...  (legacy manual form)",
 			"",
 			"options:",
 			"  --state <path>    pairing-state file (default: ~/.spl/mobile/state.json)",
@@ -119,10 +120,11 @@ async function cmdPair(args: string[]): Promise<number> {
 			printPairSummary(state, opts.state);
 			return 0;
 		}
-		console.error(
-			"direct/LAN QR pairing is not wired in the reference CLI; pass the home's LAN pair URL directly, e.g. spl-mobile pair https://<ip>:<port>/pair?token=<nonce> <label>",
-		);
-		return 2;
+		console.log(`pairing from LAN-direct QR as "${deviceLabel}" (${link.ipv4}:${link.port})`);
+		const { state } = await pairDirect({ link, deviceLabel, relayEndpoint: opts.relay });
+		await savePairing(opts.state, state);
+		printPairSummary(state, opts.state);
+		return 0;
 	}
 
 	console.log(`pairing over LAN as "${deviceLabel}"`);
