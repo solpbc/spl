@@ -54,7 +54,7 @@ migrations_dir = "migrations"
 [env.production]
 name = "spl-relay"
 routes = [{ pattern = "link.solstone.app", custom_domain = true }]
-vars = { ENVIRONMENT = "production", ISSUER = "link.solstone.app", ENTITLEMENT_REQUIRED = "false" }
+vars = { ENVIRONMENT = "production", ISSUER = "link.solstone.app", ENTITLEMENT_REQUIRED = "true" }
 
 [[env.production.d1_databases]]
 binding = "DB"
