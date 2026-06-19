@@ -91,6 +91,12 @@ function postRawEntitlement(body: string, bearer = env.GRANT_SECRET): Promise<Re
 	});
 }
 
+function getAdmin(path: string, bearer = env.GRANT_SECRET): Promise<Response> {
+	return SELF.fetch(`http://spl.test${path}`, {
+		headers: { Authorization: `Bearer ${bearer}` },
+	});
+}
+
 function wsFetch(url: string, token: string): Promise<Response> {
 	return SELF.fetch(url, {
 		headers: {
@@ -223,6 +229,113 @@ describe("POST /admin/entitlement", () => {
 		});
 
 		expect(res.status).toBe(404);
+	});
+});
+
+describe("GET /admin/instances", () => {
+	it("lists instances with correct entitled flags, never exposing pubkey or tokens", async () => {
+		const now = Math.floor(Date.now() / 1000);
+		const entitledId = newInstanceId();
+		await enrollHome(entitledId);
+		expect(
+			(await postEntitlement({ instance_id: entitledId, entitled_until: now + 3600 })).status,
+		).toBe(200);
+
+		const lapsedId = newInstanceId();
+		await enrollHome(lapsedId);
+
+		const revokedId = newInstanceId();
+		await enrollHome(revokedId);
+		expect(
+			(await postEntitlement({ instance_id: revokedId, entitled_until: now + 3600 })).status,
+		).toBe(200);
+		await env.DB.prepare("UPDATE instances SET revoked_at = ? WHERE instance_id = ?")
+			.bind(now, revokedId)
+			.run();
+
+		const res = await getAdmin("/admin/instances");
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as { instances: Array<Record<string, unknown>> };
+		const byId = new Map(body.instances.map((r) => [r.instance_id, r]));
+
+		expect(byId.get(entitledId)?.entitled).toBe(true);
+		expect(byId.get(lapsedId)?.entitled).toBe(false);
+		expect(byId.get(revokedId)?.entitled).toBe(false);
+
+		const row = byId.get(entitledId);
+		if (!row) throw new Error("entitled row missing from instances list");
+		expect(Object.keys(row).sort()).toEqual(
+			[
+				"instance_id",
+				"ca_fp",
+				"home_label",
+				"created_at",
+				"rotated_at",
+				"revoked_at",
+				"entitled_until",
+				"entitled",
+			].sort(),
+		);
+		expect(row).not.toHaveProperty("ca_pubkey_pem");
+		expect(row).not.toHaveProperty("service_token_jti");
+		expect(row.home_label).toBeNull();
+		expect(typeof row.ca_fp).toBe("string");
+		expect(row.ca_fp).toMatch(/^sha256:/);
+
+		for (let i = 1; i < body.instances.length; i++) {
+			expect(Number(body.instances[i - 1].created_at) >= Number(body.instances[i].created_at)).toBe(
+				true,
+			);
+		}
+	});
+
+	it("shows a single instance as a bare object", async () => {
+		const now = Math.floor(Date.now() / 1000);
+		const id = newInstanceId();
+		await enrollHome(id);
+		expect((await postEntitlement({ instance_id: id, entitled_until: now + 3600 })).status).toBe(
+			200,
+		);
+
+		const res = await getAdmin(`/admin/instances/${id}`);
+		expect(res.status).toBe(200);
+		const body = (await res.json()) as Record<string, unknown>;
+
+		expect(body.instance_id).toBe(id);
+		expect(body.entitled).toBe(true);
+		expect(body).not.toHaveProperty("instances");
+		expect(body).not.toHaveProperty("ca_pubkey_pem");
+		expect(body).not.toHaveProperty("service_token_jti");
+	});
+
+	it("returns 404 for an unknown instance", async () => {
+		const res = await getAdmin(`/admin/instances/${newInstanceId()}`);
+
+		expect(res.status).toBe(404);
+		expect(await res.json()).toEqual({ error: "unknown instance_id" });
+	});
+
+	it("returns 400 for a malformed id", async () => {
+		const malformed = await getAdmin("/admin/instances/bad");
+		const empty = await getAdmin("/admin/instances/");
+
+		expect(malformed.status).toBe(400);
+		expect(empty.status).toBe(400);
+	});
+
+	it("rejects wrong and missing bearer with 401", async () => {
+		const sameLengthWrong = "x".repeat(env.GRANT_SECRET.length);
+		expect(sameLengthWrong).not.toBe(env.GRANT_SECRET);
+
+		const wrongList = await getAdmin("/admin/instances", sameLengthWrong);
+		const wrongShow = await getAdmin(`/admin/instances/${newInstanceId()}`, sameLengthWrong);
+		const missingList = await SELF.fetch("http://spl.test/admin/instances");
+		const missingShow = await SELF.fetch(`http://spl.test/admin/instances/${newInstanceId()}`);
+
+		expect(wrongList.status).toBe(401);
+		expect(wrongShow.status).toBe(401);
+		expect(missingList.status).toBe(401);
+		expect(missingShow.status).toBe(401);
 	});
 });
 

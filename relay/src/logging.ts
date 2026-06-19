@@ -41,6 +41,8 @@ export type LogEvent =
 	| "pair_ticket_replay"
 	| "entitlement_set"
 	| "entitlement_revoke"
+	| "admin_instances_list"
+	| "admin_instance_show"
 	| "not_entitled"
 	| "internal_error";
 
@@ -52,6 +54,7 @@ export interface LogFields {
 	instance_id?: string;
 	direction?: Direction;
 	byte_count?: number;
+	count?: number;
 	close_code?: number;
 	duration_ms?: number;
 	reason?: string;

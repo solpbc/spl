@@ -117,4 +117,12 @@ describe("entitlement gate off", () => {
 
 		expect(res.status).toBe(503);
 	});
+
+	it("returns 503 from instances list and show when GRANT_SECRET is unset", async () => {
+		const list = await SELF.fetch("http://spl.test/admin/instances");
+		const show = await SELF.fetch(`http://spl.test/admin/instances/${newInstanceId()}`);
+
+		expect(list.status).toBe(503);
+		expect(show.status).toBe(503);
+	});
 });
