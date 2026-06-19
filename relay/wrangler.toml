@@ -3,6 +3,11 @@ main = "src/index.ts"
 compatibility_date = "2026-04-01"
 compatibility_flags = ["nodejs_compat"]
 
+# Disable the *.workers.dev preview URL. The admin surface is bearer-gated in
+# the Worker, but a live workers.dev hostname is an unnecessary second ingress;
+# the hosted relay is reached only via the custom domain. (CSO audit F5.)
+workers_dev = false
+
 # Production routes are wired per environment; self-hosters replace these
 # values with their own hostnames before `wrangler deploy`. Sol pbc's hosted
 # relay is at link.solstone.app.
@@ -53,6 +58,7 @@ migrations_dir = "migrations"
 # (3) THEN set this to "true" and redeploy; (4) gated on sales-tax/DPA/payout/credits.
 [env.production]
 name = "spl-relay"
+workers_dev = false
 routes = [{ pattern = "link.solstone.app", custom_domain = true }]
 vars = { ENVIRONMENT = "production", ISSUER = "link.solstone.app", ENTITLEMENT_REQUIRED = "true" }
 
