@@ -60,7 +60,27 @@ export async function handleSetEntitlement(request: Request, env: Env): Promise<
 	)
 		.bind(resolved.entitledUntil, body.instance_id)
 		.run();
-	if (result.meta.changes === 0) return json({ error: "unknown instance_id" }, 404);
+	if (result.meta.changes === 0) {
+		// Grant-before-enroll race: no instances row exists yet (the account
+		// worker can grant before the home enrolls; the comp/scout path never
+		// re-pushes). Hold the grant in pending_grants and claim it on enroll
+		// instead of dropping it as 404. A revoke just clears any held grant.
+		if (resolved.entitledUntil === null) {
+			await env.DB.prepare("DELETE FROM pending_grants WHERE instance_id = ?")
+				.bind(body.instance_id)
+				.run();
+			log({ event: "entitlement_revoke", instance_id: body.instance_id });
+			return json({ ok: true });
+		}
+		const now = Math.floor(Date.now() / 1000);
+		await env.DB.prepare(
+			"INSERT INTO pending_grants (instance_id, entitled_until, updated_at) VALUES (?, ?, ?) ON CONFLICT(instance_id) DO UPDATE SET entitled_until = excluded.entitled_until, updated_at = excluded.updated_at",
+		)
+			.bind(body.instance_id, resolved.entitledUntil, now)
+			.run();
+		log({ event: "entitlement_pending", instance_id: body.instance_id });
+		return json({ ok: true, pending: true });
+	}
 
 	log({
 		event: resolved.entitledUntil === null ? "entitlement_revoke" : "entitlement_set",

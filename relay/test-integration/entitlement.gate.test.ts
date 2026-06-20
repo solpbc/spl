@@ -32,17 +32,21 @@ function newInstanceId(): string {
 	return crypto.randomUUID();
 }
 
-async function enrollHome(instanceId: string): Promise<void> {
-	const ca = await genCaKeypair();
+async function enrollHome(
+	instanceId: string,
+	ca?: Awaited<ReturnType<typeof genCaKeypair>>,
+): Promise<Awaited<ReturnType<typeof genCaKeypair>>> {
+	const keypair = ca ?? (await genCaKeypair());
 	const res = await SELF.fetch("http://spl.test/enroll/home", {
 		method: "POST",
 		headers: { "content-type": "application/json" },
 		body: JSON.stringify({
 			instance_id: instanceId,
-			ca_pubkey: ca.pubPem,
+			ca_pubkey: keypair.pubPem,
 		}),
 	});
 	expect(res.status).toBe(200);
+	return keypair;
 }
 
 async function mintService(instanceId: string): Promise<string> {
@@ -158,6 +162,59 @@ describe("POST /admin/entitlement", () => {
 			.bind(instanceId)
 			.first<{ entitled_until: number | null }>();
 		expect(row?.entitled_until).toBe(until);
+
+		const pending = await env.DB.prepare(
+			"SELECT instance_id FROM pending_grants WHERE instance_id = ?",
+		)
+			.bind(instanceId)
+			.first<{ instance_id: string }>();
+		expect(pending).toBeNull();
+	});
+
+	it("holds a grant before enroll and claims it on enroll", async () => {
+		const instanceId = newInstanceId();
+		const until = Math.floor(Date.now() / 1000) + 3600;
+
+		const res = await postEntitlement({
+			instance_id: instanceId,
+			entitled_until: until + 0.9,
+		});
+		expect(res.status).toBe(200);
+		expect(await res.json()).toEqual({ ok: true, pending: true });
+
+		const pending = await env.DB.prepare(
+			"SELECT entitled_until FROM pending_grants WHERE instance_id = ?",
+		)
+			.bind(instanceId)
+			.first<{ entitled_until: number }>();
+		expect(pending?.entitled_until).toBe(until);
+
+		const notEnrolled = await env.DB.prepare(
+			"SELECT instance_id FROM instances WHERE instance_id = ?",
+		)
+			.bind(instanceId)
+			.first<{ instance_id: string }>();
+		expect(notEnrolled).toBeNull();
+
+		await enrollHome(instanceId);
+
+		const instance = await env.DB.prepare(
+			"SELECT entitled_until FROM instances WHERE instance_id = ?",
+		)
+			.bind(instanceId)
+			.first<{ entitled_until: number | null }>();
+		expect(instance?.entitled_until).toBe(until);
+
+		const claimed = await env.DB.prepare(
+			"SELECT instance_id FROM pending_grants WHERE instance_id = ?",
+		)
+			.bind(instanceId)
+			.first<{ instance_id: string }>();
+		expect(claimed).toBeNull();
+
+		const show = await getAdmin(`/admin/instances/${instanceId}`);
+		expect(show.status).toBe(200);
+		expect(((await show.json()) as { entitled: boolean }).entitled).toBe(true);
 	});
 
 	it("revokes via entitled_until=0", async () => {
@@ -175,6 +232,67 @@ describe("POST /admin/entitlement", () => {
 			.bind(instanceId)
 			.first<{ entitled_until: number | null }>();
 		expect(row?.entitled_until).toBeNull();
+	});
+
+	it("clears a held grant when revoked before enroll", async () => {
+		const instanceId = newInstanceId();
+		const until = Math.floor(Date.now() / 1000) + 3600;
+		const grant = await postEntitlement({ instance_id: instanceId, entitled_until: until });
+		expect(grant.status).toBe(200);
+
+		const pending = await env.DB.prepare(
+			"SELECT instance_id FROM pending_grants WHERE instance_id = ?",
+		)
+			.bind(instanceId)
+			.first<{ instance_id: string }>();
+		expect(pending?.instance_id).toBe(instanceId);
+
+		const revoke = await postEntitlement({ instance_id: instanceId, entitled_until: 0 });
+		expect(revoke.status).toBe(200);
+		expect(await revoke.json()).toEqual({ ok: true });
+
+		const cleared = await env.DB.prepare(
+			"SELECT instance_id FROM pending_grants WHERE instance_id = ?",
+		)
+			.bind(instanceId)
+			.first<{ instance_id: string }>();
+		expect(cleared).toBeNull();
+
+		await enrollHome(instanceId);
+
+		const row = await env.DB.prepare("SELECT entitled_until FROM instances WHERE instance_id = ?")
+			.bind(instanceId)
+			.first<{ entitled_until: number | null }>();
+		expect(row?.entitled_until).toBeNull();
+	});
+
+	it("claims a pending grant on re-enroll with the same CA", async () => {
+		const instanceId = newInstanceId();
+		const ca = await enrollHome(instanceId);
+		const now = Math.floor(Date.now() / 1000);
+		const until = now + 3600;
+
+		await env.DB.prepare(
+			"INSERT INTO pending_grants (instance_id, entitled_until, updated_at) VALUES (?, ?, ?)",
+		)
+			.bind(instanceId, until, now)
+			.run();
+
+		await enrollHome(instanceId, ca);
+
+		const instance = await env.DB.prepare(
+			"SELECT entitled_until FROM instances WHERE instance_id = ?",
+		)
+			.bind(instanceId)
+			.first<{ entitled_until: number | null }>();
+		expect(instance?.entitled_until).toBe(until);
+
+		const pending = await env.DB.prepare(
+			"SELECT instance_id FROM pending_grants WHERE instance_id = ?",
+		)
+			.bind(instanceId)
+			.first<{ instance_id: string }>();
+		expect(pending).toBeNull();
 	});
 
 	it("maps non-JSON and missing instance_id bodies to 400", async () => {
@@ -220,15 +338,6 @@ describe("POST /admin/entitlement", () => {
 
 		expect(wrong.status).toBe(401);
 		expect(missing.status).toBe(401);
-	});
-
-	it("returns 404 for an unknown instance", async () => {
-		const res = await postEntitlement({
-			instance_id: newInstanceId(),
-			entitled_until: Math.floor(Date.now() / 1000) + 3600,
-		});
-
-		expect(res.status).toBe(404);
 	});
 });
 

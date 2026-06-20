@@ -48,4 +48,14 @@ export const migrations = [
 		name: "0005_instances_entitled_until",
 		queries: ["ALTER TABLE instances ADD COLUMN entitled_until INTEGER"],
 	},
+	{
+		name: "0006_pending_grants",
+		queries: [
+			`CREATE TABLE IF NOT EXISTS pending_grants (
+				instance_id    TEXT PRIMARY KEY,
+				entitled_until INTEGER NOT NULL,
+				updated_at     INTEGER NOT NULL
+			)`,
+		],
+	},
 ];

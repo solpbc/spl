@@ -151,6 +151,25 @@ export async function handleEnrollHome(request: Request, env: Env): Promise<Resp
 		log({ event: "enroll_home", instance_id: body.instance_id, jti: minted.jti });
 	}
 
+	// Claim any grant that arrived before this enroll (grant-before-enroll
+	// race; see migrations/0006_pending_grants.sql). Placed after both the
+	// insert and re-enroll branches so the single claim covers both. A held
+	// grant for an already-enrolled instance is rare but handled correctly.
+	const pending = await env.DB.prepare(
+		"SELECT entitled_until FROM pending_grants WHERE instance_id = ?",
+	)
+		.bind(body.instance_id)
+		.first<{ entitled_until: number }>();
+	if (pending) {
+		await env.DB.prepare("UPDATE instances SET entitled_until = ? WHERE instance_id = ?")
+			.bind(pending.entitled_until, body.instance_id)
+			.run();
+		await env.DB.prepare("DELETE FROM pending_grants WHERE instance_id = ?")
+			.bind(body.instance_id)
+			.run();
+		log({ event: "pending_grant_claimed", instance_id: body.instance_id });
+	}
+
 	return json({
 		service_token: minted.jwt,
 		expires_at: new Date(minted.exp * 1000).toISOString(),
