@@ -3,7 +3,7 @@
 
 // LAN-direct (v0x04) pair flow. The home runs the spl framed-mux protocol over
 // a cert-less TLS 1.3 socket on the LAN, so we connect straight to <ip>:<port>
-// from the pair link, run the multiplexer, and POST /app/link/pair?token=. Like
+// from the pair link, run the multiplexer, and POST /app/network/pair?token=. Like
 // the relay flow, Bun's node:tls exposes only the peer leaf after a cert-less
 // handshake, so we pin after /pair returns ca_chain: verify the QR's embedded
 // CA cert-DER fingerprint against the returned CA and bind that CA to the live
@@ -53,7 +53,7 @@ export async function pairDirect(input: DirectPairInput): Promise<{ state: Pairi
 
 		const pairResponse = await httpRequest(session.mux, {
 			method: "POST",
-			path: `/app/link/pair?token=${encodeURIComponent(nonce)}`,
+			path: `/app/network/pair?token=${encodeURIComponent(nonce)}`,
 			headers: { "content-type": "application/json" },
 			body: JSON.stringify({ csr: csrPem, device_label: input.deviceLabel }),
 		});

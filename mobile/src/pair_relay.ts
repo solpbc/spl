@@ -70,7 +70,7 @@ export async function pairRelay(input: RelayPairInput): Promise<{ state: Pairing
 
 		const pairResponse = await httpRequest(session.mux, {
 			method: "POST",
-			path: `/app/link/pair?token=${encodeURIComponent(nonce)}`,
+			path: `/app/network/pair?token=${encodeURIComponent(nonce)}`,
 			headers: { "content-type": "application/json" },
 			body: JSON.stringify({ csr: csrPem, device_label: input.deviceLabel }),
 		});

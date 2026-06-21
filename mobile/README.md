@@ -69,7 +69,7 @@ spl-mobile test
   is `pair_direct.ts`.
 - `src/pair_direct.ts` — LAN-direct (v0x04) QR pair flow. Opens cert-less TLS
   straight to the home's `<ip>:<port>` from the pair-link, runs the mux, posts
-  the CSR to `/app/link/pair?token=`, then pins the QR's embedded CA cert-DER
+  the CSR to `/app/network/pair?token=`, then pins the QR's embedded CA cert-DER
   fingerprint against the returned `ca_chain` and binds it to the live peer
   leaf (`assertDirectCaPin`). Same pin posture as the relay flow, no tunnel.
 - `src/pair_relay.ts` — relay-addressed off-LAN pair flow. Requests a
