@@ -6,7 +6,7 @@
 // that exercise attestation-replay defense and D1 idempotency.
 
 import { SELF, applyD1Migrations, env } from "cloudflare:test";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { fingerprintDer } from "../src/attestation";
 import { base64UrlDecode, verifyToken } from "../src/tokens";
 import { genCaKeypair, genClientCertDer, mintAttestation } from "../test/fixtures";
@@ -249,6 +249,56 @@ describe("POST /enroll/device", () => {
 	function payload(jwt: string): unknown {
 		return JSON.parse(new TextDecoder().decode(base64UrlDecode(jwt.split(".")[1])));
 	}
+
+	it("does not log enrollment tokens or secret-bearing payloads", async () => {
+		const ca = await genCaKeypair();
+		const instanceId = newInstanceId();
+		const spy = vi.spyOn(console, "log").mockImplementation(() => {});
+
+		try {
+			const home = await SELF.fetch("http://spl.test/enroll/home", {
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({
+					instance_id: instanceId,
+					ca_pubkey: ca.pubPem,
+					totp_secret: VALID_TOTP_SECRET,
+				}),
+			});
+			expect(home.status).toBe(200);
+			const homeBody = (await home.json()) as { service_token: string };
+
+			const certDer = await genClientCertDer();
+			const attestation = await mintAttestation({
+				caPrivateKey: ca.privateKey,
+				instanceId,
+				deviceFp: await fingerprintDer(certDer),
+			});
+			const device = await SELF.fetch("http://spl.test/enroll/device", {
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({
+					instance_id: instanceId,
+					home_attestation: attestation,
+				}),
+			});
+			expect(device.status).toBe(200);
+			const deviceBody = (await device.json()) as { device_token: string };
+
+			const caBodyLine = ca.pubPem.split("\n").find((line) => line.length > 20);
+			if (!caBodyLine) throw new Error("test CA PEM missing body line");
+			const lines = spy.mock.calls.map((args) => args.map(String).join(" "));
+			for (const line of lines) {
+				expect(line).not.toContain(homeBody.service_token);
+				expect(line).not.toContain(deviceBody.device_token);
+				expect(line).not.toContain(VALID_TOTP_SECRET);
+				expect(line).not.toContain(caBodyLine);
+				expect(line).not.toContain(attestation);
+			}
+		} finally {
+			spy.mockRestore();
+		}
+	});
 
 	it("issues a device token given a valid home attestation", async () => {
 		const { instanceId, ca } = await setupEnrolled();

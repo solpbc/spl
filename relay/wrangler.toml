@@ -18,6 +18,12 @@ workers_dev = false
 [observability]
 enabled = true
 
+[observability.logs]
+# Invocation logs include the fetch method and URL. WebSocket clients may use
+# `?token=` when they cannot set Authorization headers, so keep custom JSON
+# application logs but do not store request URLs in Workers Logs.
+invocation_logs = false
+
 [durable_objects]
 bindings = [
   { name = "INSTANCE", class_name = "InstanceDO" }
@@ -61,6 +67,14 @@ name = "spl-relay"
 workers_dev = false
 routes = [{ pattern = "link.solstone.app", custom_domain = true }]
 vars = { ENVIRONMENT = "production", ISSUER = "link.solstone.app", ENTITLEMENT_REQUIRED = "true" }
+
+[env.production.observability]
+enabled = true
+
+[env.production.observability.logs]
+# Production must not emit request URL invocation logs because WebSocket query
+# tokens are valid bearer credentials for clients without header support.
+invocation_logs = false
 
 [[env.production.d1_databases]]
 binding = "DB"
