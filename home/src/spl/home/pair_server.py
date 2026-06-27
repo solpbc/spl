@@ -37,9 +37,11 @@ from typing import Any
 
 from cryptography.hazmat.primitives import serialization
 
-from .auth import AuthorizedClients
+from .auth import AuthorizedClients, ClientEntry
 from .ca import LoadedCa, cert_fingerprint, mint_attestation, sign_csr
 from .nonces import NonceStore
+
+_UNNAMED_DEVICE = "unnamed device"
 
 
 class PairServer:
@@ -125,6 +127,47 @@ class PairServer:
                     pass
 
 
+def _superseded_fingerprints(
+    snapshot: list[ClientEntry],
+    new_fingerprint: str,
+    new_label: str,
+) -> list[str]:
+    """Fingerprints to auto-retire after a same-label re-pair.
+
+    Selects prior entries that share the new pairing's explicit device
+    label, excluding the just-added entry and any entry whose label is
+    empty or the generic `_UNNAMED_DEVICE` sentinel (collapsing on the
+    sentinel would wrongly merge every unlabeled device).
+    """
+    return [
+        e.fingerprint
+        for e in snapshot
+        if e.fingerprint != new_fingerprint
+        and e.device_label
+        and e.device_label != _UNNAMED_DEVICE
+        and e.device_label == new_label
+    ]
+
+
+def _retire_superseded(
+    authorized: AuthorizedClients,
+    new_fingerprint: str,
+    new_label: str,
+) -> None:
+    """Best-effort retire of prior certs sharing this device label.
+
+    Runs after the new entry is added, so the snapshot already contains
+    it (excluded by fingerprint). Any failure is swallowed — the device
+    is paired the moment `add` succeeds and a retire failure must never
+    fail the pair.
+    """
+    try:
+        for fp in _superseded_fingerprints(authorized.snapshot(), new_fingerprint, new_label):
+            authorized.remove(fp)
+    except Exception:  # noqa: BLE001, S110 - best-effort; must not fail the pair
+        pass
+
+
 def _make_handler(
     *,
     instance_id: str,
@@ -166,7 +209,7 @@ def _make_handler(
 
             nonce = payload.get("nonce")
             csr_pem = payload.get("csr")
-            device_label = payload.get("device_label") or "unnamed device"
+            device_label = payload.get("device_label") or _UNNAMED_DEVICE
             if not isinstance(nonce, str) or not isinstance(csr_pem, str):
                 self._json(HTTPStatus.BAD_REQUEST, {"error": "missing fields"})
                 return
@@ -188,6 +231,7 @@ def _make_handler(
                 instance_id=instance_id,
                 paired_at=dt.datetime.now(dt.UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
             )
+            _retire_superseded(authorized, fingerprint, device_label)
             attestation = mint_attestation(ca, instance_id, fingerprint)
             ca_chain = [
                 ca.cert.public_bytes(serialization.Encoding.PEM).decode("ascii"),
