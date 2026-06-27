@@ -17,9 +17,18 @@ import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-import { dial } from "./dial";
+import { ReconnectRequired, type TunnelSession, dial } from "./dial";
 import { httpRequest } from "./http_client";
-import { loadPairing, pair, savePairing } from "./pair";
+import {
+	type PairGuardDecision,
+	type PairingState,
+	decidePairAction,
+	loadPairing,
+	pair,
+	pairSummaryLine,
+	savePairing,
+	tryLoadPairing,
+} from "./pair";
 import { pairDirect } from "./pair_direct";
 import { pairRelay } from "./pair_relay";
 import { looksLikePairLink, parsePairLink } from "./qr_link";
@@ -109,21 +118,32 @@ async function cmdPair(args: string[]): Promise<number> {
 		console.error("usage: spl-mobile pair <pair-link-or-lan-url> <device-label>");
 		return 2;
 	}
+	const stored = await tryLoadPairing(opts.state);
 
 	if (looksLikePairLink(target)) {
 		const link = parsePairLink(target);
 		if (link.kind === "relay") {
-			console.log(`pairing from relay QR as "${deviceLabel}"`);
 			const relayEndpoint = link.relayOrigin ?? opts.relay;
+			const decision = decidePairAction(link.instanceId, stored?.instance_id ?? null);
+			if (decision === "already-connected" && stored) {
+				printPairSummary("already-connected", stored, opts.state, false);
+				return 0;
+			}
+			console.log(`pairing from relay QR as "${deviceLabel}"`);
 			const { state } = await pairRelay({ link, deviceLabel, relayEndpoint });
 			await savePairing(opts.state, state);
-			printPairSummary(state, opts.state);
+			printPairSummary(decision, state, opts.state, true);
 			return 0;
 		}
 		console.log(`pairing from LAN-direct QR as "${deviceLabel}" (${link.ipv4}:${link.port})`);
 		const { state } = await pairDirect({ link, deviceLabel, relayEndpoint: opts.relay });
+		const decision = decidePairAction(state.instance_id, stored?.instance_id ?? null);
+		if (decision === "already-connected") {
+			printPairSummary("already-connected", state, opts.state, false);
+			return 0;
+		}
 		await savePairing(opts.state, state);
-		printPairSummary(state, opts.state);
+		printPairSummary(decision, state, opts.state, true);
 		return 0;
 	}
 
@@ -135,16 +155,24 @@ async function cmdPair(args: string[]): Promise<number> {
 		caFingerprint: opts.pin,
 		insecureSkipLanVerify: opts.insecure,
 	});
+	const decision = decidePairAction(state.instance_id, stored?.instance_id ?? null);
+	if (decision === "already-connected") {
+		printPairSummary("already-connected", state, opts.state, false);
+		return 0;
+	}
 	await savePairing(opts.state, state);
-	printPairSummary(state, opts.state);
+	printPairSummary(decision, state, opts.state, true);
 	return 0;
 }
 
 function printPairSummary(
-	state: { home_label: string; instance_id: string; fingerprint: string },
+	decision: PairGuardDecision,
+	state: Pick<PairingState, "home_label" | "instance_id" | "fingerprint">,
 	path: string,
+	saved: boolean,
 ): void {
-	console.log(`Paired with ${state.home_label} (instance ${state.instance_id}).`);
+	console.log(pairSummaryLine(decision, state.home_label, state.instance_id));
+	if (!saved) return;
 	console.log(`  fingerprint: ${state.fingerprint}`);
 	console.log(`  state saved to: ${path}`);
 }
@@ -153,7 +181,16 @@ async function cmdDial(args: string[]): Promise<number> {
 	const { opts } = parseOptions(args);
 	const state = await loadPairing(opts.state);
 	console.log(`dialing ${state.home_label} through ${state.relay_endpoint}`);
-	const session = await dial({ state });
+	let session: TunnelSession;
+	try {
+		session = await dial({ state, statePath: opts.state });
+	} catch (err) {
+		if (err instanceof ReconnectRequired) {
+			console.error(err.message);
+			return 1;
+		}
+		throw err;
+	}
 	console.log("tunnel established. close with ctrl-c.");
 	await session.closed;
 	return 0;
@@ -163,7 +200,16 @@ async function cmdTest(args: string[]): Promise<number> {
 	const { opts } = parseOptions(args);
 	const n = opts.n ?? 16;
 	const state = await loadPairing(opts.state);
-	const session = await dial({ state });
+	let session: TunnelSession;
+	try {
+		session = await dial({ state, statePath: opts.state });
+	} catch (err) {
+		if (err instanceof ReconnectRequired) {
+			console.error(err.message);
+			return 1;
+		}
+		throw err;
+	}
 
 	try {
 		// 1. /echo

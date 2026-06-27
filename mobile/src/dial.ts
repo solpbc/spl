@@ -18,13 +18,16 @@ import type { X509Certificate } from "node:crypto";
 import { Duplex } from "node:stream";
 import tls from "node:tls";
 
+import { parseJwtClaims, shouldRefreshBeforeDial } from "./device_token";
 import { Multiplexer } from "./mux";
-import type { PairingState } from "./pair";
+import { type PairingState, refreshDeviceToken, savePairing } from "./pair";
 
 export interface DialOptions {
 	state: PairingState;
-	/** If provided, bypasses the device-token auto-refresh path (useful for tests). */
+	/** If provided, use this exact token and skip proactive and reactive refresh. */
 	deviceToken?: string;
+	/** If provided, refreshed tokens are persisted to this pairing-state path. */
+	statePath?: string;
 	/** Override the relay endpoint (tests). */
 	relayEndpoint?: string;
 }
@@ -49,11 +52,34 @@ export interface TunnelConfig {
 	trust: TrustMode;
 }
 
+class DialRejected extends Error {
+	constructor() {
+		super("WebSocket upgrade rejected");
+		this.name = "DialRejected";
+	}
+}
+
+export class ReconnectRequired extends Error {
+	constructor(homeLabel: string) {
+		super(`Reconnect required for ${homeLabel}. Re-pair this device to continue.`);
+		this.name = "ReconnectRequired";
+	}
+}
+
 export async function dial(options: DialOptions): Promise<TunnelSession> {
 	const { state } = options;
 	const endpoint = (options.relayEndpoint ?? state.relay_endpoint).replace(/\/+$/, "");
-	const token = options.deviceToken ?? state.device_token;
-	return openTunnel({
+	const override = options.deviceToken;
+	const refreshEnabled = override === undefined;
+	let token = override ?? state.device_token;
+	let refreshed = false;
+
+	const persist = async (nextToken: string): Promise<void> => {
+		state.device_token = nextToken;
+		if (options.statePath) await savePairing(options.statePath, state);
+	};
+
+	const tunnelConfig = (): TunnelConfig => ({
 		endpoint,
 		path: "/session/dial",
 		instanceId: state.instance_id,
@@ -65,6 +91,35 @@ export async function dial(options: DialOptions): Promise<TunnelSession> {
 			key: state.client_key_pem,
 		},
 	});
+
+	if (refreshEnabled) {
+		const claims = parseJwtClaims(token);
+		if (claims && shouldRefreshBeforeDial(claims, Math.floor(Date.now() / 1000))) {
+			const result = await refreshDeviceToken(endpoint, token);
+			if (result.action === "use_new_token" && result.token) {
+				token = result.token;
+				await persist(token);
+				refreshed = true;
+			} else if (result.action === "reconnect") {
+				throw new ReconnectRequired(state.home_label);
+			}
+		}
+	}
+
+	try {
+		return await openTunnel(tunnelConfig());
+	} catch (err) {
+		if (!(err instanceof DialRejected) || !refreshEnabled || refreshed) throw err;
+
+		const result = await refreshDeviceToken(endpoint, token);
+		if (result.action === "use_new_token" && result.token) {
+			token = result.token;
+			await persist(token);
+			return await openTunnel(tunnelConfig());
+		}
+		if (result.action === "reconnect") throw new ReconnectRequired(state.home_label);
+		throw err;
+	}
 }
 
 export async function openTunnel(config: TunnelConfig): Promise<TunnelSession> {
@@ -78,12 +133,36 @@ export async function openTunnel(config: TunnelConfig): Promise<TunnelSession> {
 	const ws = new WebSocket(url);
 	ws.binaryType = "arraybuffer";
 	await new Promise<void>((resolve, reject) => {
-		ws.addEventListener("open", () => resolve(), { once: true });
-		ws.addEventListener(
-			"error",
-			(ev) => reject(new Error(`ws connect error: ${String((ev as Event).type)}`)),
-			{ once: true },
-		);
+		let settled = false;
+		const cleanup = () => {
+			ws.removeEventListener("open", onOpen);
+			ws.removeEventListener("error", onRejected);
+			ws.removeEventListener("close", onRejected);
+		};
+		const onOpen = () => {
+			if (settled) return;
+			settled = true;
+			cleanup();
+			resolve();
+		};
+		// Seam: Bun collapses failed relay upgrades for 4401, 4402, and 503 into an
+		// opaque failure: CloseEvent.code 1002 with "Expected 101 status code". HTTP
+		// status and x-close-code are not exposed. This is a Bun runtime limitation,
+		// not a protocol gap: native clients can read that handshake metadata, and
+		// classifyDialRejection in device_token.ts encodes the full wire contract for
+		// them and for tests. The Bun runtime treats any dial upgrade failure as
+		// possibly stale auth and refreshes once; proactive >80%-TTL refresh is the
+		// primary mechanism, and this reactive refresh is the backstop.
+		const onRejected = (ev: Event) => {
+			void ev.type;
+			if (settled) return;
+			settled = true;
+			cleanup();
+			reject(new DialRejected());
+		};
+		ws.addEventListener("open", onOpen, { once: true });
+		ws.addEventListener("error", onRejected, { once: true });
+		ws.addEventListener("close", onRejected, { once: true });
 	});
 
 	const wsDuplex = wsToDuplex(ws);

@@ -15,6 +15,7 @@ import { webcrypto } from "node:crypto";
 import { chmod, readFile, writeFile } from "node:fs/promises";
 
 import { buildCsr, jwkToPkcs8Pem } from "./_csr_internal";
+import { type RefreshAction, classifyRefreshOutcome } from "./device_token";
 
 export interface PairingState {
 	instance_id: string;
@@ -30,6 +31,15 @@ export interface PairingState {
 export async function loadPairing(path: string): Promise<PairingState> {
 	const raw = await readFile(path, "utf-8");
 	return JSON.parse(raw) as PairingState;
+}
+
+export async function tryLoadPairing(path: string): Promise<PairingState | null> {
+	try {
+		return await loadPairing(path);
+	} catch (err) {
+		if (isEnoent(err)) return null;
+		throw err;
+	}
 }
 
 export async function savePairing(path: string, state: PairingState): Promise<void> {
@@ -130,6 +140,59 @@ export async function enrollDevice(
 	return JSON.parse(enroll.body) as { device_token: string };
 }
 
+export async function refreshDeviceToken(
+	endpoint: string,
+	currentToken: string,
+): Promise<{ action: RefreshAction; token?: string }> {
+	let refresh: HttpResponse;
+	try {
+		refresh = await httpsPost(
+			`${endpoint.replace(/\/+$/, "")}/token/refresh`,
+			JSON.stringify({ device_token: currentToken }),
+			{},
+		);
+	} catch {
+		return { action: "keep_existing" };
+	}
+
+	const action = classifyRefreshOutcome(refresh.status);
+	if (action !== "use_new_token") return { action };
+
+	try {
+		const body = JSON.parse(refresh.body) as { device_token?: unknown };
+		if (typeof body.device_token === "string" && body.device_token) {
+			return { action: "use_new_token", token: body.device_token };
+		}
+	} catch {}
+	return { action: "keep_existing" };
+}
+
+export type PairGuardDecision = "first-time" | "already-connected" | "reconnect";
+
+export function decidePairAction(
+	scannedInstanceId: string | null,
+	storedInstanceId: string | null,
+): PairGuardDecision {
+	if (storedInstanceId === null) return "first-time";
+	if (scannedInstanceId === storedInstanceId) return "already-connected";
+	return "reconnect";
+}
+
+export function pairSummaryLine(
+	decision: PairGuardDecision,
+	homeLabel: string,
+	instanceId: string,
+): string {
+	switch (decision) {
+		case "first-time":
+			return `Paired with ${homeLabel} (instance ${instanceId}).`;
+		case "already-connected":
+			return `Already connected to ${homeLabel} (instance ${instanceId}) — no new pairing needed.`;
+		case "reconnect":
+			return `Reconnected to ${homeLabel} (instance ${instanceId}).`;
+	}
+}
+
 export interface HttpsOpts {
 	caFingerprint?: string;
 	insecureSkipVerify?: boolean;
@@ -189,4 +252,13 @@ export async function httpsPost(url: string, body: string, opts: HttpsOpts): Pro
 		req.write(body);
 		req.end();
 	});
+}
+
+function isEnoent(err: unknown): boolean {
+	return (
+		typeof err === "object" &&
+		err !== null &&
+		"code" in err &&
+		(err as { code?: unknown }).code === "ENOENT"
+	);
 }
