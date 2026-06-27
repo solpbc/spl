@@ -5,10 +5,10 @@
 // /session/dial, /tunnel/<id>. Exercises the DO-level byte relay, WS-tag
 // cardinality enforcement, and the pending-buffer behavior.
 
-import { SELF, applyD1Migrations, env } from "cloudflare:test";
+import { SELF, env } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import { mintDeviceToken, mintServiceToken } from "../src/tokens";
-import { migrations } from "./migrations";
+import { applyRelayD1Migrations } from "./apply-migrations";
 
 const VALID_FP = `sha256:${"a".repeat(64)}`;
 
@@ -22,7 +22,7 @@ declare module "cloudflare:test" {
 }
 
 beforeAll(async () => {
-	await applyD1Migrations(env.DB, migrations);
+	await applyRelayD1Migrations();
 });
 
 function newInstanceId(): string {

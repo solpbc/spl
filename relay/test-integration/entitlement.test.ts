@@ -4,10 +4,10 @@
 // Gate-off integration coverage. Runs under the default Workers config where
 // ENTITLEMENT_REQUIRED and GRANT_SECRET are unset.
 
-import { SELF, applyD1Migrations, env } from "cloudflare:test";
+import { SELF, env } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import { mintDeviceToken, mintServiceToken } from "../src/tokens";
-import { migrations } from "./migrations";
+import { applyRelayD1Migrations } from "./apply-migrations";
 
 declare module "cloudflare:test" {
 	interface ProvidedEnv {
@@ -21,7 +21,7 @@ declare module "cloudflare:test" {
 const VALID_FP = `sha256:${"a".repeat(64)}`;
 
 beforeAll(async () => {
-	await applyD1Migrations(env.DB, migrations);
+	await applyRelayD1Migrations();
 });
 
 function newInstanceId(): string {

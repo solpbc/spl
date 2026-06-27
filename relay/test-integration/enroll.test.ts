@@ -5,12 +5,12 @@
 // with real DB + SIGNING_JWK + JWKS_PUBLIC bindings. These are the tests
 // that exercise attestation-replay defense and D1 idempotency.
 
-import { SELF, applyD1Migrations, env } from "cloudflare:test";
+import { SELF, env } from "cloudflare:test";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { fingerprintDer } from "../src/attestation";
 import { base64UrlDecode, verifyToken } from "../src/tokens";
 import { genCaKeypair, genClientCertDer, mintAttestation } from "../test/fixtures";
-import { migrations } from "./migrations";
+import { applyRelayD1Migrations } from "./apply-migrations";
 
 declare module "cloudflare:test" {
 	interface ProvidedEnv {
@@ -24,7 +24,7 @@ declare module "cloudflare:test" {
 const VALID_TOTP_SECRET = "JBSWY3DPEHPK3PXP";
 
 beforeAll(async () => {
-	await applyD1Migrations(env.DB, migrations);
+	await applyRelayD1Migrations();
 });
 // No beforeEach cleanup — every test uses a freshly-minted UUID instance_id
 // so rows from other tests (or other test files sharing this D1 binding)

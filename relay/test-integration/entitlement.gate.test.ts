@@ -4,11 +4,11 @@
 // Gate-on integration coverage. Runs under vitest.workers.gate.config.ts with
 // load-time GRANT_SECRET and ENTITLEMENT_REQUIRED bindings.
 
-import { SELF, applyD1Migrations, env } from "cloudflare:test";
+import { SELF, env } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import { mintDeviceToken, mintServiceToken } from "../src/tokens";
 import { genCaKeypair } from "../test/fixtures";
-import { migrations } from "./migrations";
+import { applyRelayD1Migrations } from "./apply-migrations";
 
 declare module "cloudflare:test" {
 	interface ProvidedEnv {
@@ -25,7 +25,7 @@ const VALID_FP = `sha256:${"a".repeat(64)}`;
 const CLOSE_CODE_NOT_ENTITLED = "4402";
 
 beforeAll(async () => {
-	await applyD1Migrations(env.DB, migrations);
+	await applyRelayD1Migrations();
 });
 
 function newInstanceId(): string {

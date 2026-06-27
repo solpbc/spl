@@ -4,12 +4,12 @@
 // Integration tests for TOTP-gated pair tickets and the pair-dial WebSocket path.
 // Runs under Miniflare with real D1, InstanceDO SQLite storage, and JWT signing.
 
-import { SELF, applyD1Migrations, env, runInDurableObject } from "cloudflare:test";
+import { SELF, env, runInDurableObject } from "cloudflare:test";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { base64UrlDecode, mintDeviceToken, mintServiceToken } from "../src/tokens";
 import { generateTotp } from "../src/totp";
 import { genCaKeypair } from "../test/fixtures";
-import { migrations } from "./migrations";
+import { applyRelayD1Migrations } from "./apply-migrations";
 
 declare module "cloudflare:test" {
 	interface ProvidedEnv {
@@ -26,7 +26,7 @@ const VALID_FP = `sha256:${"a".repeat(64)}`;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 beforeAll(async () => {
-	await applyD1Migrations(env.DB, migrations);
+	await applyRelayD1Migrations();
 });
 
 afterEach(() => {
