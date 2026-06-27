@@ -19,7 +19,7 @@ import { uuidv7 } from "./uuid";
 
 // 365 days / 60 days per proto/tokens.md §TTLs.
 const SERVICE_TOKEN_TTL_SECONDS = 365 * 24 * 60 * 60;
-const DEVICE_TOKEN_TTL_SECONDS = 60 * 24 * 60 * 60;
+export const DEVICE_TOKEN_TTL_SECONDS = 60 * 24 * 60 * 60;
 const MAX_ENROLL_HOME_BYTES = 32 * 1024;
 const MAX_ENROLL_DEVICE_BYTES = 16 * 1024;
 

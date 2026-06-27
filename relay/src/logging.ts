@@ -32,6 +32,7 @@ export type LogEvent =
 	| "enroll_home"
 	| "enroll_device"
 	| "enroll_device_remint"
+	| "device_refresh"
 	| "enroll_home_rotate"
 	| "enroll_rejected"
 	| "pair_ticket_issued"

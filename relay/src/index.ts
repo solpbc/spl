@@ -10,6 +10,7 @@
 //   POST /admin/entitlement         — grant/revoke paid-tier session access
 //   GET  /admin/instances           — operator inspection: list rendezvous metadata
 //   GET  /admin/instances/<id>      — operator inspection: single instance metadata
+//   POST /token/refresh             — re-issue a device token from a current/recently-expired one
 //   GET  /session/listen?instance=  — home holds this open indefinitely
 //   GET  /session/dial?instance=    — mobile opens, becomes tunnel WS on pair
 //   POST /session/pair-ticket?instance= — TOTP-gated short-lived pair ticket
@@ -23,6 +24,7 @@
 import { handleEnrollDevice, handleEnrollHome } from "./enroll";
 import { handleListInstances, handleSetEntitlement, handleShowInstance } from "./entitlement";
 import type { Env } from "./env";
+import { handleTokenRefresh } from "./refresh";
 
 export { InstanceDO } from "./instance-do";
 
@@ -48,6 +50,9 @@ export default {
 		}
 		if (request.method === "GET" && url.pathname.startsWith("/admin/instances/")) {
 			return handleShowInstance(request, env, url.pathname.slice("/admin/instances/".length));
+		}
+		if (request.method === "POST" && url.pathname === "/token/refresh") {
+			return handleTokenRefresh(request, env);
 		}
 
 		// Session and pairing surfaces are routed to the Durable Object for the

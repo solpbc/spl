@@ -118,7 +118,7 @@ Workers MUST reject any token missing a required claim or carrying an unexpected
 | token | TTL | rotation |
 |---|---|---|
 | service token | 365 days | re-issued automatically by the home on token age > 80% of TTL via the control-plane re-issue endpoint |
-| device token | 60 days | re-issued automatically by the mobile on next dial after age > 80% of TTL |
+| device token | 60 days | re-issued by the mobile via `POST /token/refresh` (presenting the current token) when age > 80% of TTL, with a 30-day post-expiry grace |
 | pair ticket | 60 seconds | one-use, consumed on first successful pair-dial attach; minted per pairing attempt, no rotation |
 
 Long TTLs are deliberate for the service and device tokens. Both authorize the **rendezvous** only; they confer no data access. The TLS layer is the data-plane authoritative point. A leaked token grants only the right to open a WebSocket to `spl-relay`, which is useless without the matching mTLS material that lives only on the device.
@@ -133,7 +133,7 @@ A short-TTL bearer model would force a control-plane round-trip on every dial. T
 
 ## issuance
 
-Three control-plane endpoints, all POST, all JSON.
+Four control-plane endpoints, all POST, all JSON.
 
 ### POST `/enroll/home`
 
@@ -239,6 +239,31 @@ Response (on success):
 ```
 
 Re-issuance: a fresh `home_attestation` per pair ceremony mints a new device token; its `jti` is consumed once via `devices.attestation_jti UNIQUE`. Idempotency: if a successful enroll's HTTP response is lost and the mobile retries with the **same still-valid** attestation, `spl-relay` re-mints the **byte-identical** device token from the stored row rather than rejecting. A consumed `jti` re-presented with a different `(instance_id, device_fp)` — or one whose stored row predates the `device_id` column — is rejected as replay (409). The old device token's `jti` becomes eligible for the D1 revocation list if the home or operator wants defense-in-depth.
+
+### POST `/token/refresh`
+
+Called by the mobile app to re-issue its device token without re-pairing. Body:
+
+```json
+{
+  "device_token": "<current device token JWT>"
+}
+```
+
+The presented token may be still-valid or recently expired within the 30-day refresh grace. `spl-relay` verifies its own prior Ed25519 signature and the normal `session.dial` claims, then mints a fresh 60-day device token with a new `jti`, `iat`, and `exp`, preserving the same `instance_id`, `device_id`/`sub`, and `device_fp`.
+
+No attestation, client cert, or QR code is involved. Prior enrollment is proven by the relay's own signature on the device token; the relay still never sees the client cert and never sees tunnel payload. Refresh is stateless: it does not write to `devices`, because dial authentication is by signature alone.
+
+A token expired beyond the 30-day grace is rejected with 401 and `reason: "expired"`; that is the mobile's signal to fall back to re-pair. An unknown `instance_id` is rejected with 404, and a revoked instance is rejected with 403.
+
+Response (on success):
+
+```json
+{
+  "device_token": "<JWT>",
+  "expires_at": "<ISO8601>"
+}
+```
 
 ### POST `/session/pair-ticket`
 

@@ -172,6 +172,55 @@ describe("verifyToken", () => {
 		expect(r).toEqual({ ok: false, reason: "expired" });
 	});
 
+	it("honors graceSeconds on expiry and stays strict by default", async () => {
+		const k = await genSigningKeypair();
+		const now = Math.floor(Date.now() / 1000);
+		const ttlSeconds = 10;
+		const graceSeconds = 30 * 86400;
+		const withinGrace = await mintDeviceToken(k.privateJwkRaw, {
+			instance_id: "inst-1",
+			device_id: "dev-1",
+			device_fp: VALID_FP,
+			issuer: ISSUER,
+			ttlSeconds,
+			now: now - ttlSeconds - 5,
+		});
+		const expiredBeyond = await mintDeviceToken(k.privateJwkRaw, {
+			instance_id: "inst-1",
+			device_id: "dev-1",
+			device_fp: VALID_FP,
+			issuer: ISSUER,
+			ttlSeconds,
+			now: now - ttlSeconds - 40 * 86400,
+		});
+
+		const withinGraceResult = await verifyToken(withinGrace.jwt, {
+			jwksRaw: k.jwksPublicRaw,
+			expectedIssuer: ISSUER,
+			expectedScope: "session.dial",
+			now,
+			graceSeconds,
+		});
+		expect(withinGraceResult.ok).toBe(true);
+
+		const beyondGraceResult = await verifyToken(expiredBeyond.jwt, {
+			jwksRaw: k.jwksPublicRaw,
+			expectedIssuer: ISSUER,
+			expectedScope: "session.dial",
+			now,
+			graceSeconds,
+		});
+		expect(beyondGraceResult).toEqual({ ok: false, reason: "expired" });
+
+		const strictResult = await verifyToken(withinGrace.jwt, {
+			jwksRaw: k.jwksPublicRaw,
+			expectedIssuer: ISSUER,
+			expectedScope: "session.dial",
+			now,
+		});
+		expect(strictResult).toEqual({ ok: false, reason: "expired" });
+	});
+
 	it("rejects tokens with iat too far in the future", async () => {
 		const k = await genSigningKeypair();
 		const now = Math.floor(Date.now() / 1000);

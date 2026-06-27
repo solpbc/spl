@@ -57,6 +57,7 @@ interface VerifyOptions {
 	expectedIssuer: string;
 	expectedScope: "session.listen" | "session.dial" | "session.pair";
 	now?: number;
+	graceSeconds?: number;
 }
 
 // Web Crypto's JWK import type for public Ed25519.
@@ -121,7 +122,9 @@ export async function verifyToken(token: string, options: VerifyOptions): Promis
 	if (claims.aud !== "spl-relay") return { ok: false, reason: "wrong_audience" };
 	if (claims.iss !== options.expectedIssuer) return { ok: false, reason: "wrong_issuer" };
 	if (claims.scope !== options.expectedScope) return { ok: false, reason: "wrong_scope" };
-	if (typeof claims.exp !== "number" || claims.exp <= now) return { ok: false, reason: "expired" };
+	const graceSeconds = options.graceSeconds ?? 0;
+	if (typeof claims.exp !== "number" || claims.exp + graceSeconds <= now)
+		return { ok: false, reason: "expired" };
 	if (typeof claims.iat !== "number" || claims.iat > now + 60)
 		return { ok: false, reason: "issued_future" };
 	if (
