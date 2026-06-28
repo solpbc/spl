@@ -208,8 +208,8 @@ describe("WS-tag cardinality enforcement", () => {
 	});
 });
 
-describe("/session/dial fails if no home is listening", () => {
-	it("returns 503 when listen WS is not open", async () => {
+describe("/session/dial fails if no home is listening and presence-hold is off", () => {
+	it("returns the default 503 body when listen WS is not open", async () => {
 		const instanceId = newInstanceId();
 		const dialToken = await mintDevice(instanceId);
 		const res = await SELF.fetch(`http://spl.test/session/dial?instance=${instanceId}`, {
@@ -219,5 +219,6 @@ describe("/session/dial fails if no home is listening", () => {
 			},
 		});
 		expect(res.status).toBe(503);
+		expect(await res.text()).toBe("no home listening");
 	});
 });

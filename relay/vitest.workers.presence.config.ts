@@ -2,23 +2,15 @@
 // Copyright (c) 2026 sol pbc
 
 import { defineWorkersConfig } from "@cloudflare/vitest-pool-workers/config";
-import { configDefaults } from "vitest/config";
 
-// Integration-style tests that run under Miniflare with the real InstanceDO
-// + D1 bindings. Used for WS-pairing, cardinality, and pending-buffer
-// behavior that can't be exercised with pure-node unit tests.
-//
-// A fresh Ed25519 signing keypair is minted at config-load time and wired
-// into the Worker's bindings. This is test-only material — never used in
-// any deployed relay. Tests can import the same keypair via
-// `./test/test-keys.json` (written when this config loads).
+// Presence-hold integration tests run under a dedicated config because Worker
+// and DO env bindings are load-time values in this test harness.
 
 const { privateJwkRaw, jwksPublicRaw } = await genSigningKeypair();
 
 export default defineWorkersConfig({
 	test: {
-		include: ["test-integration/**/*.test.ts"],
-		exclude: [...configDefaults.exclude, "**/*.gate.test.ts", "**/*.presence.test.ts"],
+		include: ["test-integration/**/*.presence.test.ts"],
 		poolOptions: {
 			workers: {
 				main: "./src/index.ts",
@@ -38,6 +30,7 @@ export default defineWorkersConfig({
 						ISSUER: "spl.test",
 						SIGNING_JWK: privateJwkRaw,
 						JWKS_PUBLIC: jwksPublicRaw,
+						PRESENCE_HOLD_ENABLED: "true",
 					},
 				},
 			},
