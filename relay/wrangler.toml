@@ -66,7 +66,10 @@ migrations_dir = "migrations"
 name = "spl-relay"
 workers_dev = false
 routes = [{ pattern = "link.solstone.app", custom_domain = true }]
-vars = { ENVIRONMENT = "production", ISSUER = "link.solstone.app", ENTITLEMENT_REQUIRED = "true" }
+# PRESENCE_HOLD_ENABLED = "true" turns on presence-based reconnect: an offline-home
+# /session/dial is HELD open (hibernating) and brokered when the home appears, instead of 503.
+# Only the exact string "true" enables it; revert = set "false" (or remove) + redeploy.
+vars = { ENVIRONMENT = "production", ISSUER = "link.solstone.app", ENTITLEMENT_REQUIRED = "true", PRESENCE_HOLD_ENABLED = "true" }
 
 [env.production.observability]
 enabled = true
