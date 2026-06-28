@@ -282,7 +282,7 @@ The listen WS may disconnect for any reason — network flap on the home machine
 - Reset to 1 s on a successful reconnect.
 - Jitter: ±25% on each delay to avoid synchronized reconnect storms after a CF deploy.
 
-While the listen WS is down, the home cannot receive `incoming` signals. New dials from a paired mobile will fail at the relay (the DO marks the home as not-ready and the dial returns 503). The mobile's reconnect logic handles this; the user sees `LITERAL: "Reconnecting…"` for the brief outage and `LITERAL: "Offline — check your connection."` if it persists past a small grace window.
+While the listen WS is down, the home cannot receive `incoming` signals. By default (`PRESENCE_HOLD_ENABLED` off), new dials from a paired mobile fail at the relay (the DO marks the home as not-ready and the dial returns 503). With `PRESENCE_HOLD_ENABLED` enabled, the relay holds the dial WS open and brokers it when the home's listen WS reconnects. The mobile's reconnect logic handles this; the user sees `LITERAL: "Reconnecting…"` for the brief outage and `LITERAL: "Offline — check your connection."` if it persists past a small grace window.
 
 ### mobile reconnect — dial WS / tunnel WS
 
@@ -296,6 +296,14 @@ The mobile dial-turned-tunnel WS disconnects on:
 For non-revocation disconnects, the mobile reconnects on next user-visible activity (foreground, scroll, tap). Backoff is: 1 s, then 5 s, then 10 s, capped at 30 s, with the same ±25% jitter. The mobile's UX handles "Reconnecting…" / "Offline" banners.
 
 For TLS-handshake failure (revocation), the mobile does **not** retry automatically — it presents the unpaired error and requires the user to re-pair through convey.
+
+### waiting-dial lifecycle (presence-hold)
+
+Presence-hold is flag-gated and default-off. When `PRESENCE_HOLD_ENABLED` is enabled and a mobile dials while no home listen WS is open, the relay accepts the dial WS (`101 Switching Protocols`) and holds it indefinitely as a waiting dialer. There is no relay-side max-hold timer and no alarm; cleanup is reactive on WS close.
+
+When a home listen WS appears, the relay sends the existing `incoming` control message for each not-yet-signaled waiting dial. Presence-hold adds no new WS-layer message type. The home then opens `/tunnel/<tunnel_id>` exactly as in the normal session flow, and any pending mobile bytes drain through the existing pending-buffer path.
+
+The waiting-phase timeout is owned by the client and is out of scope for the relay. If the dialer gives up, the network drops, a deploy disconnects sockets, or Cloudflare reaps a dead peer, the close path frees the socket state and any pending buffer for that tunnel.
 
 ## deploy-disconnect
 
@@ -321,6 +329,8 @@ The DO uses `getWebSockets(tag)` to look up sockets by tag. The relay tags socke
 - `tunnel_mobile:<tunnel_id>` for the mobile dial-turned-tunnel WS.
 
 Each tag MUST resolve to exactly one WebSocket. If a duplicate WS attaches under any of these tags (e.g., a home reconnects without the previous WS having been observed as closed), the relay closes the duplicate and keeps the most recently attached. Prototype finding §11.4 — the API doesn't enforce cardinality, the application must.
+
+Presence-hold also uses `waiting_dial:<instance_id>` as a many-valued discovery tag for held dials. It is intentionally excluded from the exact-one cardinality invariant: one instance may have N waiting dials.
 
 ## pending buffer
 
