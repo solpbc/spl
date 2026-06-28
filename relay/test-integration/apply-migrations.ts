@@ -9,6 +9,10 @@ declare global {
 }
 
 export function applyRelayD1Migrations(): Promise<void> {
-	globalThis.__splRelayD1Migrations ??= applyD1Migrations(env.DB, migrations);
+	globalThis.__splRelayD1Migrations ??= applyD1Migrations(env.DB, migrations).catch((err) => {
+		const msg = err instanceof Error ? err.message : String(err);
+		if (/UNIQUE constraint failed: d1_migrations\.name/i.test(msg)) return;
+		throw err;
+	});
 	return globalThis.__splRelayD1Migrations;
 }
