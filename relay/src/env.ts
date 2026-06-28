@@ -39,4 +39,9 @@ export interface Env {
 	// Session entitlement gate. Only the exact string "true" enables the gate;
 	// unset/off by default so self-hosted relays are unaffected.
 	ENTITLEMENT_REQUIRED?: string;
+
+	// Presence-hold reconnect. Only the exact string "true" enables holding a
+	// dial WS open when no home is listening (instead of 503); unset/off by
+	// default so behavior is unchanged. See proto/session.md §reconnect-semantics.
+	PRESENCE_HOLD_ENABLED?: string;
 }

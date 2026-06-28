@@ -25,6 +25,8 @@ interface Attachment {
 	instance_id: string;
 	opened_at: number;
 	jti: string;
+	// Dedup flag for waiting-dial signaling; mutable post-accept, persisted via serializeAttachment.
+	signaled?: boolean;
 }
 
 interface PairTicketBody {
@@ -145,6 +147,27 @@ export class InstanceDO extends DurableObject<Env> {
 		server.serializeAttachment(att);
 		this.ctx.acceptWebSocket(server, [tagListen(instanceId)]);
 		log({ event: "listen_open", instance_id: instanceId, jti: result.claims.jti });
+
+		if (this.env.PRESENCE_HOLD_ENABLED === "true") {
+			// Broker any dials that were held waiting for a home. Tags are
+			// immutable, so a paired (still-open) dial also carries tagWaiting;
+			// `signaled` dedups so we never re-incoming an already-signaled dial.
+			for (const waiting of this.ctx.getWebSockets(tagWaiting(instanceId))) {
+				const watt = waiting.deserializeAttachment() as Attachment | null;
+				if (!watt || watt.signaled || !watt.tunnel_id) continue;
+				if (this.signalIncoming(server, watt.tunnel_id)) {
+					watt.signaled = true;
+					waiting.serializeAttachment(watt);
+					log({
+						event: "dial_open",
+						instance_id: instanceId,
+						tunnel_id: watt.tunnel_id,
+						jti: watt.jti,
+					});
+				}
+			}
+		}
+
 		return new Response(null, { status: 101, webSocket: client });
 	}
 
@@ -168,6 +191,18 @@ export class InstanceDO extends DurableObject<Env> {
 
 		const listeners = this.ctx.getWebSockets(tagListen(instanceId));
 		if (listeners.length === 0) {
+			if (this.env.PRESENCE_HOLD_ENABLED === "true") {
+				// No home listening: hold the dial open as a waiting dialer. Pre-mint
+				// the tunnel_id and tag the socket [waiting, tunnel_mobile] at accept
+				// time (tags are immutable). handleListen signals it when a home
+				// appears. Relay holds indefinitely; cleanup is reactive on close.
+				const tunnelId = crypto.randomUUID();
+				const { client } = this.acceptMobileTunnel(instanceId, result.claims.jti, tunnelId, [
+					tagWaiting(instanceId),
+					tagTunnelMobile(tunnelId),
+				]);
+				return new Response(null, { status: 101, webSocket: client });
+			}
 			return new Response("no home listening", { status: 503 });
 		}
 
@@ -503,14 +538,12 @@ export class InstanceDO extends DurableObject<Env> {
 		}
 	}
 
-	private brokerTunnel(
-		listener: WebSocket,
+	private acceptMobileTunnel(
 		instanceId: string,
 		jti: string,
-		openEvent: "dial_open" | "pair_dial_open",
-		onSendFail?: () => void,
-	): Response {
-		const tunnelId = crypto.randomUUID();
+		tunnelId: string,
+		tags: string[],
+	): { client: WebSocket; server: WebSocket } {
 		const { client, server } = newPair();
 		const att: Attachment = {
 			role: "tunnel_mobile",
@@ -520,7 +553,30 @@ export class InstanceDO extends DurableObject<Env> {
 			jti,
 		};
 		server.serializeAttachment(att);
-		this.ctx.acceptWebSocket(server, [tagTunnelMobile(tunnelId)]);
+		this.ctx.acceptWebSocket(server, tags);
+		return { client, server };
+	}
+
+	private signalIncoming(listener: WebSocket, tunnelId: string): boolean {
+		try {
+			listener.send(JSON.stringify({ type: "incoming", tunnel_id: tunnelId }));
+			return true;
+		} catch {
+			return false;
+		}
+	}
+
+	private brokerTunnel(
+		listener: WebSocket,
+		instanceId: string,
+		jti: string,
+		openEvent: "dial_open" | "pair_dial_open",
+		onSendFail?: () => void,
+	): Response {
+		const tunnelId = crypto.randomUUID();
+		const { client, server } = this.acceptMobileTunnel(instanceId, jti, tunnelId, [
+			tagTunnelMobile(tunnelId),
+		]);
 
 		log({
 			event: openEvent,
@@ -529,10 +585,7 @@ export class InstanceDO extends DurableObject<Env> {
 			jti,
 		});
 
-		// Signal the home. Single control message in v1 per proto/session.md §3.
-		try {
-			listener.send(JSON.stringify({ type: "incoming", tunnel_id: tunnelId }));
-		} catch {
+		if (!this.signalIncoming(listener, tunnelId)) {
 			// If the send fails the home lost its listen — close the dial with 503 semantics.
 			try {
 				server.close(CLOSE_CODE_NORMAL, "home offline");
@@ -655,6 +708,9 @@ function newPair(): { client: WebSocket; server: WebSocket } {
 // trivially greppable and the cardinality invariants can be audited.
 export function tagListen(instanceId: string): string {
 	return `listen:${instanceId}`;
+}
+export function tagWaiting(instanceId: string): string {
+	return `waiting_dial:${instanceId}`;
 }
 export function tagTunnelHome(tunnelId: string): string {
 	return `tunnel_home:${tunnelId}`;
