@@ -67,7 +67,7 @@ Every client parser + the journal encoder MUST reproduce these bytes exactly. In
 
 ## relay endpoints
 
-**Addressing — the DO identity is the rendezvous match.** Both endpoints carry `RK` **in the upgrade request** (a request header, e.g. `Sec-Pair-Key: <RK hex>` — *not* the URL query, to keep `RK` out of edge access logs; routing happens at the HTTP layer, before any WS frame). The Worker routes by `idFromName(RK_hex)` → an **ephemeral pairing DO** distinct from the home's per-instance DO. Home and client presenting the same `RK` land in the **same DO** — that *is* the match. The relay performs **no `RK` value comparison** and stores no `RK` secret; it routes and bridges whoever is in the DO. `RK` is never logged (log `instance_id` from the token + reason only).
+**Addressing — the DO identity is the rendezvous match.** Both endpoints carry `RK` **in the upgrade request** (a request header, e.g. `Sec-Pair-Key: <RK hex>` — *not* the URL query, to keep `RK` out of edge access logs; routing happens at the HTTP layer, before any WS frame). `RK` MUST be accepted via the header only — no `?rk=` query fallback (the existing `?token=` fallback for service/device tokens must not be extended to `RK`). The Worker routes by `idFromName(RK_hex)` → a **distinct DO instance** addressed by `RK`. **Reuse the existing per-instance DO class** (it already carries the bridge machinery) addressed by `idFromName(RK)` rather than introducing a new DO class/binding; the RK-addressed instance is the ephemeral "pairing DO". Home and client presenting the same `RK` land in the **same DO instance** — that *is* the match. The relay performs **no `RK` value comparison** and stores no `RK` secret; it routes and bridges whoever is in the DO. The pairing endpoints (`/session/pair-window`, `/session/pair-dial`, and the pairing `/tunnel/<id>`) carry **no `?instance=`** — the Worker's instance-param guard must not apply to them. `RK` is never logged (log `instance_id` from the home's token + reason only).
 
 ### `GET /session/pair-window` (home → relay)
 
@@ -86,7 +86,9 @@ The client derives `RK = HKDF(S, …)` and opens this WebSocket carrying `RK` in
 
 ### `/tunnel/<id>` (pairing)
 
-Carries `RK` in the upgrade header, routes to the same pairing DO; bridges the client's pair-dial socket to the home's `/tunnel/<id>` socket. Unchanged in mechanics from the existing tunnel bridge — only the addressing key is `RK`, not `instance_id`.
+Carries `RK` in the upgrade header, routes to the same pairing DO; bridges the client's pair-dial socket to the home's `/tunnel/<id>` socket. **Home-side attach is authenticated:** because `RK` is known to the *client* (it derived it), the home side of the bridge must NOT be occupiable by anyone presenting `RK` + `tunnel_id`. The existing per-instance tunnel attach gates the home on `service_token` (scope `session.listen`) **AND** `instance_id === routingKey`; that equality cannot hold here (routing key is `RK`). Replace it: the pairing `/tunnel/<id>` home attach MUST present a valid, non-revoked `service_token` whose `instance_id` **matches the `instance_id` that opened this DO's pair-window**. The client (pair-dial) side stays anonymous (gated downstream by the inner `ca_fp`/`S`). Reuse the existing `incoming{tunnel_id}` signal — no new WS-layer control type.
+
+**Consume on success only:** the window is consumed (one-use) only when the broker actually succeeds. If the home pair-window socket is present at dial time but the `incoming` signal send fails (home just dropped), the window is **rolled back** (not consumed) so a legitimate retry can still broker — mirroring the existing `onSendFail` rollback.
 
 ### what stays on the per-instance DO
 
