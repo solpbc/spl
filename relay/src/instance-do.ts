@@ -14,24 +14,17 @@
 
 import { DurableObject } from "cloudflare:workers";
 import type { Env } from "./env";
-import { json, readJson } from "./http";
 import { type Direction, log } from "./logging";
-import { mintPairTicket, verifyToken } from "./tokens";
-import { TOTP_SECRET_RE, TOTP_STEP_SECONDS, verifyTotp } from "./totp";
+import { verifyToken } from "./tokens";
 
 interface Attachment {
-	role: "listen" | "dial" | "tunnel_home" | "tunnel_mobile";
+	role: "listen" | "dial" | "pair_window" | "tunnel_home" | "tunnel_mobile";
 	tunnel_id?: string;
 	instance_id: string;
 	opened_at: number;
 	jti: string;
 	// Dedup flag for waiting-dial signaling; mutable post-accept, persisted via serializeAttachment.
 	signaled?: boolean;
-}
-
-interface PairTicketBody {
-	instance_id?: string;
-	totp?: string;
 }
 
 // Pending-buffer cap per tunnel, per peer direction. Bounds memory under a
@@ -53,40 +46,36 @@ const CLOSE_CODE_UNAUTHORIZED = 4401;
 // 4402 is the not-entitled-close code for the opt-in session gate.
 const CLOSE_CODE_NOT_ENTITLED = 4402;
 
-const PAIR_TICKET_TTL_SECONDS = 60;
-const MAX_PAIR_TICKET_BYTES = 2 * 1024;
-// Fixed valid-shape base32, used ONLY to make the no-usable-secret path do the
-// same HMAC work as the real path (closes the timing oracle). Never a real secret.
-const PAIR_DUMMY_SECRET = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+const PAIR_DIAL_FAILED_LIMIT = 50;
+const PAIR_WINDOW_TTL_MS = 7 * 60 * 1000;
 
 export class InstanceDO extends DurableObject<Env> {
 	// Buffers keyed by WS-tag destination (e.g., `tunnel_home:<id>`).
 	private pending: Map<string, PendingBuffer> = new Map();
-
-	constructor(ctx: DurableObjectState, env: Env) {
-		super(ctx, env);
-		ctx.storage.sql.exec(
-			"CREATE TABLE IF NOT EXISTS pair_jti_consumed (jti TEXT PRIMARY KEY, expires_at INTEGER NOT NULL)",
-		);
-		ctx.storage.sql.exec(
-			"CREATE TABLE IF NOT EXISTS pair_rate (step INTEGER PRIMARY KEY, expires_at INTEGER NOT NULL)",
-		);
-	}
+	private failedDials = 0;
 
 	override async fetch(request: Request): Promise<Response> {
 		const url = new URL(request.url);
+		const path = url.pathname;
+		if (request.headers.get("upgrade")?.toLowerCase() !== "websocket") {
+			return new Response("websocket upgrade required", { status: 426 });
+		}
+
+		if (path === "/session/pair-window") {
+			return this.handlePairWindow(request, url);
+		}
+		if (path === "/session/pair-dial") {
+			return this.handlePairDial(request, url);
+		}
+		if (path.startsWith("/tunnel/") && request.headers.has("sec-pair-key")) {
+			const tunnelId = path.slice("/tunnel/".length);
+			if (!tunnelId) return new Response("tunnel_id required", { status: 400 });
+			return this.handlePairingTunnel(request, url, tunnelId);
+		}
+
 		const instanceId = url.searchParams.get("instance");
 		if (!instanceId) {
 			return new Response("instance param required", { status: 400 });
-		}
-
-		const path = url.pathname;
-		if (request.method === "POST" && path === "/session/pair-ticket") {
-			return this.handlePairTicket(request, url, instanceId);
-		}
-
-		if (request.headers.get("upgrade")?.toLowerCase() !== "websocket") {
-			return new Response("websocket upgrade required", { status: 426 });
 		}
 
 		if (path === "/session/listen") {
@@ -94,9 +83,6 @@ export class InstanceDO extends DurableObject<Env> {
 		}
 		if (path === "/session/dial") {
 			return this.handleDial(request, url, instanceId);
-		}
-		if (path === "/session/pair-dial") {
-			return this.handlePairDial(request, url, instanceId);
 		}
 		if (path.startsWith("/tunnel/")) {
 			const tunnelId = path.slice("/tunnel/".length);
@@ -209,108 +195,105 @@ export class InstanceDO extends DurableObject<Env> {
 		return this.brokerTunnel(listeners[0], instanceId, result.claims.jti, "dial_open");
 	}
 
-	private async handlePairDial(request: Request, url: URL, instanceId: string): Promise<Response> {
+	override async alarm(): Promise<void> {
+		for (const ws of this.ctx.getWebSockets(tagPairWindow())) {
+			const att = ws.deserializeAttachment() as Attachment | null;
+			try {
+				ws.close(CLOSE_CODE_NORMAL, "window_expired");
+			} catch {}
+			log({
+				event: "pair_window_close",
+				instance_id: att?.instance_id,
+				reason: "ttl_expired",
+			});
+		}
+	}
+
+	private async handlePairWindow(request: Request, url: URL): Promise<Response> {
 		const token = extractToken(request, url);
-		if (!token) return unauthorizedWithLog("/session/pair-dial", "missing_token", instanceId);
+		if (!token) return unauthorizedWithLog("/session/pair-window", "missing_token");
 
 		const result = await verifyToken(token, {
 			jwksRaw: this.env.JWKS_PUBLIC,
 			expectedIssuer: this.env.ISSUER,
-			expectedScope: "session.pair",
+			expectedScope: "session.listen",
 		});
-		if (!result.ok) return unauthorizedWithLog("/session/pair-dial", result.reason, instanceId);
-		if (result.claims.instance_id !== instanceId) {
-			return unauthorizedWithLog("/session/pair-dial", "instance_mismatch", instanceId);
+		if (!result.ok) return unauthorizedWithLog("/session/pair-window", result.reason);
+
+		const instanceId = result.claims.instance_id;
+		const row = await this.env.DB.prepare("SELECT revoked_at FROM instances WHERE instance_id = ?")
+			.bind(instanceId)
+			.first<{ revoked_at: number | null }>();
+		if (!row) {
+			return unauthorizedWithLog("/session/pair-window", "not_enrolled", instanceId);
+		}
+		if (row.revoked_at !== null) {
+			return unauthorizedWithLog("/session/pair-window", "revoked", instanceId);
 		}
 
-		const listeners = this.ctx.getWebSockets(tagListen(instanceId));
-		if (listeners.length === 0) {
-			return new Response("no home listening", { status: 503 });
+		for (const ws of this.ctx.getWebSockets(tagPairWindow())) {
+			const existing = ws.deserializeAttachment() as Attachment | null;
+			try {
+				ws.close(CLOSE_CODE_NORMAL, "replaced");
+			} catch {}
+			log({
+				event: "cardinality_violation",
+				instance_id: existing?.instance_id ?? instanceId,
+				reason: "pair_window_replaced",
+			});
 		}
 
-		const now = Math.floor(Date.now() / 1000);
-		const jti = result.claims.jti;
-		if (!this.consumePairJti(jti, result.claims.exp, now)) {
-			log({ event: "pair_ticket_replay", instance_id: instanceId, jti });
+		const { client, server } = newPair();
+		const att: Attachment = {
+			role: "pair_window",
+			instance_id: instanceId,
+			opened_at: Date.now(),
+			jti: result.claims.jti,
+		};
+		server.serializeAttachment(att);
+		this.ctx.acceptWebSocket(server, [tagPairWindow()]);
+		this.failedDials = 0;
+		await this.ctx.storage.setAlarm(Date.now() + PAIR_WINDOW_TTL_MS);
+		log({ event: "pair_window_open", instance_id: instanceId, jti: result.claims.jti });
+		return new Response(null, { status: 101, webSocket: client });
+	}
+
+	private async handlePairDial(_request: Request, _url: URL): Promise<Response> {
+		if (this.failedDials > PAIR_DIAL_FAILED_LIMIT) {
+			log({ event: "pair_dial_rejected", reason: "limited" });
 			return unauthorizedResponse();
 		}
 
-		return this.brokerTunnel(listeners[0], instanceId, jti, "pair_dial_open", () =>
-			this.unconsumePairJti(jti),
-		);
-	}
-
-	private async handlePairTicket(
-		request: Request,
-		_url: URL,
-		instanceId: string,
-	): Promise<Response> {
-		if (!this.env.SIGNING_JWK) return json({ error: "relay not provisioned" }, 503);
-
-		const read = await readJson<PairTicketBody>(request, MAX_PAIR_TICKET_BYTES);
-		if (!read.ok) {
-			if (read.reason === "too_large") return json({ error: "request body too large" }, 413);
-			return json({ error: "instance_id and totp required" }, 400);
-		}
-		const body = read.value;
-		if (
-			typeof body.instance_id !== "string" ||
-			!body.instance_id ||
-			typeof body.totp !== "string" ||
-			!body.totp
-		) {
-			return json({ error: "instance_id and totp required" }, 400);
-		}
-		if (body.instance_id !== instanceId) {
-			return json({ error: "instance_id mismatch" }, 400);
+		const windows = this.ctx.getWebSockets(tagPairWindow());
+		if (windows.length === 0) {
+			this.failedDials++;
+			log({ event: "pair_dial_rejected", reason: "no_window" });
+			return unauthorizedResponse();
 		}
 
-		const now = Math.floor(Date.now() / 1000);
-		const row = await this.env.DB.prepare(
-			"SELECT totp_secret, revoked_at FROM instances WHERE instance_id = ?",
-		)
-			.bind(instanceId)
-			.first<{ totp_secret: string | null; revoked_at: number | null }>();
-		const usableSecret =
-			row &&
-			row.revoked_at === null &&
-			typeof row.totp_secret === "string" &&
-			TOTP_SECRET_RE.test(row.totp_secret)
-				? row.totp_secret
-				: null;
-		const usable = usableSecret !== null;
-		const secret = usableSecret ?? PAIR_DUMMY_SECRET;
-		const totpValid = await verifyTotp(secret, body.totp, now);
-
-		if (!usable || !totpValid) {
-			const reason = !row
-				? "unknown_instance"
-				: row.revoked_at !== null
-					? "revoked"
-					: !usable
-						? "no_secret"
-						: "bad_code";
-			log({ event: "pair_ticket_rejected", instance_id: instanceId, reason });
-			return json({ error: "unauthorized" }, 401);
+		const window = windows[0];
+		const watt = window.deserializeAttachment() as Attachment | null;
+		if (!watt || watt.role !== "pair_window") {
+			this.failedDials++;
+			log({ event: "pair_dial_rejected", reason: "no_window" });
+			return unauthorizedResponse();
+		}
+		if (watt.signaled) {
+			this.failedDials++;
+			log({ event: "pair_dial_rejected", instance_id: watt.instance_id, reason: "consumed" });
+			return unauthorizedResponse();
 		}
 
-		const step = Math.floor(now / TOTP_STEP_SECONDS);
-		if (!this.claimPairRate(step, (step + 1) * TOTP_STEP_SECONDS, now)) {
-			log({ event: "pair_ticket_rate_limited", instance_id: instanceId });
-			return json({ error: "rate limited" }, 429);
+		const resp = this.brokerTunnel(window, watt.instance_id, watt.jti, "pair_dial_open");
+		if (resp.status === 101) {
+			watt.signaled = true;
+			window.serializeAttachment(watt);
+			return resp;
 		}
 
-		const minted = await mintPairTicket(this.env.SIGNING_JWK, {
-			instance_id: instanceId,
-			issuer: this.env.ISSUER,
-			ttlSeconds: PAIR_TICKET_TTL_SECONDS,
-			now,
-		});
-		log({ event: "pair_ticket_issued", instance_id: instanceId, jti: minted.jti });
-		return json({
-			pair_ticket: minted.jwt,
-			expires_at: new Date(minted.exp * 1000).toISOString(),
-		});
+		this.failedDials++;
+		log({ event: "pair_dial_rejected", instance_id: watt.instance_id, reason: "home_dropped" });
+		return unauthorizedResponse();
 	}
 
 	private async handleTunnel(
@@ -332,6 +315,45 @@ export class InstanceDO extends DurableObject<Env> {
 			return unauthorizedWithLog("/tunnel", "instance_mismatch", instanceId, tunnelId);
 		}
 
+		return this.attachHomeTunnel(tunnelId, instanceId, result.claims.jti);
+	}
+
+	private async handlePairingTunnel(
+		request: Request,
+		url: URL,
+		tunnelId: string,
+	): Promise<Response> {
+		const token = extractToken(request, url);
+		if (!token) return unauthorizedWithLog("/tunnel", "missing_token", undefined, tunnelId);
+
+		const result = await verifyToken(token, {
+			jwksRaw: this.env.JWKS_PUBLIC,
+			expectedIssuer: this.env.ISSUER,
+			expectedScope: "session.listen",
+		});
+		if (!result.ok) return unauthorizedWithLog("/tunnel", result.reason, undefined, tunnelId);
+
+		const windows = this.ctx.getWebSockets(tagPairWindow());
+		if (windows.length === 0) {
+			return unauthorizedWithLog("/tunnel", "no_window", undefined, tunnelId);
+		}
+		const watt = windows[0].deserializeAttachment() as Attachment | null;
+		if (!watt || watt.role !== "pair_window") {
+			return unauthorizedWithLog("/tunnel", "no_window", undefined, tunnelId);
+		}
+		if (result.claims.instance_id !== watt.instance_id) {
+			return unauthorizedWithLog(
+				"/tunnel",
+				"instance_mismatch",
+				result.claims.instance_id,
+				tunnelId,
+			);
+		}
+
+		return this.attachHomeTunnel(tunnelId, result.claims.instance_id, result.claims.jti);
+	}
+
+	private attachHomeTunnel(tunnelId: string, instanceId: string, jti: string): Response {
 		// The mobile side must already be attached — otherwise there's no
 		// tunnel to pair into. (If the mobile has disconnected, we refuse the
 		// home-side attach; fresh dial mints a new tunnel_id.)
@@ -360,7 +382,7 @@ export class InstanceDO extends DurableObject<Env> {
 			tunnel_id: tunnelId,
 			instance_id: instanceId,
 			opened_at: Date.now(),
-			jti: result.claims.jti,
+			jti,
 		};
 		server.serializeAttachment(att);
 		this.ctx.acceptWebSocket(server, [tagTunnelHome(tunnelId)]);
@@ -391,6 +413,7 @@ export class InstanceDO extends DurableObject<Env> {
 		// tunnel_mobile attachment.
 		if (att.role === "listen") return;
 		if (att.role === "dial") return;
+		if (att.role === "pair_window") return;
 
 		if (!att.tunnel_id) return;
 		const tunnelId = att.tunnel_id;
@@ -502,42 +525,6 @@ export class InstanceDO extends DurableObject<Env> {
 		return row.entitled_until > now;
 	}
 
-	private consumePairJti(jti: string, expiresAt: number, now: number): boolean {
-		this.ctx.storage.sql.exec("DELETE FROM pair_jti_consumed WHERE expires_at < ?", now);
-		try {
-			this.ctx.storage.sql.exec(
-				"INSERT INTO pair_jti_consumed (jti, expires_at) VALUES (?, ?)",
-				jti,
-				expiresAt,
-			);
-			return true;
-		} catch (err) {
-			const msg = err instanceof Error ? err.message : String(err);
-			if (!/(UNIQUE|constraint)/i.test(msg)) throw err;
-			return false;
-		}
-	}
-
-	private unconsumePairJti(jti: string): void {
-		this.ctx.storage.sql.exec("DELETE FROM pair_jti_consumed WHERE jti = ?", jti);
-	}
-
-	private claimPairRate(step: number, expiresAt: number, now: number): boolean {
-		this.ctx.storage.sql.exec("DELETE FROM pair_rate WHERE expires_at < ?", now);
-		try {
-			this.ctx.storage.sql.exec(
-				"INSERT INTO pair_rate (step, expires_at) VALUES (?, ?)",
-				step,
-				expiresAt,
-			);
-			return true;
-		} catch (err) {
-			const msg = err instanceof Error ? err.message : String(err);
-			if (!/(UNIQUE|constraint)/i.test(msg)) throw err;
-			return false;
-		}
-	}
-
 	private acceptMobileTunnel(
 		instanceId: string,
 		jti: string,
@@ -640,6 +627,8 @@ export class InstanceDO extends DurableObject<Env> {
 				return "listen_close";
 			case "dial":
 				return "dial_close";
+			case "pair_window":
+				return "pair_window_close";
 			case "tunnel_home":
 				return "tunnel_home_close";
 			case "tunnel_mobile":
@@ -648,7 +637,12 @@ export class InstanceDO extends DurableObject<Env> {
 	}
 }
 
-type CloseEvent = "listen_close" | "dial_close" | "tunnel_home_close" | "tunnel_mobile_close";
+type CloseEvent =
+	| "listen_close"
+	| "dial_close"
+	| "pair_window_close"
+	| "tunnel_home_close"
+	| "tunnel_mobile_close";
 
 interface PendingBuffer {
 	frames: Array<string | ArrayBuffer>;
@@ -672,7 +666,7 @@ function extractToken(request: Request, url: URL): string | null {
 function unauthorizedWithLog(
 	route: string,
 	reason: string,
-	instanceId: string,
+	instanceId?: string,
 	tunnelId?: string,
 ): Response {
 	log({
@@ -685,7 +679,7 @@ function unauthorizedWithLog(
 	return unauthorizedResponse();
 }
 
-function unauthorizedResponse(): Response {
+export function unauthorizedResponse(): Response {
 	return new Response("unauthorized", {
 		status: 401,
 		headers: { "x-close-code": String(CLOSE_CODE_UNAUTHORIZED) },
@@ -711,6 +705,9 @@ export function tagListen(instanceId: string): string {
 }
 export function tagWaiting(instanceId: string): string {
 	return `waiting_dial:${instanceId}`;
+}
+export function tagPairWindow(): string {
+	return "pair_window";
 }
 export function tagTunnelHome(tunnelId: string): string {
 	return `tunnel_home:${tunnelId}`;

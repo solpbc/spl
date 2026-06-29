@@ -13,9 +13,10 @@
 //   POST /token/refresh             — re-issue a device token from a current/recently-expired one
 //   GET  /session/listen?instance=  — home holds this open indefinitely
 //   GET  /session/dial?instance=    — mobile opens, becomes tunnel WS on pair
-//   POST /session/pair-ticket?instance= — TOTP-gated short-lived pair ticket
-//   GET  /session/pair-dial?instance=   — pair-ticket dial, becomes tunnel WS
+//   GET  /session/pair-window       — home opens RK-addressed pairing window
+//   GET  /session/pair-dial         — RK-addressed pair dial, becomes tunnel WS
 //   GET  /tunnel/<id>?instance=     — home opens per `incoming` signal
+//   GET  /tunnel/<id>               — pairing tunnel attach when Sec-Pair-Key is present
 //
 // Blind-by-construction invariant: the Worker NEVER reads, parses, stores,
 // or forwards the payload of a relayed frame. The DO holds ArrayBuffers;
@@ -24,6 +25,7 @@
 import { handleEnrollDevice, handleEnrollHome } from "./enroll";
 import { handleListInstances, handleSetEntitlement, handleShowInstance } from "./entitlement";
 import type { Env } from "./env";
+import { unauthorizedResponse } from "./instance-do";
 import { handleTokenRefresh } from "./refresh";
 
 export { InstanceDO } from "./instance-do";
@@ -55,14 +57,24 @@ export default {
 			return handleTokenRefresh(request, env);
 		}
 
-		// Session and pairing surfaces are routed to the Durable Object for the
-		// named instance. The DO itself does auth (JWT verify) — doing it here
-		// too would just mean double-parsing the same token on every hop.
+		const rk = extractRk(request);
+		const isPairingPath =
+			url.pathname === "/session/pair-window" ||
+			url.pathname === "/session/pair-dial" ||
+			(url.pathname.startsWith("/tunnel/") && request.headers.has("sec-pair-key"));
+		if (isPairingPath) {
+			if (!rk) return unauthorizedResponse();
+			const doId = env.INSTANCE.idFromName(rk);
+			const stub = env.INSTANCE.get(doId);
+			return stub.fetch(request);
+		}
+
+		// Session surfaces are routed to the Durable Object for the named
+		// instance. The DO itself does auth (JWT verify) — doing it here too
+		// would just mean double-parsing the same token on every hop.
 		if (
 			url.pathname === "/session/listen" ||
 			url.pathname === "/session/dial" ||
-			url.pathname === "/session/pair-ticket" ||
-			url.pathname === "/session/pair-dial" ||
 			url.pathname.startsWith("/tunnel/")
 		) {
 			const instanceId = url.searchParams.get("instance");
@@ -113,4 +125,10 @@ function jwksHeaders(): HeadersInit {
 		// contract documented in ../proto/tokens.md.
 		"cache-control": "public, max-age=300",
 	};
+}
+
+function extractRk(request: Request): string | null {
+	const rk = request.headers.get("sec-pair-key");
+	if (!rk || !/^[0-9a-fA-F]{32}$/.test(rk)) return null;
+	return rk.toLowerCase();
 }

@@ -58,4 +58,8 @@ export const migrations = [
 			)`,
 		],
 	},
+	{
+		name: "0007_drop_totp_secret",
+		queries: ["ALTER TABLE instances DROP COLUMN totp_secret"],
+	},
 ];

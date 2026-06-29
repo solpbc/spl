@@ -14,7 +14,6 @@ import type { Env } from "./env";
 import { json, readJson } from "./http";
 import { log } from "./logging";
 import { mintDeviceToken, mintServiceToken } from "./tokens";
-import { TOTP_SECRET_RE } from "./totp";
 import { uuidv7 } from "./uuid";
 
 // 365 days / 60 days per proto/tokens.md §TTLs.
@@ -27,7 +26,6 @@ interface EnrollHomeBody {
 	instance_id?: string;
 	ca_pubkey?: string;
 	home_label?: string;
-	totp_secret?: string;
 }
 
 interface EnrollDeviceBody {
@@ -57,11 +55,6 @@ export async function handleEnrollHome(request: Request, env: Env): Promise<Resp
 	if (!/^[0-9a-fA-F-]{10,64}$/.test(body.instance_id)) {
 		log({ event: "enroll_rejected", route: "/enroll/home", reason: "bad_instance_id" });
 		return json({ error: "bad instance_id" }, 400);
-	}
-
-	if (body.totp_secret !== undefined && !TOTP_SECRET_RE.test(body.totp_secret)) {
-		log({ event: "enroll_rejected", route: "/enroll/home", reason: "bad_totp_secret" });
-		return json({ error: "bad totp_secret" }, 400);
 	}
 
 	// ca_pubkey must be an ECDSA-P256 SPKI public key — matches the mTLS
@@ -106,29 +99,21 @@ export async function handleEnrollHome(request: Request, env: Env): Promise<Resp
 			return json({ error: "ca_pubkey mismatch — rotation not supported in v1" }, 409);
 		}
 		await env.DB.prepare(
-			"UPDATE instances SET ca_fp = ?, home_label = ?, totp_secret = COALESCE(?, totp_secret), service_token_jti = ?, rotated_at = ? WHERE instance_id = ?",
+			"UPDATE instances SET ca_fp = ?, home_label = ?, service_token_jti = ?, rotated_at = ? WHERE instance_id = ?",
 		)
-			.bind(
-				caFp,
-				body.home_label ?? null,
-				body.totp_secret ?? null,
-				minted.jti,
-				minted.iat,
-				body.instance_id,
-			)
+			.bind(caFp, body.home_label ?? null, minted.jti, minted.iat, body.instance_id)
 			.run();
 		log({ event: "enroll_home_rotate", instance_id: body.instance_id, jti: minted.jti });
 	} else {
 		try {
 			await env.DB.prepare(
-				"INSERT INTO instances (instance_id, ca_fp, ca_pubkey_pem, home_label, totp_secret, created_at, service_token_jti) VALUES (?, ?, ?, ?, ?, ?, ?)",
+				"INSERT INTO instances (instance_id, ca_fp, ca_pubkey_pem, home_label, created_at, service_token_jti) VALUES (?, ?, ?, ?, ?, ?)",
 			)
 				.bind(
 					body.instance_id,
 					caFp,
 					body.ca_pubkey,
 					body.home_label ?? null,
-					body.totp_secret ?? null,
 					minted.iat,
 					minted.jti,
 				)

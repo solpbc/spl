@@ -17,7 +17,7 @@ export interface TokenClaims {
 	iss: string;
 	sub: string;
 	aud: "spl-relay";
-	scope: "session.listen" | "session.dial" | "session.pair";
+	scope: "session.listen" | "session.dial";
 	instance_id: string;
 	iat: number;
 	exp: number;
@@ -55,7 +55,7 @@ export type VerifyResult = VerifyOk | VerifyFail;
 interface VerifyOptions {
 	jwksRaw: string | undefined;
 	expectedIssuer: string;
-	expectedScope: "session.listen" | "session.dial" | "session.pair";
+	expectedScope: "session.listen" | "session.dial";
 	now?: number;
 	graceSeconds?: number;
 }
@@ -148,17 +148,13 @@ export async function verifyToken(token: string, options: VerifyOptions): Promis
 			if (typeof claims.device_fp !== "string" || !FP_RE.test(claims.device_fp))
 				return { ok: false, reason: "bad_claim" };
 			break;
-		case "session.pair":
-			if (claims.sub !== `pair:${claims.instance_id}`) return { ok: false, reason: "bad_claim" };
-			break;
 	}
 
 	return { ok: true, claims };
 }
 
-// Token minting — called ONLY from control-plane HTTPS handlers: the
-// `/enroll/*` Worker handlers and the DO's `POST /session/pair-ticket`
-// handler, never from a WebSocket upgrade path.
+// Token minting — called ONLY from control-plane HTTPS handlers:
+// the `/enroll/*` Worker handlers, never from a WebSocket upgrade path.
 export interface MintServiceTokenInput {
 	instance_id: string;
 	ca_fp: string;
@@ -175,13 +171,6 @@ export interface MintDeviceTokenInput {
 	ttlSeconds: number;
 	now?: number;
 	jti?: string;
-}
-
-export interface MintPairTicketInput {
-	instance_id: string;
-	issuer: string;
-	ttlSeconds: number;
-	now?: number;
 }
 
 export interface MintedToken {
@@ -230,29 +219,6 @@ export async function mintDeviceToken(
 		scope: "session.dial",
 		instance_id: input.instance_id,
 		device_fp: input.device_fp,
-		iat: now,
-		exp,
-		jti,
-	};
-
-	const jwt = await sign(signingJwkRaw, claims);
-	return { jwt, jti, iat: now, exp };
-}
-
-export async function mintPairTicket(
-	signingJwkRaw: string,
-	input: MintPairTicketInput,
-): Promise<MintedToken> {
-	const now = input.now ?? Math.floor(Date.now() / 1000);
-	const jti = uuidv7();
-	const exp = now + input.ttlSeconds;
-
-	const claims: TokenClaims = {
-		iss: input.issuer,
-		sub: `pair:${input.instance_id}`,
-		aud: "spl-relay",
-		scope: "session.pair",
-		instance_id: input.instance_id,
 		iat: now,
 		exp,
 		jti,
