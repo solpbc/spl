@@ -11,9 +11,7 @@ The end state of a successful pairing:
 
 This is a one-time ceremony per device. Re-pairing is identical (revoke first, pair again).
 
-v1 supports a LAN-direct pairing form and an off-LAN **relay-addressed** pairing form. The QR wire contract for both is specified below; see *off-lan: relay-addressed form* for the relay posture. Once paired, everyday use works from any network.
-
-> **⚠ Relay-form superseded (2026-06-29).** The off-LAN relay form below (`0x03`, `current_totp`) is replaced by the **`0x06` home-opened pairing window** in [`pair-window.md`](pair-window.md) — a hard cutover (no `0x03`/TOTP fallback). The LAN-direct form (`0x04`/`0x05`) and the inner ceremony (steps 4–8) are unchanged. Read `pair-window.md` for the current relay-form contract; the `0x03` text here is retained only until the relay lode prunes it.
+v1 supports a LAN-direct pairing form and an off-LAN **relay-addressed** pairing form. The LAN-direct QR wire contract is specified below; the off-LAN relay form is the `0x06` home-opened pairing window specified in [`pair-window.md`](pair-window.md). The inner ceremony (steps 4-8) is unchanged. Once paired, everyday use works from any network.
 
 > **Two hosts, by design.** This ceremony deliberately touches two different hosts, and they are not interchangeable:
 > - **`go.solstone.app`** is the **pair-link / universal-link host** — every QR encodes `https://go.solstone.app/p#…`, which opens the app (or the install-fallback page). It serves only the app-association files and the landing page; it holds no keys and relays nothing.
@@ -48,8 +46,8 @@ Step by step. Times are typical, not specified — the only enforced TTL is the 
 Convey calls into the local `spl.pair` HTTPS server (loopback, port chosen at solstone startup). The pair server:
 
 - For direct (LAN) form: generates a 128-bit (16-byte) random **nonce**.
-- For relay form: generates a fresh 128-bit (16-byte) random **nonce**.
-- Records `(nonce, expires_at, used = false)` in an in-memory single-use table. Direct nonce TTL is 5 minutes; relay nonce TTL is approximately 30 seconds, one TOTP step.
+- For relay form: generates the pair-window nonce specified in [`pair-window.md`](pair-window.md).
+- Records `(nonce, expires_at, used = false)` in an in-memory single-use table. Direct nonce TTL is 5 minutes.
 - Returns a **pair link** of the shape `https://go.solstone.app/p#<uppercase Crockford base32 blob>`.
 
 In the direct form, the decoded blob carries `<lan-ip>` (the home's address on the local subnet), `<port>`, and the nonce. The nonce is the only sensitive material in the link — without a valid nonce, the `/pair` endpoint refuses to enroll.
@@ -75,36 +73,7 @@ Direct form, version `0x04` (40 bytes):
 | 8 | 16 | nonce | 128-bit single-use nonce |
 | 24 | 16 | ca_fp | first 16 bytes of SHA-256 over the CA cert DER |
 
-Relay form, version `0x03` (54 bytes + optional origin):
-
-| Offset | Len | Field | Encoding |
-|--------|-----|-------|----------|
-| 0 | 1 | version | `0x03` |
-| 1 | 16 | instance_id | raw UUID bytes |
-| 17 | 3 | current_totp | unsigned big-endian integer, value `0..999999` |
-| 20 | 16 | rotating_nonce | 128-bit single-use nonce |
-| 36 | 1 | ca_fp_tag | `0x01` = SHA-256 over DER SPKI, first 16 bytes |
-| 37 | 16 | ca_fp | first 16 bytes of SHA-256 over the CA DER SubjectPublicKeyInfo (SPKI) |
-| 53 | 1 | relay_origin_selector | `0x00` = well-known default relay; `N` (`1..255`) = custom origin byte length |
-| 54 | N | relay_origin | UTF-8 bytes of the custom origin string; omitted when selector is `0x00` |
-
-For relay form, `ca_fp` is exactly the `ca_fp` the relay stores at `/enroll/home`: SHA-256 over the DER SPKI produced from the submitted `ca_pubkey`. `current_totp` is the home-computed RFC 6238 TOTP (HMAC-SHA1, 30s step, 6 digits) that the phone forwards to the relay along with `instance_id`.
-
-**CA pin note:** direct and relay forms pin different CA hashes, disambiguated by version and, for relay, `ca_fp_tag`. Direct = SHA-256(cert DER) first 16 bytes, no tag. Relay = `0x01`-tagged SHA-256(SPKI DER) first 16 bytes. A parser MUST key the pin algorithm off version and tag so future native clients stay forward-compatible. The home's HTTP `pair-start` response also carries a human-facing `ca_fingerprint` field; that value stays the full cert-DER SHA-256 in both postures and is NOT the relay QR's SPKI pin.
-
-Conformance vectors use these fixed inputs: `instance_id=12345678-1234-5678-1234-567812345678`, `totp=123456`, `nonce=0123456789abcdef0123456789abcdef`, `ca_fp_spki=deadbeefcafebabe0123456789abcdef0123456789abcdef0123456789abcdef`.
-
-Well-known relay origin (`relay_origin=None`):
-
-```
-https://go.solstone.app/p#0C938NKR28T5CY0J6HB7G4HMASW03RJ004HMASW9NF6YY0938NKRKAYDXW0XXBDYXZ5FXENY04HMASW9NF6YY00
-```
-
-Custom relay origin (`relay_origin=https://relay.example`):
-
-```
-https://go.solstone.app/p#0C938NKR28T5CY0J6HB7G4HMASW03RJ004HMASW9NF6YY0938NKRKAYDXW0XXBDYXZ5FXENY04HMASW9NF6YY5B8EHT70WST5WQQ4SBCC5WJWSBRC5PQ0V35
-```
+**CA pin note:** direct form pins SHA-256(cert DER), first 16 bytes. The off-LAN `0x06` form's SPKI pin is specified in [`pair-window.md`](pair-window.md). A parser MUST key the pin algorithm off version and tag so future native clients stay forward-compatible. The home's HTTP `pair-start` response also carries a human-facing `ca_fingerprint` field; that value stays the full cert-DER SHA-256 in both postures.
 
 Direct form conformance vector uses fixed inputs: `addr_type=0x01`, `address=192.0.2.42`, `port=7070`, `nonce=a1b2c3d4e5f607181122334455667788`, `ca_fp=deadbeefcafebabe0123456789abcdef`.
 
@@ -112,7 +81,7 @@ Direct form conformance vector uses fixed inputs: `addr_type=0x01`, `address=192
 https://go.solstone.app/p#0G0W000258DSX8DJRFAEBXG7308J4CT4ANK7F26YNPZEZJQYQAZ028T5CY4TQKFF
 ```
 
-The rest of this ceremony describes the direct LAN completion path. The phone-side completion ceremony for relay form is specified separately; this section fixes the QR wire contract.
+The rest of this ceremony describes the direct LAN completion path.
 
 User-visible strings (per spec):
 
@@ -234,11 +203,9 @@ The mobile generates its own keypair so that the home (and `spl-relay`) never po
 
 ## off-lan: relay-addressed form
 
-Off-LAN pairing is the relay-addressed QR form specified above. It lets a phone pair from anywhere by carrying the home `instance_id`, rotating TOTP, 128-bit nonce, CA SPKI pin, and relay origin in the QR.
+Off-LAN pairing is the `0x06` home-opened pairing window specified in [`pair-window.md`](pair-window.md). It lets a phone pair from anywhere without putting `instance_id` in the pair link; the relay routes by `RK` and learns `instance_id` only from the home's service token.
 
-The relay validates the TOTP by `instance_id` and mints the short-lived relay-side pairing authorization described in [`tokens.md`](tokens.md) and [`session.md`](session.md). The relay never sees the home-side pairing nonce, device role, CSR, client cert, or pairing payload.
-
-The blind-by-construction posture is preserved: `spl-relay` handles rendezvous authorization metadata (`instance_id` + TOTP) but not enrollment material. LAN pairing remains the shortest trust-on-first-use path when the phone is near the home; relay-addressed pairing exists for the off-LAN posture. The phone-side completion ceremony for the relay form is specified separately; this document fixes the QR wire contract.
+The blind-by-construction posture is preserved: `spl-relay` sees `instance_id` and `RK`, but never `S`, the home-side nonce, the CSR, the client cert, or pairing payload. LAN pairing remains the shortest trust-on-first-use path when the phone is near the home; relay-addressed pairing exists for the off-LAN posture.
 
 ## related
 
