@@ -67,26 +67,26 @@ Every client parser + the journal encoder MUST reproduce these bytes exactly. In
 
 ## relay endpoints
 
+**Addressing — the DO identity is the rendezvous match.** Both endpoints carry `RK` **in the upgrade request** (a request header, e.g. `Sec-Pair-Key: <RK hex>` — *not* the URL query, to keep `RK` out of edge access logs; routing happens at the HTTP layer, before any WS frame). The Worker routes by `idFromName(RK_hex)` → an **ephemeral pairing DO** distinct from the home's per-instance DO. Home and client presenting the same `RK` land in the **same DO** — that *is* the match. The relay performs **no `RK` value comparison** and stores no `RK` secret; it routes and bridges whoever is in the DO. `RK` is never logged (log `instance_id` from the token + reason only).
+
 ### `GET /session/pair-window` (home → relay)
 
-The home opens this WebSocket when the owner starts a pairing, **authenticated by its `service_token`** (`Authorization: Bearer …`, scope `session.listen`, `instance_id` claim). It carries `RK` (as the first control frame, never in the URL — see logging).
+The home opens this WebSocket when the owner starts a pairing, **authenticated by its `service_token`** (`Authorization: Bearer …`, scope `session.listen`, `instance_id` claim), carrying `RK` in the upgrade header.
 
-- Routing: addressed by **`RK`** → `idFromName(SHA256(RK))` (keep raw `RK` out of the DO namespace). This is an **ephemeral pairing DO**, distinct from the home's per-instance DO.
-- The pairing DO verifies the `service_token` statelessly (JWKS), confirms it is an enrolled home, and records `(RK, home pair-window socket)` plus the `instance_id` from the token claims (logging/optional entitlement only). **Only an enrolled home may open a window for a given `RK`.**
-- The **window's lifetime is this socket's lifetime** (close → window gone). A relay-side **TTL backstop** (≥ 5 min, ≤ ~10 min) closes a stranded half-open window.
-- One open window per `RK`.
+- The pairing DO verifies the `service_token` statelessly (JWKS) and confirms it is an enrolled, non-revoked home before accepting the socket — **only an enrolled home may open a window** (this gates window squatting). It records the home pair-window socket + the `instance_id` from the token (logging / optional entitlement only).
+- The **window's lifetime is this socket's lifetime** (close → window gone). A relay-side **TTL backstop** (≥ 5 min, ≤ ~10 min) closes a stranded half-open window. One open window per DO (a second pair-window for the same `RK` replaces or is rejected).
 
 ### `GET /session/pair-dial` (client → relay)
 
-The client derives `RK = HKDF(S, …)` and opens this WebSocket presenting `RK` (first control frame). No JWT.
+The client derives `RK = HKDF(S, …)` and opens this WebSocket carrying `RK` in the upgrade header. No JWT.
 
-- Routing: addressed by the same **`RK`** → same ephemeral pairing DO.
-- The DO **constant-time matches** the presented `RK` to an open pair-window socket. On match: broker the tunnel to that socket (reuse the existing `brokerTunnel` / `signalIncoming` / `/tunnel/<id>` machinery), then **consume** the window (one-use; remove `RK`). On no match / expired / closed: coarse `401`; a detailed reason is returned only after a structurally-valid `RK` for the window (see oracle-safety).
-- A **failed-attempt limiter** (per pairing DO) bounds repeated bad-`RK` traffic.
+- Routes to the same pairing DO. If a home pair-window socket is present: broker the tunnel to it (reuse the existing `brokerTunnel` / `signalIncoming` / `/tunnel/<id>` machinery) and **consume the window** (one-use; first dial wins, subsequent dials get a coarse `401`). If no home socket present: coarse `401`.
+- A **failed-attempt limiter** (per pairing DO) bounds repeated dials to an empty/closed window.
+- Oracle-safety: client-visible responses for the no-window / closed / not-yet-open cases are a **uniform coarse `401`**; any finer reason is logs-only.
 
 ### `/tunnel/<id>` (pairing)
 
-Routed by `RK` to the same pairing DO; bridges the client's pair-dial socket to the home's `/tunnel/<id>` socket. Unchanged in mechanics from the existing tunnel bridge — only the addressing key is `RK`, not `instance_id`.
+Carries `RK` in the upgrade header, routes to the same pairing DO; bridges the client's pair-dial socket to the home's `/tunnel/<id>` socket. Unchanged in mechanics from the existing tunnel bridge — only the addressing key is `RK`, not `instance_id`.
 
 ### what stays on the per-instance DO
 
@@ -102,7 +102,7 @@ The pair-link carries no `instance_id`. After the inner pinned-TLS handshake (pi
 
 ## failure reasons & oracle-safety
 
-The relay distinguishes `window_closed` / `revoked` / `bad_rk` / `malformed` internally, but returns them to the client **only after** a structurally-valid `RK` is presented for an open window. Unknown / malformed / no-window cases return a **coarse `401`**; precise reasons go to logs (`instance_id` + reason only). This reconciles friendlier client errors with not leaking instance/window state to an `RK`-less probe.
+Because routing is by DO identity, a `pair-dial` either lands in a DO with a live home pair-window socket (→ broker) or it does not (→ **uniform coarse `401`**, covering no-window / closed / consumed / not-yet-open alike). The client cannot distinguish these, so an `RK`-less probe — or an `RK`-holder probing window state — learns nothing. Finer detail (which case, `instance_id` from the home's token) is **logs-only**. The home side, by contrast, *can* surface honest reasons over the inner TLS (e.g. nonce expired) since that channel is authenticated to the owner.
 
 ## logging contract
 
