@@ -1,5 +1,7 @@
 # tokens
 
+> **⚠ Pair ticket + TOTP superseded (2026-06-29).** The `pair_ticket` JWT and the `/session/pair-ticket` TOTP gate described in this document are replaced by the **home-opened pairing window** (`RK = HKDF(S)`) in [`pair-window.md`](pair-window.md) — a hard cutover. The service token, device token, and `home_attestation` are unchanged. The pair-ticket sections below are retained only until the relay lode prunes them.
+
 The two long-lived JWTs that authorize a side to establish a WebSocket with `spl-relay` are the service token and device token. A third JWT, the pair ticket, is short-lived and one-use; it authorizes only the off-LAN pairing dial. All are issued by `spl-relay`'s control plane and signed by an Ed25519 key held only by sol pbc (or by the self-host operator, for self-hosted deployments). All authorize **rendezvous only** — none confers data access. Data access is gated by the TLS handshake inside the tunnel, against `authorized_clients.json` on the home.
 
 This document specifies the token shape, claims, validation, and the JWKS-based rotation model. The signing-key lifecycle (generation, vault storage, provisioning, rotation cadence, compromise response) is out of scope here — see [`../docs/signing-keys.md`](../docs/signing-keys.md) for the public-facing playbook, and (for sol pbc internal operators only) `cso/playbooks/spl-signing-key-lifecycle.md`.

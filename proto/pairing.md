@@ -13,6 +13,8 @@ This is a one-time ceremony per device. Re-pairing is identical (revoke first, p
 
 v1 supports a LAN-direct pairing form and an off-LAN **relay-addressed** pairing form. The QR wire contract for both is specified below; see *off-lan: relay-addressed form* for the relay posture. Once paired, everyday use works from any network.
 
+> **⚠ Relay-form superseded (2026-06-29).** The off-LAN relay form below (`0x03`, `current_totp`) is replaced by the **`0x06` home-opened pairing window** in [`pair-window.md`](pair-window.md) — a hard cutover (no `0x03`/TOTP fallback). The LAN-direct form (`0x04`/`0x05`) and the inner ceremony (steps 4–8) are unchanged. Read `pair-window.md` for the current relay-form contract; the `0x03` text here is retained only until the relay lode prunes it.
+
 > **Two hosts, by design.** This ceremony deliberately touches two different hosts, and they are not interchangeable:
 > - **`go.solstone.app`** is the **pair-link / universal-link host** — every QR encodes `https://go.solstone.app/p#…`, which opens the app (or the install-fallback page). It serves only the app-association files and the landing page; it holds no keys and relays nothing.
 > - **`link.solstone.app`** is the **`spl-relay` endpoint** — where the device enrolls and dials (`/enroll/device`, `/session/*`, `/tunnel/*`) and the JWT issuer. Self-hosters substitute their own relay origin (carried in the QR's `relay_origin`); the pair-link host stays `go.solstone.app`.
