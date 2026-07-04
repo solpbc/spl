@@ -98,12 +98,14 @@ replaced by public-key registration:
 
   1. extension -> home: PairHello  magic "SBP1" | version 0x01
   2. home -> extension: signed identity
-        { pkH_spki, instance_id, sig }
+        { pkH_spki, ca_spki, instance_id, sig }
         sig = ECDSA-P256/SHA-256 by the home CA private key over
               "spl-pair-browser-v1" || pkH_spki || instance_id
-        extension verifies sig against the CA SPKI whose SHA-256 (first 16
-        bytes) equals ca_fp_spki carried in the 0x06 link -- this authenticates
-        the home's HPKE recipient key with no TLS.
+        ca_spki = the CA public-key SPKI DER. The 0x06 link carries only the
+        16-byte ca_fp_spki pin, not the key, so the home supplies the full CA
+        key here. The extension checks SHA-256(ca_spki)[:16] == ca_fp_spki, then
+        verifies sig with ca_spki -- this authenticates the home's HPKE recipient
+        key with no TLS.
   3. extension -> home: HPKE base-mode (mode 0) seal to pkH,
         info = instance_id_16, plaintext = { S, ext_pub_spki, device_label }
         (S = the 8-byte pair-window nonce; the home-side single-use gate)
