@@ -16,6 +16,19 @@ Five WebSocket endpoints on `spl-relay`:
 
 Pair-window admission is specified in [`pair-window.md`](pair-window.md).
 
+### browser clients set no headers — subprotocol carriers
+
+Native clients (home, iOS) authenticate WebSocket upgrades with request headers
+(`Authorization: Bearer`, `Sec-Pair-Key`). A **browser** `WebSocket` cannot set
+request headers; its only per-connection channel is the subprotocol list. Because
+the WHATWG standard fails any browser WS whose offered subprotocol the server does
+not echo, the rule is: **a browser offers a subprotocol on a route only if the
+relay echoes one there.** Today the relay echoes `spl-v1` on `/session/pair-dial`
+(the RK carrier) and **nowhere else** — so the browser DATA dial (`/session/dial`)
+offers no subprotocol and authenticates via `?token=`. Full per-route matrix, the
+pairing framing, and the failure mode:
+[`blob-uplink.md`](blob-uplink.md) § subprotocol carriers.
+
 The asymmetry is deliberate. The mobile opens **one** WebSocket per dial (the dial WS becomes the tunnel WS — single-WS-per-side, prototype finding §11.1, saves ~40-80 ms per cold request). The home opens **one** persistent listen WS plus **one** transient tunnel WS per active tunnel.
 
 ## endpoint shapes

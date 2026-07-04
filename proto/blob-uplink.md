@@ -118,6 +118,87 @@ replaced by public-key registration:
 === end wire contract v1 ===
 ```
 
+## subprotocol carriers (browser clients) — read this before touching the dial
+
+A browser `WebSocket` **cannot set request headers** (no `Authorization`, no
+`Sec-Pair-Key`). The only per-connection channel the `WebSocket(url, protocols)`
+constructor exposes is the **subprotocol list**. Two rules follow, and violating
+the second is a silent connection failure:
+
+1. A credential a browser must present on the upgrade is carried as a subprotocol
+   token, not a header (e.g. the pair-dial RK).
+2. **Per the WHATWG WebSocket standard, if the client offers any subprotocol and
+   the server's 101 does not echo a selected one, the browser fails the
+   connection** — surfaced only as a generic `WebSocket connection failed`. So a
+   browser must offer a subprotocol on a route **only if the relay echoes one on
+   that route**.
+
+Per-route matrix for the browser client:
+
+| Route | Browser offers | Relay echoes | Why |
+|-------|----------------|--------------|-----|
+| `/session/pair-dial` | `["spl-v1", "spl-pair.<RK hex>"]` | `spl-v1` | RK carrier — the relay reads RK from the `spl-pair.<hex>` token and selects `spl-v1`. |
+| `/session/dial` (DATA) | **nothing** | — (does not echo) | Auth is the `?token=` query; framing is SBO1. `spl-v1` carries nothing here and the relay does not echo on this route, so offering it fails the connection. |
+| `/session/listen`, `/tunnel/<id>` | n/a — home-side, native, header-authed | — | Not browser-opened. |
+
+**The trap (cost a full debug session, 2026-07-04):** the extension data dial
+once offered `["spl-v1"]` while the relay echoed `spl-v1` only on pair-dial. Every
+blob delivery then failed with `WebSocket connection failed` while *pairing* (its
+own pair-window) still worked — because pairing and the data dial are different
+routes. Fix (`solstone-browser` `d95d80a`): the data dial offers no subprotocol.
+If a future change wants a version marker on the data dial, the relay must add the
+`spl-v1` echo on `/session/dial` **in the same change**.
+
+## pairing transport framing (msg1–msg5)
+
+The wire-contract block above names the pairing messages; this is how they are
+framed on the tunnel. The pairing tunnel is a **length-delimited binary byte
+stream** — do not rely on WS message boundaries (frames may split or coalesce end
+to end); reassemble with an explicit reader.
+
+- **msg1** (ext→home): exactly **5 bytes** `"SBP1" || 0x01`, **no length prefix**
+  (this is the home's first-byte dispatch discriminator, peeked like `SBO1`).
+- **msg2, msg3, msg4**: each `u32 big-endian length prefix || payload`.
+  - msg3 / msg4 payload = `enc(65) || ct` (HPKE encapsulated key ‖ ciphertext).
+- **msg5**: plain HTTPS `POST /enroll/device` on the relay control plane — no WS,
+  no header constraint.
+
+**Inner payload encoding** (msg2 identity object, and the msg3/msg4 sealed
+*plaintexts*): compact JSON (UTF-8, no whitespace). Binary fields (`pkH_spki`,
+`ca_spki`, `sig`, `S`, `ext_pub_spki`) are **base64url, unpadded**; `instance_id`
+is the canonical UUID string; `home_attestation` is the compact JWS string.
+Signatures and HPKE operate on the **raw** bytes — base64url is only the JSON
+transport wrapper.
+
+**`sig` is raw IEEE-P1363 `R || S` (64 bytes), NOT DER.** WebCrypto
+`SubtleCrypto.verify({name:"ECDSA", hash:"SHA-256"})` accepts only raw R‖S, so the
+home converts its library's DER output. The signed preimage is the raw bytes
+`"spl-pair-browser-v1" || pkH_spki_DER || instance_id_16`.
+
+**HPKE modes:** step 3 seal = base mode (mode 0) to `pkH`, `info = instance_id_16`,
+AAD = `b""`. Step 4 reply seal = base mode to `ext_pub`, `info = instance_id_16`,
+AAD = `b""`. (Only the DATA blob uses **auth** mode; pairing seals are base mode.)
+
+## DATA-path framing notes
+
+- The **Offer** (67 bytes) is the first bytes on the data tunnel; the home
+  dispatches on the `SBO1` magic (first-byte peek, exactly like the TLS `0x16`
+  discriminator). The home then reads `enc` (fixed 65) then exactly `ct_len`
+  bytes.
+- The extension chunks the sealed `enc || ct` at **≤64 KiB per WS send**; the home
+  reassembles by `ct_len`. One blob per tunnel; blobs are sequential; a new dial
+  per blob.
+- **`sender_fp` vs `device_fp` — same digest, two encodings, do not conflate.**
+  `sender_fp` (in the Offer and HPKE `info`) is the **raw 32 bytes**
+  SHA-256(ext SPKI DER). The `device_fp` in the `home_attestation` and at
+  `/enroll/device` is the **string** `"sha256:" + hex(...)` (the relay validates
+  `^sha256:[0-9a-f]{64}$`).
+- **Idempotency binding (home side):** the home binds each registered browser
+  public key to exactly one stable observer handle at pairing time and re-POSTs
+  every blob under that handle. Observer-ingest dedupe is per-handle + content-SHA;
+  a resend under a *different* handle would duplicate, so the binding is
+  load-bearing, not cosmetic.
+
 ## blindness and WS-layer minimality
 
 This contract preserves the relay boundary described in
