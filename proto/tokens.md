@@ -240,7 +240,7 @@ Response (on success):
 
 On every token-authenticated WebSocket upgrade request to `/session/listen` or `/session/dial`, the Worker:
 
-1. Reads the `Authorization: Bearer <jwt>` header. Reject with 401 if absent or malformed.
+1. Reads the `Authorization: Bearer <jwt>` header. For DATA dials to `/session/dial`, WebSocket clients that cannot set headers MAY present the same token as `?token=<jwt>`; the relay accepts this fallback and never logs the token value. Reject with 401 if absent or malformed.
 2. Parses the JOSE header, extracts `kid`.
 3. Looks `kid` up in the JWKS loaded from `env.JWKS_PUBLIC` (a JSON array of JWK public keys; see *JWKS publication* below). Reject with 401 if `kid` is unknown.
 4. Verifies the Ed25519 signature using the matched public key.

@@ -84,6 +84,19 @@ Sec-Pair-Key: <RK hex>
 Sec-WebSocket-Key: ...
 ```
 
+Header-less browser clients that cannot set `Sec-Pair-Key` offer the RK in the WebSocket subprotocol list instead:
+
+```
+GET /session/pair-dial HTTP/1.1
+Host: link.solstone.app
+Upgrade: websocket
+Connection: Upgrade
+Sec-WebSocket-Protocol: spl-v1, spl-pair.<RK hex>
+Sec-WebSocket-Key: ...
+```
+
+When the subprotocol carrier is used, the 101 response selects exactly `Sec-WebSocket-Protocol: spl-v1`. The relay never echoes the `spl-pair.<RK>` token.
+
 After upgrade, this **same WebSocket** becomes the mobile-side tunnel WS once the relay has paired it with a home tunnel WS. It is byte-for-byte the same relay tunnel shape as `/session/dial`; only the admission surface differs.
 
 ### tunnel — home → spl-relay
@@ -233,7 +246,7 @@ The discipline:
 
 **Acceptable at the WS layer:**
 
-- Dial signaling — the HTTP+upgrade exchanges on `/session/listen`, `/session/dial`, `/session/pair-window`, `/session/pair-dial`, `/tunnel/<id>` and their required rendezvous headers (`Authorization` where token-authenticated, `Sec-Pair-Key` where RK-addressed).
+- Dial signaling — the HTTP+upgrade exchanges on `/session/listen`, `/session/dial`, `/session/pair-window`, `/session/pair-dial`, `/tunnel/<id>` and their required rendezvous headers (`Authorization` where token-authenticated, `Sec-Pair-Key` where RK-addressed). For header-less browser pair-dial clients, the `Sec-WebSocket-Protocol: spl-v1, spl-pair.<RK hex>` offer is the same class of request-scoped rendezvous credential: consumed at upgrade, carrying only RK.
 - The `incoming` / `tunnel_id` control message from relay to home (above, §3).
 - Opaque ciphertext payload of inner-TLS records, framed as binary WS messages.
 - WebSocket transport keepalive (library-level ping/pong; see *no app heartbeat* below).

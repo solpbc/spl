@@ -207,6 +207,18 @@ Off-LAN pairing is the `0x06` home-opened pairing window specified in [`pair-win
 
 The blind-by-construction posture is preserved: `spl-relay` sees `instance_id` and `RK`, but never `S`, the home-side nonce, the CSR, the client cert, or pairing payload. LAN pairing remains the shortest trust-on-first-use path when the phone is near the home; relay-addressed pairing exists for the off-LAN posture.
 
+### browser registration variant
+
+Browser blob-uplink clients use the same `0x06` home-opened pair-window at the relay, with the RK carried on `/session/pair-dial` by the subprotocol carrier specified in [`blob-uplink.md`](blob-uplink.md). The native CSR-to-cert path above (steps 4-8) is unchanged; this is an additive alternate inner ceremony for the cert-less browser class.
+
+Inside the pairing tunnel:
+
+1. The extension sends `PairHello` (`magic "SBP1" | version 0x01`).
+2. The home replies with signed identity `{ pkH_spki, instance_id, sig }`, where `sig` is ECDSA-P256/SHA-256 by the home CA private key over `"spl-pair-browser-v1" || pkH_spki || instance_id`. The extension verifies `sig` against the CA SPKI whose SHA-256, first 16 bytes, equals `ca_fp_spki` carried in the `0x06` link; this authenticates the home's HPKE recipient key with no TLS.
+3. The extension sends an HPKE base-mode seal to `pkH` with `info = instance_id_16` and plaintext `{ S, ext_pub_spki, device_label }`. `S` is the 8-byte pair-window nonce and remains the home-side single-use gate.
+4. The home verifies `S` is live and unused, registers the extension public key, mints a `home_attestation` with `device_fp = SHA-256(ext SPKI)`, and replies HPKE-sealed with `{ instance_id, home_attestation }`.
+5. The extension posts `/enroll/device { instance_id, home_attestation }` over plain HTTPS to the relay control plane and receives a device token.
+
 ## related
 
 - [`tokens.md`](tokens.md) — the device token issued in step 8, and the service token the home uses to register its CA fingerprint with `spl-relay`.
