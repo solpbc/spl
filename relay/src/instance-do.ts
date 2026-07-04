@@ -15,6 +15,7 @@
 import { DurableObject } from "cloudflare:workers";
 import type { Env } from "./env";
 import { type Direction, log } from "./logging";
+import { SUBPROTOCOL_V1, parsePairSubprotocol } from "./pair-subprotocol";
 import { verifyToken } from "./tokens";
 
 interface Attachment {
@@ -258,7 +259,7 @@ export class InstanceDO extends DurableObject<Env> {
 		return new Response(null, { status: 101, webSocket: client });
 	}
 
-	private async handlePairDial(_request: Request, _url: URL): Promise<Response> {
+	private async handlePairDial(request: Request, _url: URL): Promise<Response> {
 		if (this.failedDials > PAIR_DIAL_FAILED_LIMIT) {
 			log({ event: "pair_dial_rejected", reason: "limited" });
 			return unauthorizedResponse();
@@ -284,7 +285,8 @@ export class InstanceDO extends DurableObject<Env> {
 			return unauthorizedResponse();
 		}
 
-		const resp = this.brokerTunnel(window, watt.instance_id, watt.jti, "pair_dial_open");
+		const offeredV1 = parsePairSubprotocol(request.headers.get("sec-websocket-protocol")).offeredV1;
+		const resp = this.brokerTunnel(window, watt.instance_id, watt.jti, "pair_dial_open", offeredV1);
 		if (resp.status === 101) {
 			watt.signaled = true;
 			window.serializeAttachment(watt);
@@ -558,6 +560,7 @@ export class InstanceDO extends DurableObject<Env> {
 		instanceId: string,
 		jti: string,
 		openEvent: "dial_open" | "pair_dial_open",
+		echoV1 = false,
 		onSendFail?: () => void,
 	): Response {
 		const tunnelId = crypto.randomUUID();
@@ -581,6 +584,13 @@ export class InstanceDO extends DurableObject<Env> {
 			return new Response("home unreachable", { status: 503 });
 		}
 
+		if (echoV1) {
+			return new Response(null, {
+				status: 101,
+				webSocket: client,
+				headers: { "Sec-WebSocket-Protocol": SUBPROTOCOL_V1 },
+			});
+		}
 		return new Response(null, { status: 101, webSocket: client });
 	}
 

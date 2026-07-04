@@ -14,7 +14,9 @@
 //   GET  /session/listen?instance=  — home holds this open indefinitely
 //   GET  /session/dial?instance=    — mobile opens, becomes tunnel WS on pair
 //   GET  /session/pair-window       — home opens RK-addressed pairing window
-//   GET  /session/pair-dial         — RK-addressed pair dial, becomes tunnel WS
+//   GET  /session/pair-dial         — RK-addressed pair dial, becomes tunnel WS;
+//                                      browser clients may carry RK as
+//                                      Sec-WebSocket-Protocol: spl-v1, spl-pair.<hex>
 //   GET  /tunnel/<id>?instance=     — home opens per `incoming` signal
 //   GET  /tunnel/<id>               — pairing tunnel attach when Sec-Pair-Key is present
 //
@@ -26,6 +28,7 @@ import { handleEnrollDevice, handleEnrollHome } from "./enroll";
 import { handleListInstances, handleSetEntitlement, handleShowInstance } from "./entitlement";
 import type { Env } from "./env";
 import { unauthorizedResponse } from "./instance-do";
+import { normalizeRk, parsePairSubprotocol } from "./pair-subprotocol";
 import { handleTokenRefresh } from "./refresh";
 
 export { InstanceDO } from "./instance-do";
@@ -128,7 +131,9 @@ function jwksHeaders(): HeadersInit {
 }
 
 function extractRk(request: Request): string | null {
-	const rk = request.headers.get("sec-pair-key");
-	if (!rk || !/^[0-9a-fA-F]{32}$/.test(rk)) return null;
-	return rk.toLowerCase();
+	const headerRk = normalizeRk(request.headers.get("sec-pair-key"));
+	const sub = parsePairSubprotocol(request.headers.get("sec-websocket-protocol"));
+	if (sub.invalid) return null;
+	if (headerRk && sub.rk && headerRk !== sub.rk) return null;
+	return headerRk ?? sub.rk;
 }
