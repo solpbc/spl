@@ -33,8 +33,7 @@ import { handleTokenRefresh } from "./refresh";
 
 export { InstanceDO } from "./instance-do";
 
-export default {
-	async fetch(request: Request, env: Env): Promise<Response> {
+async function routeRequest(request: Request, env: Env): Promise<Response> {
 		const url = new URL(request.url);
 
 		if (request.method === "GET" && url.pathname === "/.well-known/jwks.json") {
@@ -97,6 +96,16 @@ export default {
 		}
 
 		return new Response("not found", { status: 404 });
+}
+
+export default {
+	async fetch(request: Request, env: Env): Promise<Response> {
+		const isHead = request.method === "HEAD";
+		const response = await routeRequest(isHead ? new Request(request, { method: "GET" }) : request, env);
+		if (isHead) {
+			return new Response(null, { status: response.status, statusText: response.statusText, headers: response.headers });
+		}
+		return response;
 	},
 } satisfies ExportedHandler<Env>;
 
