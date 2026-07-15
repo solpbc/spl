@@ -34,76 +34,83 @@ import { handleTokenRefresh } from "./refresh";
 export { InstanceDO } from "./instance-do";
 
 async function routeRequest(request: Request, env: Env): Promise<Response> {
-		const url = new URL(request.url);
+	const url = new URL(request.url);
 
-		if (request.method === "GET" && url.pathname === "/.well-known/jwks.json") {
-			return jwksResponse(env);
-		}
+	if (request.method === "GET" && url.pathname === "/.well-known/jwks.json") {
+		return jwksResponse(env);
+	}
 
-		if (request.method === "POST" && url.pathname === "/enroll/home") {
-			return handleEnrollHome(request, env);
-		}
-		if (request.method === "POST" && url.pathname === "/enroll/device") {
-			return handleEnrollDevice(request, env);
-		}
-		if (request.method === "POST" && url.pathname === "/admin/entitlement") {
-			return handleSetEntitlement(request, env);
-		}
-		if (request.method === "GET" && url.pathname === "/admin/instances") {
-			return handleListInstances(request, env);
-		}
-		if (request.method === "GET" && url.pathname.startsWith("/admin/instances/")) {
-			return handleShowInstance(request, env, url.pathname.slice("/admin/instances/".length));
-		}
-		if (request.method === "POST" && url.pathname === "/token/refresh") {
-			return handleTokenRefresh(request, env);
-		}
+	if (request.method === "POST" && url.pathname === "/enroll/home") {
+		return handleEnrollHome(request, env);
+	}
+	if (request.method === "POST" && url.pathname === "/enroll/device") {
+		return handleEnrollDevice(request, env);
+	}
+	if (request.method === "POST" && url.pathname === "/admin/entitlement") {
+		return handleSetEntitlement(request, env);
+	}
+	if (request.method === "GET" && url.pathname === "/admin/instances") {
+		return handleListInstances(request, env);
+	}
+	if (request.method === "GET" && url.pathname.startsWith("/admin/instances/")) {
+		return handleShowInstance(request, env, url.pathname.slice("/admin/instances/".length));
+	}
+	if (request.method === "POST" && url.pathname === "/token/refresh") {
+		return handleTokenRefresh(request, env);
+	}
 
-		const rk = extractRk(request);
-		const isPairingPath =
-			url.pathname === "/session/pair-window" ||
-			url.pathname === "/session/pair-dial" ||
-			(url.pathname.startsWith("/tunnel/") && request.headers.has("sec-pair-key"));
-		if (isPairingPath) {
-			if (!rk) return unauthorizedResponse();
-			const doId = env.INSTANCE.idFromName(rk);
-			const stub = env.INSTANCE.get(doId);
-			return stub.fetch(request);
-		}
+	const rk = extractRk(request);
+	const isPairingPath =
+		url.pathname === "/session/pair-window" ||
+		url.pathname === "/session/pair-dial" ||
+		(url.pathname.startsWith("/tunnel/") && request.headers.has("sec-pair-key"));
+	if (isPairingPath) {
+		if (!rk) return unauthorizedResponse();
+		const doId = env.INSTANCE.idFromName(rk);
+		const stub = env.INSTANCE.get(doId);
+		return stub.fetch(request);
+	}
 
-		// Session surfaces are routed to the Durable Object for the named
-		// instance. The DO itself does auth (JWT verify) — doing it here too
-		// would just mean double-parsing the same token on every hop.
-		if (
-			url.pathname === "/session/listen" ||
-			url.pathname === "/session/dial" ||
-			url.pathname.startsWith("/tunnel/")
-		) {
-			const instanceId = url.searchParams.get("instance");
-			if (!instanceId) {
-				return new Response("instance param required", { status: 400 });
-			}
-			const doId = env.INSTANCE.idFromName(instanceId);
-			const stub = env.INSTANCE.get(doId);
-			return stub.fetch(request);
+	// Session surfaces are routed to the Durable Object for the named
+	// instance. The DO itself does auth (JWT verify) — doing it here too
+	// would just mean double-parsing the same token on every hop.
+	if (
+		url.pathname === "/session/listen" ||
+		url.pathname === "/session/dial" ||
+		url.pathname.startsWith("/tunnel/")
+	) {
+		const instanceId = url.searchParams.get("instance");
+		if (!instanceId) {
+			return new Response("instance param required", { status: 400 });
 		}
+		const doId = env.INSTANCE.idFromName(instanceId);
+		const stub = env.INSTANCE.get(doId);
+		return stub.fetch(request);
+	}
 
-		if (request.method === "GET" && url.pathname === "/") {
-			return new Response("spl-relay\n", {
-				status: 200,
-				headers: { "content-type": "text/plain; charset=utf-8" },
-			});
-		}
+	if (request.method === "GET" && url.pathname === "/") {
+		return new Response("spl-relay\n", {
+			status: 200,
+			headers: { "content-type": "text/plain; charset=utf-8" },
+		});
+	}
 
-		return new Response("not found", { status: 404 });
+	return new Response("not found", { status: 404 });
 }
 
 export default {
 	async fetch(request: Request, env: Env): Promise<Response> {
 		const isHead = request.method === "HEAD";
-		const response = await routeRequest(isHead ? new Request(request, { method: "GET" }) : request, env);
+		const response = await routeRequest(
+			isHead ? new Request(request, { method: "GET" }) : request,
+			env,
+		);
 		if (isHead) {
-			return new Response(null, { status: response.status, statusText: response.statusText, headers: response.headers });
+			return new Response(null, {
+				status: response.status,
+				statusText: response.statusText,
+				headers: response.headers,
+			});
 		}
 		return response;
 	},
