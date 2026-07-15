@@ -3,7 +3,13 @@
 
 """Multiplex framing per ../../../proto/framing.md.
 
-Wire format (9-byte header + payload):
+HISTORICAL REFERENCE: this MVP module predates the control-frame addition
+(PING/PONG on stream 0) and the OPEN|CLOSE / OPEN|DATA|CLOSE compositions,
+and is not a contract party to proto/framing.md. The production endpoint
+implementations live in solstone-journal (solstone/convey/secure_listener/,
+solstone/think/link/client.py) and solstone-macos (Sources/SPLTunnel/).
+
+Wire format (8-byte header + payload):
 
     +------+------+---+-------+
     | sid4 | flg1 | len3      |  header

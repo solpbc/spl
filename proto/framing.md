@@ -4,7 +4,7 @@ The wire format that lets one tunnel WebSocket carry many concurrent logical str
 
 This is the SSH-channel-style multiplex. The prototype (tracked in sol pbc's internal engineering notes, §13.1) ran one request per tunnel — fine for vetting the relay, TLS, and hibernation paths, but not what v1 ships. v1 needs to load a journal page that pulls images, holds a server-sent-event stream, and opens a WebSocket for live updates concurrently. All of that has to multiplex onto the single WebSocket each side holds open through `spl-relay`.
 
-This document is the contract between the home python module (`home/src/spl/framing.py`), the iOS client (`ios/Sources/SPLTunnel/Framing.swift`), and any future port (Android, browser bridge, etc.). The relay (`spl-relay`) does not parse frames — it forwards opaque bytes — so the contract is **between the two endpoints only**. That is the load-bearing fact: any framing change is a coordinated endpoint upgrade. The relay does not need a deploy.
+This document is the contract between the production endpoint implementations — the home side in `solstone-journal` (`solstone/convey/secure_listener/` for the listener role, `solstone/think/link/client.py` for the dialing role) and the Apple observer in `solstone-macos` (`Sources/SPLTunnel/`) — and any future port (Android, browser bridge, etc.). The original MVP module in this repo (`home/src/spl/home/framing.py`) predates the control-frame addition (`PING`/`PONG`) and is retained as historical reference only; it is not a contract party. The relay (`spl-relay`) does not parse frames — it forwards opaque bytes — so the contract is **between the two endpoints only**. That is the load-bearing fact: any framing change is a coordinated endpoint upgrade. The relay does not need a deploy.
 
 The framing layer is **application-layer agnostic**. A `stream_id` is a labelled byte channel; it carries whatever bytes the endpoints agreed to send — HTTP/1.1 today, WebSocket frames after an upgrade, SSE events inside a long-lived HTTP response, or anything else. The framing code does not parse the payload; the home's link service pipes stream bytes into a local TCP connection, and the mobile side does the same at the app boundary. Blindness is not a property we enforce at the framing layer; it is a property we get for free because the layer above framing never inspects payload contents either.
 
@@ -50,7 +50,14 @@ Bit 0 is the low-order bit.
 | 6   | `PONG`    | matching reply to a `PING`. `stream_id` MUST be 0. payload is the same 8-byte nonce verbatim. |
 | 7   | reserved  | must be zero on send; receiver MUST reject a frame with bit 7 set. |
 
-**Valid combinations.** Exactly one of `OPEN | DATA | CLOSE | RESET | WINDOW | PING | PONG` MUST be set, except that `OPEN | DATA` MAY appear together (open with initial bytes) and `DATA | CLOSE` MAY appear together (last data frame also closes the writer). `PING` and `PONG` are mutually exclusive with each other and with every other flag — neither MAY be combined with `OPEN | DATA | CLOSE | RESET | WINDOW`. Any other combination is a protocol violation and the receiver MUST `RESET` the offending stream with reason `PROTOCOL_ERROR` (or, for malformed control frames on `stream_id = 0`, tear the tunnel down — control errors have no stream to reset on).
+**Valid combinations.** Exactly one of `OPEN | DATA | CLOSE | RESET | WINDOW | PING | PONG` MUST be set, except that the following compositions MAY appear together:
+
+- `OPEN | DATA` — open with initial bytes.
+- `DATA | CLOSE` — last data frame also closes the writer.
+- `OPEN | CLOSE` — open with an immediate half-close: the sender will write no more bytes on this stream. The payload MAY be empty or carry the sender's entire contribution to the stream.
+- `OPEN | DATA | CLOSE` — the composed single-frame form: open, initial bytes, half-close. Semantically identical to `OPEN | CLOSE` with a payload; senders SHOULD set `DATA` when the payload is non-empty.
+
+An OPEN frame's initial payload (with or without `DATA`) counts against the opener's initial send window like any other stream bytes; the receiver debits its receive window on delivery and returns credit only as the application drains — there is no implicit grant for the initial burst. `PING` and `PONG` are mutually exclusive with each other and with every other flag — neither MAY be combined with `OPEN | DATA | CLOSE | RESET | WINDOW`. Any other combination is a protocol violation and the receiver MUST `RESET` the offending stream with reason `PROTOCOL_ERROR` (or, for malformed control frames on `stream_id = 0`, tear the tunnel down — control errors have no stream to reset on).
 
 **Reset reason codes** (1-byte, in the `RESET` payload):
 
@@ -87,7 +94,7 @@ Receivers MUST tolerate unknown reason codes (treat as `UNSPECIFIED`) — this l
     └─── send/recv RESET ─► closed
 ```
 
-A stream is half-close-aware: each side independently signals it is done writing. A stream is fully closed when both directions have CLOSE'd, or when either side RESET's. After close, the `stream_id` is free for reuse — but see *id allocation* for why we don't immediately reuse.
+A stream is half-close-aware: each side independently signals it is done writing. A frame carrying both `OPEN` and `CLOSE` performs both transitions at once: the stream comes into existence already local-half-closed from the sender's perspective (remote-half-closed from the receiver's). A stream is fully closed when both directions have CLOSE'd, or when either side RESET's. After close, the `stream_id` is free for reuse — but see *id allocation* for why we don't immediately reuse.
 
 ### id allocation
 
