@@ -107,6 +107,10 @@ A stream is half-close-aware: each side independently signals it is done writing
 
 If a peer opens a `stream_id` outside its assigned parity, RESET with `PROTOCOL_ERROR`.
 
+### late frames on unknown ids
+
+Once a stream is forgotten (fully closed or reset), frames referencing its id may still be in flight. Receivers discriminate by what the frame asserts: `CLOSE` or `RESET` for an unknown id is a terminal signal racing teardown — it MUST be silently tolerated (replying RESET to a RESET invites reset ping-pong). `DATA` or `WINDOW` for an unknown id asserts the peer believes the stream is live — a genuine desync — and MUST draw one `RESET` with `PROTOCOL_ERROR` in reply, per offending frame.
+
 ### concurrent stream cap
 
 Either side MAY enforce a maximum number of concurrent open streams. If the peer attempts to OPEN beyond the cap, RESET that stream immediately with `STREAM_LIMIT_EXCEEDED`.
