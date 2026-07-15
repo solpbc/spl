@@ -14,7 +14,7 @@
 
 import { DurableObject } from "cloudflare:workers";
 import type { Env } from "./env";
-import { type Direction, log } from "./logging";
+import { type Direction, type LogFields, log } from "./logging";
 import { SUBPROTOCOL_V1, parsePairSubprotocol } from "./pair-subprotocol";
 import { verifyToken } from "./tokens";
 
@@ -478,7 +478,7 @@ export class InstanceDO extends DurableObject<Env> {
 	override async webSocketClose(
 		ws: WebSocket,
 		code: number,
-		reason: string,
+		_reason: string,
 		_wasClean: boolean,
 	): Promise<void> {
 		const att = ws.deserializeAttachment() as Attachment | null;
@@ -490,7 +490,7 @@ export class InstanceDO extends DurableObject<Env> {
 			instance_id: att.instance_id,
 			tunnel_id: att.tunnel_id,
 			close_code: code,
-			reason,
+			reason: "peer_closed",
 			duration_ms: durationMs,
 		});
 
@@ -675,7 +675,7 @@ function extractToken(request: Request, url: URL): string | null {
 
 function unauthorizedWithLog(
 	route: string,
-	reason: string,
+	reason: NonNullable<LogFields["reason"]>,
 	instanceId?: string,
 	tunnelId?: string,
 ): Response {

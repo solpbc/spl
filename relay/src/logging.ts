@@ -14,6 +14,9 @@
 // reviewable diff; drive-by `console.log` calls elsewhere violate the review
 // invariant.
 
+import type { AttestationFailReason } from "./attestation";
+import type { VerifyFailReason } from "./tokens";
+
 export type LogEvent =
 	| "listen_open"
 	| "listen_close"
@@ -50,6 +53,45 @@ export type LogEvent =
 
 export type Direction = "home_to_mobile" | "mobile_to_home" | "meta";
 
+// Relay-authored close classifications. Distinct from — and a strict subset
+// of — the general authored-reason set below. webSocketClose/webSocketError
+// emit a FIXED member here; peer close text is never a source.
+export type CloseReason = "peer_closed" | "ws_error";
+
+type AuthorizedReason =
+	// token verification (forwarded via unauthorizedWithLog)
+	| VerifyFailReason
+	// attestation failures reach log() only through the enroll.ts template literal
+	| `attestation_${AttestationFailReason}`
+	// relay-authored close/error classifications
+	| CloseReason
+	// route-local auth / routing
+	| "missing_token"
+	| "instance_mismatch"
+	| "not_enrolled"
+	| "revoked"
+	| "no_window"
+	// cardinality + pairing
+	| "listen_replaced"
+	| "ttl_expired"
+	| "pair_window_replaced"
+	| "limited"
+	| "consumed"
+	| "home_dropped"
+	| "tunnel_home_replaced"
+	// enrollment
+	| "body_too_large"
+	| "missing_fields"
+	| "bad_instance_id"
+	| "bad_ca_pubkey"
+	| "ca_mismatch"
+	| "ca_fp_conflict"
+	| "unknown_instance"
+	| "instance_revoked"
+	| "attestation_replay"
+	// entitlement
+	| "bad_bearer";
+
 export interface LogFields {
 	event: LogEvent;
 	tunnel_id?: string;
@@ -59,7 +101,7 @@ export interface LogFields {
 	count?: number;
 	close_code?: number;
 	duration_ms?: number;
-	reason?: string;
+	reason?: AuthorizedReason;
 	route?: string;
 	jti?: string;
 	queued_frames?: number;
