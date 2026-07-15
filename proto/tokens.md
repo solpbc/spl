@@ -257,7 +257,7 @@ On every token-authenticated WebSocket upgrade request to `/session/listen` or `
 
 Off-LAN pair-window admission, including the anonymous `/session/pair-dial`, is specified in [`pair-window.md`](pair-window.md). Pair-vs-dial selection is by request path, never by reading an unverified `scope`.
 
-If any check fails, the Worker closes the WebSocket with a clean close code (`4401` "unauthorized") and logs the failure with `tunnel_id` (none yet — pre-pair), token `jti`, route, and reason. **Never the token bytes, never claims-as-payload.**
+If any check fails, the Worker closes the WebSocket with a clean close code (`4401` "unauthorized") and logs `event`, `route`, `reason`, `instance_id`, and `tunnel_id` when available. It does not log `jti` or any other token claim on failed authorization. **Never the token bytes, never claims-as-payload.**
 
 `spl-relay` does **not** issue or refresh tokens on the WebSocket path. Issuance is HTTPS-only via the control-plane endpoints.
 

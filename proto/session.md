@@ -403,10 +403,13 @@ For audit and debugging, the Worker emits structured log events at session bound
 - `event` (one of `listen_open`, `listen_close`, `dial_open`, `dial_close`, `pair_window_open`, `pair_window_close`, `pair_dial_open`, `pair_dial_rejected`, `tunnel_home_open`, `tunnel_home_close`, `tunnel_mobile_close`, `pair`, `fwd`, `pending_buffer`, `pending_buffer_overflow`, `unauthorized`, `cardinality_violation`, `not_entitled`)
 - `byte_count` (when applicable)
 - `close_code` (when applicable)
+- `reason` (on close/error events; a relay-authored classification drawn from a fixed closed set)
 - `duration_ms` (on close events)
 - `timestamp`
 
 **Never** a payload byte. **Never** a token claim. **Never** a TLS handshake message. **Never** an `Authorization` header value. **Never** `S`, `RK`, the pair-link fragment, a token value, or the home-side nonce. This is enforced by code review; the framework does not protect us from a sloppy `console.log`.
+The peer-supplied WebSocket close-reason string is never logged and cannot select
+the relay-authored close classification.
 
 ## related
 

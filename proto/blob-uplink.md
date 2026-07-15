@@ -4,6 +4,8 @@ Browser blob-uplink is the v1 wire contract for the cert-less browser extension
 client class. The DATA path reuses the existing relay tunnel; pairing reuses the
 `0x06` home-opened pair-window from [`pair-window.md`](pair-window.md).
 
+Remote browser blob delivery requires solstone 0.8.7+ on the home side.
+
 Related contracts:
 
 - [`pairing.md`](pairing.md) — native pairing and the browser registration variant.
@@ -57,7 +59,7 @@ Multi-byte integers are big-endian.
   kdf_id       2     0x0001
   aead_id      2     0x0002
   sender_fp   32     SHA-256(extension SPKI DER)
-  blob_id     16     UUIDv7 (idempotency key)
+  blob_id     16     UUIDv7 (retry-stable Offer/Ack correlation id)
   ct_len       8     u64 length of the HPKE ciphertext that will follow
 
 --- home -> extension: Ready ---
@@ -79,16 +81,19 @@ Multi-byte integers are big-endian.
 --- home -> extension: Ack ---
   magic        4     "SBA1"
   version      1     0x01
-  status       1     0x00 = ok (stored) ; 0x01 = duplicate (already had it)
+  status       1     0x00 = ok (stored) ; 0x01 = duplicate (content already stored
+                     under the bound observer handle)
   blob_id     16     echoes the Offer blob_id
   tag         16     first 16 bytes of HMAC-SHA256(K_ack, "spl-blob-ack" ||
                      status_byte || blob_id), where
                      K_ack = HPKE context.export("spl-blob-ack-v1", 32)
 
-Idempotency: the home dedupes on blob_id. A replayed blob_id it has already
-stored -> Ack status=0x01 duplicate, no re-store. seq is NOT part of this
-contract (delivery order is not enforced; blob_id idempotency is the whole
-mechanism).
+Idempotent storage follows the **Idempotency binding (home side)** below: the
+home binds each browser key to one stable observer handle at pairing time and
+re-POSTs every blob under that handle. Observer ingest dedupes per-handle +
+content-SHA. `blob_id` is only the retry-stable Offer/Ack correlation value, so
+a retried Offer can be matched to its Ack; it is not the storage-dedupe key.
+`seq` is not part of this contract and delivery order is not enforced.
 
 === pairing (browser registration variant) ===
 Reuses the 0x06 home-opened pair-window at the relay byte-for-byte. RK is
