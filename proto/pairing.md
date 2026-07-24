@@ -4,7 +4,7 @@ How a mobile device first becomes able to dial a particular home solstone throug
 
 The end state of a successful pairing:
 
-- The mobile device holds a **client cert** signed by the home's local CA, with the matching private key in iOS Keychain (`kSecAttrAccessibleWhenUnlockedThisDeviceOnly`).
+- The mobile device holds a **client cert** signed by the home's local CA, with the matching private key in the platform keychain. The **iOS** client stores it with `kSecAttrAccessibleAfterFirstUnlock` — **deliberately backup-migratable** (a researched UX choice so pairing survives a device restore/migration); device-instance identity is anchored by the device-local observer ingest keys rather than by making the pairing bundle non-migratable. The **macOS** client stores it in the Data Protection keychain with `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly` (device-bound). Both are `AfterFirstUnlock` so background delivery keeps working while the device is locked.
 - The home holds the device's cert **fingerprint** in `authorized_clients.json`, alongside the device label and pair date.
 - The mobile device holds a **device token** issued by `spl-relay`'s control plane, scoped to (`home_instance_id`, this device).
 - Future dial attempts from this device authenticate at the rendezvous (device token) and at the data plane (TLS client cert verified inside the handshake against the fingerprint file).
@@ -81,7 +81,21 @@ Direct form conformance vector uses fixed inputs: `addr_type=0x01`, `address=192
 https://go.solstone.app/p#0G0W000258DSX8DJRFAEBXG7308J4CT4ANK7F26YNPZEZJQYQAZ028T5CY4TQKFF
 ```
 
-The rest of this ceremony describes the direct LAN completion path.
+Multi-candidate direct form, version `0x05` (variable length): the same LAN-direct ceremony, but the home advertises several of its own addresses in one link (multiple NICs / addresses on the subnet), and the client races them. All candidates share one port.
+
+| Offset | Len | Field | Encoding |
+|--------|-----|-------|----------|
+| 0 | 1 | version | `0x05` |
+| 1 | 1 | addr_type | `0x01` = IPv4 |
+| 2 | 1 | count | number of candidate addresses, ≥ 1 |
+| 3 | 2 | port | unsigned big-endian, shared by all candidates |
+| 5 | 4 × count | ipv4[] | `count` raw IPv4 addresses, 4 bytes each |
+| 5 + 4·count | 16 | nonce | 128-bit single-use nonce |
+| 5 + 4·count + 16 | 16 | ca_fp | first 16 bytes of SHA-256 over the CA cert DER |
+
+Total length is `5 + 4·count + 32`. The `0x05` form carries the same single nonce and single `ca_fp` as `0x04`; only the address list differs. The client dials candidates concurrently (own-subnet proximity first) and completes the ceremony against the first that answers; the LAN-only refusal in step 3 applies to **every** candidate — a link with any public-address candidate is refused as a whole.
+
+The rest of this ceremony describes the direct LAN completion path (identical for `0x04` and `0x05`).
 
 User-visible strings (per spec):
 
@@ -92,29 +106,31 @@ User-visible strings (per spec):
 
 The mobile app parses the QR payload and:
 
-- Verifies the URL points to a private/link-local IP (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, IPv6 ULA `fc00::/7`). v1 refuses public IPs at this step — the LAN-only constraint is enforced client-side, not just by the URL the QR happens to contain.
+- Verifies every candidate address is private or link-local (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, IPv6 ULA `fc00::/7`, loopback). v1 refuses public addresses at this step — the LAN-only constraint is enforced client-side, not just by the address the QR happens to contain. For the `0x05` multi form the whole link is refused unless **all** candidates satisfy this.
 - Confirms with the user: `LITERAL: "Pair with solstone on this wifi?"` (showing the device label only after the next step).
 
 ### 4. mobile generates an on-device keypair
 
-In iOS Keychain, with `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`:
+In the platform keychain (see the end-state note above for accessibility — iOS `AfterFirstUnlock`, macOS `AfterFirstUnlockThisDeviceOnly`):
 
 - **Algorithm:** ECDSA-P256 (matches the home CA's signature algorithm).
 - The private key never leaves the device; the public key is encoded into a **CSR** along with a device label (default: the iOS device name; user-editable).
 
 ### 5. mobile posts the CSR to the pair URL
 
-The mobile makes an HTTPS POST to the pair URL with body:
+The mobile opens a **cert-less, CA-pinned TLS 1.3** connection to the candidate's `<lan-ip>:<port>` (the client presents no client cert — it does not have one yet; it pins the home's self-signed CA cert against the `ca_fp` from the QR), establishes the frame multiplexer over it, and over that connection makes the pair request:
 
-```json
+```
+POST /app/network/pair?token=<nonce hex>
+Content-Type: application/json
+
 {
-  "nonce": "<from QR>",
   "csr": "<PEM-encoded CSR>",
   "device_label": "Jer's iPhone"
 }
 ```
 
-TLS verification at this step uses the **CA fingerprint pin from the QR**, not the system trust store. The home's TLS server presents its self-signed CA cert; the mobile rejects unless the SHA-256 of the presented cert matches the pinned fingerprint. This is the trust-on-first-use moment, but it is gated by a fresh QR scan, so there is no leap of faith — the user has just held the phone in front of the home.
+The single-use **nonce travels as the `token` query parameter (lowercase hex)**, not in the JSON body; the body carries only the CSR and device label. TLS verification uses the **CA fingerprint pin from the QR** (`ca_fp`), not the system trust store — the home presents its self-signed CA cert and the mobile rejects unless the SHA-256 of the presented cert matches the pinned fingerprint. This is the trust-on-first-use moment, but it is gated by a fresh QR scan, so there is no leap of faith — the user has just held the phone in front of the home. (The pair request rides the same inner-TLS + mux transport as everyday tunnel traffic; see [`framing.md`](framing.md). Requests are minimal HTTP/1.1; chunked transfer-encoding is not used.)
 
 ### 6. home validates and signs
 
