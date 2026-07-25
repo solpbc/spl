@@ -18,6 +18,10 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 
 import { ReconnectRequired, type TunnelSession, dial } from "./dial";
+import {
+	DIRECT_CANDIDATES_EXHAUSTED_MESSAGE,
+	directPairingAnnouncement,
+} from "./direct_pair_messages";
 import { httpRequest } from "./http_client";
 import {
 	type PairGuardDecision,
@@ -29,7 +33,7 @@ import {
 	savePairing,
 	tryLoadPairing,
 } from "./pair";
-import { pairDirect } from "./pair_direct";
+import { DirectCandidatesExhaustedError, dedupeDirectCandidates, pairDirect } from "./pair_direct";
 import { pairRelay } from "./pair_relay";
 import { looksLikePairLink, parsePairLink } from "./qr_link";
 
@@ -135,16 +139,25 @@ async function cmdPair(args: string[]): Promise<number> {
 			printPairSummary(decision, state, opts.state, true);
 			return 0;
 		}
-		console.log(`pairing from LAN-direct QR as "${deviceLabel}" (${link.ipv4}:${link.port})`);
-		const { state } = await pairDirect({ link, deviceLabel, relayEndpoint: opts.relay });
-		const decision = decidePairAction(state.instance_id, stored?.instance_id ?? null);
-		if (decision === "already-connected") {
-			printPairSummary("already-connected", state, opts.state, false);
+		const candidates = dedupeDirectCandidates(link.candidates);
+		console.log(directPairingAnnouncement(deviceLabel, candidates.length, link.port));
+		try {
+			const { state, decision, saved } = await pairDirect({
+				link,
+				deviceLabel,
+				relayEndpoint: opts.relay,
+				statePath: opts.state,
+				storedInstanceId: stored?.instance_id ?? null,
+			});
+			printPairSummary(decision, state, opts.state, saved);
 			return 0;
+		} catch (err) {
+			if (err instanceof DirectCandidatesExhaustedError) {
+				console.error(DIRECT_CANDIDATES_EXHAUSTED_MESSAGE);
+				return 1;
+			}
+			throw err;
 		}
-		await savePairing(opts.state, state);
-		printPairSummary(decision, state, opts.state, true);
-		return 0;
 	}
 
 	console.log(`pairing over LAN as "${deviceLabel}"`);

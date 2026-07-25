@@ -220,7 +220,7 @@ export interface DirectTunnelConfig {
 	port: number;
 }
 
-// LAN-direct (v0x04) pairing: TLS straight to the home over TCP, no relay WS.
+// LAN-direct (v0x04/v0x05) pairing: TLS straight to the home over TCP, no relay WS.
 // The home is self-signed, so the handshake is cert-less (rejectUnauthorized
 // false); trust is established afterward by pinning the QR CA fingerprint
 // against the returned ca_chain and binding it to this captured peer leaf

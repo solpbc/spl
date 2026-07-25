@@ -67,11 +67,13 @@ spl-mobile test
   plain HTTPS). CA fingerprint pin via `tls.checkServerIdentity`; SHA-256 over
   the peer's DER cert compared to the supplied `--pin`. The QR-driven LAN path
   is `pair_direct.ts`.
-- `src/pair_direct.ts` — LAN-direct (v0x04) QR pair flow. Opens cert-less TLS
-  straight to the home's `<ip>:<port>` from the pair-link, runs the mux, posts
-  the CSR to `/app/network/pair?token=`, then pins the QR's embedded CA cert-DER
-  fingerprint against the returned `ca_chain` and binds it to the live peer
-  leaf (`assertDirectCaPin`). Same pin posture as the relay flow, no tunnel.
+- `src/pair_direct.ts` — LAN-direct (`0x04` single-candidate and `0x05`
+  multi-candidate) QR pair flow. It admits only explicit local IPv4 ranges,
+  deduplicates candidates in wire order, and prepares them sequentially with a
+  10-second deadline. It sends the nonce-bearing request on at most one
+  candidate, then pins the QR's embedded CA cert-DER fingerprint against the
+  returned `ca_chain` and binds it to the live peer leaf (`assertDirectCaPin`).
+  Same pin posture as the relay flow, no relay tunnel.
 - `src/pair_relay.ts` — relay-addressed off-LAN pair flow. Requests a
   pair-ticket, opens `/session/pair-dial`, posts the CSR through the tunnel,
   then enrolls the returned home attestation.
@@ -92,7 +94,7 @@ Both QR pair flows open cert-less TLS and pin the home's CA from the `/pair`
 response. The relay flow (`assertCaPin`) compares the first 16 bytes of SHA-256
 over the CA **SPKI** to the v0x03 QR fingerprint; the LAN-direct flow
 (`assertDirectCaPin`) compares the first 16 bytes of SHA-256 over the CA
-**certificate DER** to the v0x04 QR fingerprint. Both then verify the live TLS
+**certificate DER** to the v0x04/v0x05 QR fingerprint. Both then verify the live TLS
 leaf is signed by that pinned CA, and that the CA is self-signed — so a relay
 or on-path LAN attacker cannot terminate TLS with its own key while proxying
 the real home's `ca_chain`.
@@ -106,14 +108,21 @@ responsibility, because it can walk the presented chain at TLS time. This CLI
 is a wire-format reference and test harness, not the production security
 boundary.
 
+The direct wire forms currently encode IPv4 only. Their admission policy covers
+private IPv4, IPv4 link-local, RFC 6598 shared space, and IPv4 loopback. The
+protocol also names IPv6 ULA `fc00::/7` for a future address-bearing form; this
+client deliberately does not implement unreachable IPv6 policy until such a
+wire encoding exists.
+
 ## test
 
 ```sh
 make test
 ```
 
-38 unit tests — framing encode/decode roundtrip, flag validation, WINDOW
-+ RESET parsing, pair-link parsing (relay + LAN-direct), CA pin helpers
+Unit tests cover framing encode/decode roundtrip, flag validation, WINDOW
++ RESET parsing, pair-link parsing (relay + LAN-direct), direct address policy,
+ordered candidate preparation, CA pin helpers
 (SPKI + cert-DER, accept/reject/wrong-domain/unsigned-leaf), and a
 **wire-compat snapshot** that hardcodes Python-side byte encodings to detect
 any TS/Python drift. Integration tests (full pair → dial → test) against the

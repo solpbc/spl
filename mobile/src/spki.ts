@@ -45,7 +45,7 @@ export function assertCaPin(args: {
 	}
 }
 
-// The LAN-direct (v0x04) pair-link embeds the first 16 bytes of SHA-256 over
+// The LAN-direct (v0x04/v0x05) pair-link embeds the first 16 bytes of SHA-256 over
 // the CA *certificate* DER — not the SPKI form the relay (v0x03) link tags.
 // Keep the two fingerprint domains separate so a direct link cannot be checked
 // against an SPKI pin or vice-versa.

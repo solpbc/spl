@@ -18,8 +18,8 @@ export interface RelayPairLink {
 
 export interface DirectPairLink {
 	kind: "direct";
-	addrType: number;
-	ipv4: string;
+	addrType: 0x01;
+	candidates: readonly string[];
 	port: number;
 	nonce: string;
 	caFp: Uint8Array;
@@ -51,7 +51,8 @@ export function parsePairLink(s: string): PairLink {
 
 	const version = bytes[0];
 	if (version === 0x03) return parseRelay(bytes);
-	if (version === 0x04) return parseDirect(bytes);
+	if (version === 0x04) return parseDirectSingle(bytes);
+	if (version === 0x05) return parseDirectMulti(bytes);
 	throw new Error(`unsupported pair-link version: 0x${version.toString(16).padStart(2, "0")}`);
 }
 
@@ -82,18 +83,61 @@ function parseRelay(bytes: Uint8Array): RelayPairLink {
 	};
 }
 
-function parseDirect(bytes: Uint8Array): DirectPairLink {
+function parseDirectSingle(bytes: Uint8Array): DirectPairLink {
 	if (bytes.byteLength !== 40) {
 		throw new Error(`malformed direct pair link: expected 40 bytes, got ${bytes.byteLength}`);
 	}
+	assertDirectAddrType(bytes[1]);
 	return {
 		kind: "direct",
-		addrType: bytes[1],
-		ipv4: Array.from(bytes.slice(2, 6)).join("."),
+		addrType: 0x01,
+		candidates: [ipv4FromBytes(bytes.slice(2, 6))],
 		port: (bytes[6] << 8) | bytes[7],
 		nonce: hex(bytes.slice(8, 24)),
 		caFp: bytes.slice(24, 40),
 	};
+}
+
+function parseDirectMulti(bytes: Uint8Array): DirectPairLink {
+	if (bytes.byteLength < 3) {
+		throw new Error("malformed multi-candidate direct pair link: expected at least 3 bytes");
+	}
+	assertDirectAddrType(bytes[1]);
+	const count = bytes[2];
+	if (count < 1 || count > 4) {
+		throw new Error("malformed multi-candidate direct pair link: count must be 1 through 4");
+	}
+	const expectedLength = 5 + 4 * count + 32;
+	if (bytes.byteLength !== expectedLength) {
+		throw new Error(
+			`malformed multi-candidate direct pair link: expected ${expectedLength} bytes, got ${bytes.byteLength}`,
+		);
+	}
+
+	const candidates: string[] = [];
+	for (let i = 0; i < count; i++) {
+		const offset = 5 + 4 * i;
+		candidates.push(ipv4FromBytes(bytes.slice(offset, offset + 4)));
+	}
+	const nonceOffset = 5 + 4 * count;
+	return {
+		kind: "direct",
+		addrType: 0x01,
+		candidates,
+		port: (bytes[3] << 8) | bytes[4],
+		nonce: hex(bytes.slice(nonceOffset, nonceOffset + 16)),
+		caFp: bytes.slice(nonceOffset + 16, nonceOffset + 32),
+	};
+}
+
+function assertDirectAddrType(addrType: number): asserts addrType is 0x01 {
+	if (addrType !== 0x01) {
+		throw new Error("malformed direct pair link: unsupported address type");
+	}
+}
+
+function ipv4FromBytes(bytes: Uint8Array): string {
+	return Array.from(bytes).join(".");
 }
 
 function uuidFromRaw(bytes: Uint8Array): string {
