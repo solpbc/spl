@@ -252,19 +252,21 @@ function parsePairResponse(body: Uint8Array): PairResponse {
 		throw new Error(MALFORMED_RESPONSE_MESSAGE);
 	}
 	if (!isRecord(parsed)) throw new Error(MALFORMED_RESPONSE_MESSAGE);
-	if (!isStringArray(parsed.ca_chain) || parsed.ca_chain.length === 0) {
+
+	const { ca_chain, client_cert, instance_id, home_label, home_attestation, fingerprint } = parsed;
+	if (!isStringArray(ca_chain) || ca_chain.length === 0) {
 		throw new Error(MALFORMED_RESPONSE_MESSAGE);
 	}
-	for (const field of [
-		"client_cert",
-		"instance_id",
-		"home_label",
-		"home_attestation",
-		"fingerprint",
-	] as const) {
-		if (typeof parsed[field] !== "string") throw new Error(MALFORMED_RESPONSE_MESSAGE);
+	if (
+		typeof client_cert !== "string" ||
+		typeof instance_id !== "string" ||
+		typeof home_label !== "string" ||
+		typeof home_attestation !== "string" ||
+		typeof fingerprint !== "string"
+	) {
+		throw new Error(MALFORMED_RESPONSE_MESSAGE);
 	}
-	return parsed as unknown as PairResponse;
+	return { client_cert, ca_chain, instance_id, home_label, home_attestation, fingerprint };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
