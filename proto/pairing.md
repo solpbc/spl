@@ -99,15 +99,31 @@ The rest of this ceremony describes the direct LAN completion path (identical fo
 
 User-visible strings (per spec):
 
-- `LITERAL: "Scan this code with solstone mobile on the same wifi."`
+- `LITERAL: "Scan this code with sol on your phone over the same wi-fi or your own vpn."`
 - `LITERAL: "This code expires in 5 minutes and only works once."`
 
 ### 3. mobile scans
 
 The mobile app parses the QR payload and:
 
-- Verifies every candidate address is private or link-local (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, IPv6 ULA `fc00::/7`, loopback). v1 refuses public addresses at this step — the LAN-only constraint is enforced client-side, not just by the address the QR happens to contain. For the `0x05` multi form the whole link is refused unless **all** candidates satisfy this.
-- Confirms with the user: `LITERAL: "Pair with solstone on this wifi?"` (showing the device label only after the next step).
+- Verifies every candidate address is in the explicit direct-pair allow-list (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, IPv4 link-local `169.254.0.0/16`, RFC 6598 shared address space `100.64.0.0/10`, IPv6 ULA `fc00::/7`, loopback). v1 refuses every other address at this step, including public addresses — the direct-pair constraint is enforced client-side, not just by the address the QR happens to contain. For the `0x05` multi form the whole link is refused unless **all** candidates satisfy this.
+- Confirms with the user: `LITERAL: "Pair with your journal over this local network?"` (showing the device label only after the next step).
+
+Address-admission conformance cases (normative policy vectors):
+
+| Candidate address or set | Required result |
+|--------------------------|-----------------|
+| `100.63.255.255` | refuse |
+| `100.64.0.0` | admit |
+| `100.127.255.255` | admit |
+| `100.128.0.0` | refuse |
+| `169.254.0.1` | admit as IPv4 link-local |
+| `fd7a:115c:a1e0::1` | admit as IPv6 ULA |
+| canonical direct vector `192.0.2.42` | decode successfully, then refuse before any dial |
+| `0x05`: `192.168.1.10`, `100.64.0.5` | admit the whole link |
+| `0x05`: `192.168.1.10`, `192.0.2.42` | refuse the whole link before any dial |
+
+The `0x04` and `0x05` forms currently encode IPv4 only. The IPv6 row pins address-classification policy for an address-bearing form that supports IPv6; it does not define a new wire encoding.
 
 ### 4. mobile generates an on-device keypair
 
