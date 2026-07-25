@@ -218,6 +218,7 @@ export async function openTunnel(config: TunnelConfig): Promise<TunnelSession> {
 export interface DirectTunnelConfig {
 	host: string;
 	port: number;
+	signal?: AbortSignal;
 }
 
 // LAN-direct (v0x04/v0x05) pairing: TLS straight to the home over TCP, no relay WS.
@@ -235,22 +236,50 @@ export async function openDirectTunnel(config: DirectTunnelConfig): Promise<Tunn
 		rejectUnauthorized: false,
 	});
 	let peerLeaf: X509Certificate | undefined;
-	await new Promise<void>((resolve, reject) => {
-		const onSecureConnect = () => {
-			tlsSocket.removeListener("error", onError);
-			peerLeaf = tlsSocket.getPeerX509Certificate() ?? undefined;
-			resolve();
-		};
-		const onError = (err: Error) => {
-			tlsSocket.removeListener("secureConnect", onSecureConnect);
-			try {
-				tlsSocket.destroy();
-			} catch {}
-			reject(err);
-		};
-		tlsSocket.once("secureConnect", onSecureConnect);
-		tlsSocket.once("error", onError);
+	let observeClosed = () => {};
+	const closedDuringOpen = new Promise<void>((resolve) => {
+		observeClosed = resolve;
+		tlsSocket.once("close", observeClosed);
 	});
+	try {
+		await new Promise<void>((resolve, reject) => {
+			const cleanup = () => {
+				tlsSocket.removeListener("secureConnect", onSecureConnect);
+				tlsSocket.removeListener("error", onError);
+				tlsSocket.removeListener("close", onPrematureClose);
+				config.signal?.removeEventListener("abort", onAbort);
+			};
+			const onSecureConnect = () => {
+				cleanup();
+				peerLeaf = tlsSocket.getPeerX509Certificate() ?? undefined;
+				resolve();
+			};
+			const onError = (err: Error) => {
+				cleanup();
+				reject(err);
+			};
+			const onPrematureClose = () => {
+				cleanup();
+				reject(new Error("direct tunnel closed before TLS became ready"));
+			};
+			const onAbort = () => {
+				cleanup();
+				reject(new Error("direct tunnel open aborted"));
+			};
+			tlsSocket.once("secureConnect", onSecureConnect);
+			tlsSocket.once("error", onError);
+			tlsSocket.once("close", onPrematureClose);
+			config.signal?.addEventListener("abort", onAbort, { once: true });
+			if (config.signal?.aborted) onAbort();
+		});
+	} catch (err) {
+		try {
+			tlsSocket.destroy();
+		} catch {}
+		await closedDuringOpen;
+		throw err;
+	}
+	tlsSocket.removeListener("close", observeClosed);
 	return buildTunnelSession(tlsSocket, peerLeaf, () => {});
 }
 

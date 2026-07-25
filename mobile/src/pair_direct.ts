@@ -166,9 +166,12 @@ async function prepareFirstCandidate(
 	deps: DirectPairDeps,
 ): Promise<TunnelSession | null> {
 	for (const host of candidates) {
+		const controller = new AbortController();
 		let opener: Promise<TunnelSession>;
 		try {
-			opener = deps.openTunnel({ host, port });
+			// Contract: rejection means no session was constructed or every partial
+			// transport resource has completed teardown.
+			opener = deps.openTunnel({ host, port, signal: controller.signal });
 		} catch {
 			continue;
 		}
@@ -186,6 +189,7 @@ async function prepareFirstCandidate(
 		if (first.kind === "opened") return first.session;
 		if (first.kind === "failed") continue;
 
+		controller.abort();
 		const cleanupAcknowledged = outcome.then(async (late) => {
 			if (late.kind === "failed") return true;
 			return await closeAcknowledgement(late.session);

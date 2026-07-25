@@ -144,14 +144,16 @@ describe("direct pair candidate preparation", () => {
 		const selected = controlledSession();
 		const timers = manualTimers();
 		const opened: string[] = [];
+		let firstSignal: AbortSignal | undefined;
 		let requestCalls = 0;
 
 		const pairing = pairDirect(
 			makeInput({
 				candidates: ["10.0.0.1", "192.168.1.2"],
 				deps: successfulDeps({
-					openTunnel({ host }) {
+					openTunnel({ host, signal }) {
 						opened.push(host);
+						if (host === "10.0.0.1") firstSignal = signal;
 						return host === "10.0.0.1" ? firstOpen.promise : Promise.resolve(selected.session);
 					},
 					async request() {
@@ -167,6 +169,7 @@ describe("direct pair candidate preparation", () => {
 		expect(timers.entries[0]?.delayMs).toBe(10_000);
 		timers.fire(0);
 		await flushMicrotasks();
+		expect(firstSignal?.aborted).toBe(true);
 		expect(opened).toEqual(["10.0.0.1"]);
 		expect(timers.entries[1]?.delayMs).toBe(10_000);
 
@@ -183,6 +186,7 @@ describe("direct pair candidate preparation", () => {
 		const firstOpen = deferred<TunnelSession>();
 		const late = controlledSession();
 		const timers = manualTimers();
+		let firstSignal: AbortSignal | undefined;
 		let openCalls = 0;
 		let keyCalls = 0;
 		let requestCalls = 0;
@@ -191,8 +195,9 @@ describe("direct pair candidate preparation", () => {
 			makeInput({
 				candidates: ["10.0.0.1", "192.168.1.2"],
 				deps: successfulDeps({
-					openTunnel() {
+					openTunnel({ signal }) {
 						openCalls++;
+						firstSignal = signal;
 						return firstOpen.promise;
 					},
 					async generateKeyPair() {
@@ -210,6 +215,7 @@ describe("direct pair candidate preparation", () => {
 
 		timers.fire(0);
 		await flushMicrotasks();
+		expect(firstSignal?.aborted).toBe(true);
 		expect(timers.entries[1]?.delayMs).toBe(10_000);
 		timers.fire(1);
 
