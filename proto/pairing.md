@@ -87,13 +87,21 @@ Multi-candidate direct form, version `0x05` (variable length): the same LAN-dire
 |--------|-----|-------|----------|
 | 0 | 1 | version | `0x05` |
 | 1 | 1 | addr_type | `0x01` = IPv4 |
-| 2 | 1 | count | number of candidate addresses, ≥ 1 |
+| 2 | 1 | count | number of candidate addresses, 1–4 |
 | 3 | 2 | port | unsigned big-endian, shared by all candidates |
 | 5 | 4 × count | ipv4[] | `count` raw IPv4 addresses, 4 bytes each |
 | 5 + 4·count | 16 | nonce | 128-bit single-use nonce |
 | 5 + 4·count + 16 | 16 | ca_fp | first 16 bytes of SHA-256 over the CA cert DER |
 
-Total length is `5 + 4·count + 32`. The `0x05` form carries the same single nonce and single `ca_fp` as `0x04`; only the address list differs. The client dials candidates concurrently (own-subnet proximity first) and completes the ceremony against the first that answers; the LAN-only refusal in step 3 applies to **every** candidate — a link with any public-address candidate is refused as a whole.
+Total length is `5 + 4·count + 32`. A `0x05` link whose count is outside `1...4` is malformed and MUST be refused before key generation or dialing. The `0x05` form carries the same single nonce and single `ca_fp` as `0x04`; only the address list differs. The client may race or stagger connection establishment across a bounded candidate set (own-subnet proximity first), coalescing exact duplicate host/port endpoints. Across the whole candidate set it MUST begin at most one nonce-bearing pair request. It may advance to another candidate only while it knows that no request bytes were sent. The ceremony becomes committed immediately before invoking the request write; any error returned by or after that invocation — including a timeout, reset, lost or malformed response, or later verification or persistence failure — is terminal for that code and MUST NOT be retried on another candidate. The LAN-only refusal in step 3 applies to **every** candidate — a link with any public-address candidate is refused as a whole.
+
+Candidate-count conformance cases:
+
+| Encoded `0x05` count | Required result |
+|----------------------|-----------------|
+| `0` | refuse as malformed before key generation or dialing |
+| `1` through `4` | continue to address admission |
+| `5` through `255` | refuse as malformed before key generation or dialing |
 
 The rest of this ceremony describes the direct LAN completion path (identical for `0x04` and `0x05`).
 
