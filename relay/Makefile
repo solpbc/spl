@@ -1,7 +1,7 @@
 # spl-relay — CF Worker + Durable Object
 # sol private link relay server
 #
-# Toolchain is bun (same as mobile/). bun's installer resolves the
+# Toolchain is bun. bun's installer resolves the
 # platform-specific prebuilt binaries that wrangler/miniflare pull in
 # transitively (sharp, workerd, esbuild) cleanly; npm 11 fails to reify
 # sharp's libc-tagged prebuilt as a nested-transitive optional dep and

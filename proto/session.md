@@ -206,7 +206,7 @@ With the byte pipe open, the mobile initiates TLS 1.3 toward the home. The mobil
 
 ### 8. application traffic
 
-After TLS, the mobile speaks HTTP (with multiplexed streams per [`framing.md`](framing.md)) toward the home's app — convey on solstone, the reference test server in `home/src/spl/home/app.py` in this repo, or any other HTTP server the operator runs.
+After TLS, the mobile speaks HTTP (with multiplexed streams per [`framing.md`](framing.md)) toward the home's app — convey on solstone, or any other HTTP server the operator runs.
 
 The link service on the home side is a **dumb byte pipe**. For each incoming stream it opens a plain TCP connection to `127.0.0.1:<app_port>` and pumps bytes bidirectionally:
 

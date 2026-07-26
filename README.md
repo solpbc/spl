@@ -52,11 +52,27 @@ Key invariants:
 
 | Directory | What's here |
 |-----------|-------------|
+| [`proto/`](proto/) | The protocol: wire documents, plus [`proto/definition/`](proto/definition/) — a machine-readable definition and conformance-vector corpus every implementation can check itself against. |
 | [`relay/`](relay/) | CF Worker + Durable Object (TypeScript). The relay. |
-| [`home/`](home/) | Python tunnel module. Embeddable in solstone. |
-| [`ios/`](ios/) | iOS client. Stub — lineage is the solstone mobile app. |
-| [`proto/`](proto/) | Shared protocol spec (framing, pairing, token shape). |
-| [`docs/`](docs/) | Architecture, self-host guide, decision log. |
+| [`docs/`](docs/) | Architecture, self-host guide, signing-key lifecycle, client-implementation audit. |
+
+## implementations
+
+**This repository holds the protocol and the relay. It deliberately ships no client or home implementation.** It used to carry a Python home module and a TypeScript example client; both drifted behind the protocol they were meant to demonstrate — one implemented a pairing form the spec had retired, the other could not complete a pairing against its own server. A reference that lies is worse than no reference, so they were removed in favour of pointing at the real thing.
+
+Every implementation below is open source and in production use. Read these instead:
+
+| Role | Language | Repository |
+|---|---|---|
+| Shared client library | Rust | [`solpbc/spl-rust`](https://github.com/solpbc/spl-rust) |
+| Shared client library | Swift | [`solpbc/spl-swift`](https://github.com/solpbc/spl-swift) |
+| Home (journal) | Python | [`solpbc/solstone-journal`](https://github.com/solpbc/solstone-journal) |
+| Client — iOS, watchOS, macOS | Swift | [`solpbc/solstone-swift`](https://github.com/solpbc/solstone-swift) · [`solpbc/solstone-macos`](https://github.com/solpbc/solstone-macos) |
+| Client — Android | Kotlin | [`solpbc/solstone-android`](https://github.com/solpbc/solstone-android) |
+| Client — Windows | Rust | [`solpbc/solstone-windows`](https://github.com/solpbc/solstone-windows) |
+| Client — browser extension | JavaScript | [`solpbc/solstone-browser`](https://github.com/solpbc/solstone-browser) |
+
+If you are writing a new implementation, start with the documents in [`proto/`](proto/) and check yourself against [`proto/definition/`](proto/definition/); then read the closest existing client above. [`docs/client-implementation-audit.json`](docs/client-implementation-audit.json) records what each in-repo component actually implements, with evidence.
 
 ## install
 
@@ -66,12 +82,12 @@ Clone, then:
 make install
 ```
 
-Orchestrates per-component installs (`relay/` → bun, `mobile/` → bun, `home/` → uv/pip). Per-component targets are also available: `make relay-install`, `make home-install`, `make mobile-install`.
+Installs the relay toolchain (`make relay-install` is the same thing).
 
 Prerequisites:
 
-- **bun 1.2+** for `relay/` and `mobile/`
-- **Python 3.11+** and **uv** (or **pip**) for `home/`
+- **bun 1.2+** for `relay/`
+- **Python 3.11+** for the protocol-definition gate (standard library only — no packages to install)
 
 ## run
 
@@ -81,13 +97,7 @@ Prerequisites:
 make relay-dev
 ```
 
-**home locally** (against a running `spl-relay`):
-
-```sh
-cd home && make dev
-```
-
-See each component's `README.md` for the full story.
+See [`relay/README.md`](relay/README.md) for the full story on the relay, and [`docs/self-host.md`](docs/self-host.md) for running your own.
 
 ## test
 
@@ -95,7 +105,7 @@ See each component's `README.md` for the full story.
 make test
 ```
 
-Per-component: `make relay-test`, `make home-test`. `make ci` runs the full pre-commit gate (format + lint + type check + test) locally.
+`make ci` runs the full pre-commit gate locally: the protocol-definition gate (`make definition-ci`) plus the relay's format, lint, type check, and tests.
 
 ## self-host
 

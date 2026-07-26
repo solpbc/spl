@@ -1,8 +1,14 @@
 {
-  "audit_schema_version": 1,
-  "purpose": "Records what each in-repo SPL component actually implements of the pair-link and address-admission contract defined in proto/definition/. It lives in docs/ rather than under proto/definition/ deliberately: the definition gate treats any content change under proto/definition/ as a contract change requiring a bundle_semver increase, and a documentation refresh is not a contract change. Per-component revisions also go stale on every commit to those components, so coupling this record to the contract version would force meaningless bumps.",
+  "audit_schema_version": 2,
+  "purpose": "Records what each in-repo SPL component implements of the pair-link and address-admission contract defined in proto/definition/, and preserves the evidence behind the removal of this repository's former reference implementations. It lives in docs/ rather than under proto/definition/ deliberately: the definition gate treats any content change under that tree as a contract change requiring a bundle_semver increase, and refreshing an audit is not a contract change.",
   "how_to_refresh": "Re-derive every claim from the cited path:line evidence, update audited_revision to the component's current last-touching commit, and correct any claim whose status changed. Do not carry a claim forward without re-deriving it.",
   "evidence_convention": "Every claim carries status (confirmed | refuted | undetermined) and a repo-relative evidence pointer. A claim without both is not a finding.",
+  "scope_and_impact": {
+    "this_repository_ships_no_client_or_home": "The relay is production. This repository deliberately contains no client or home implementation; they live in their own public repositories, listed under implementations below and in the root README.",
+    "owner_impact_of_the_removed_divergences": "None. Every client that ships to a person implements the current pair-window form (0x06) and the HKDF relay-key derivation: the Swift and Rust shared packages, the Android client, the Windows client, and the browser extension. The shipping home side accepts the specification-conformant query-parameter nonce. The divergences recorded below were confined to the reference components that have now been removed.",
+    "why_removal_rather_than_repair": "A reference that lies is worse than no reference. Both components were advertised as demonstrating the protocol while one implemented a retired pairing form and the other could not complete a pairing against its own server. Repairing them would have created a fourth and fifth implementation to keep in lockstep; pointing at the production implementations removes the drift surface instead of maintaining it.",
+    "what_was_lost": "The end-to-end harness drove the removed example client and went with it. This repository therefore has no end-to-end protocol test. That was already true before the removal \u2014 the harness could not pass, because the home component 404'd the pairing URL it minted itself, and it was not part of the local gate. Re-establishing an end-to-end test against a production implementation is tracked separately."
+  },
   "components": [
     {
       "component": "relay",
@@ -34,15 +40,15 @@
           "evidence": "relay/src/ (grep pair-ticket -> 0 hits)"
         }
       ]
-    },
+    }
+  ],
+  "removed_reference_implementations": [
     {
       "component": "home",
       "language": "python",
       "role": "home-side reference implementation",
       "audited_revision": "04a5577bdff6cded48b5d4e096c414088543fe13",
       "pair_link_forms_emitted": [],
-      "gate_wired_to_vectors": false,
-      "gate_not_wired_reason": "No pair-link parser or emitter exists in this component; it emits a pairing URL rather than an encoded pair-link blob, so no vector applies.",
       "claims": [
         {
           "claim": "Emits a pairing URL (https://<host>:<port>/pair?token=<nonce>) rather than an encoded pair-link blob; no Crockford encoding and no QR payload.",
@@ -69,7 +75,9 @@
           "status": "confirmed",
           "evidence": "home/src/spl/home/__main__.py:163 vs home/src/spl/home/pair_server.py:191"
         }
-      ]
+      ],
+      "removed_at_revision": "abcdf87",
+      "removal_rationale": "Removed from this repository. It was presented as a reference implementation while diverging from the protocol it was meant to demonstrate; the claims below are the record of why."
     },
     {
       "component": "mobile",
@@ -81,8 +89,6 @@
         "0x04",
         "0x05"
       ],
-      "gate_wired_to_vectors": false,
-      "gate_not_wired_reason": "This component holds the only pair-link parser in the repository and covers the 0x04/0x05 forms that a majority of the corpus exercises. Whether it passes those vectors is an open, untested question and adopting the corpus here is the most valuable next step \u2014 it is deliberately deferred to its own change rather than bundled into the corpus landing.",
       "claims": [
         {
           "claim": "Parses pair-link form 0x03 and throws on any version outside 0x03/0x04/0x05, including 0x06.",
@@ -104,7 +110,9 @@
           "status": "confirmed",
           "evidence": "mobile/src/ (grep -i hkdf -> 0 hits)"
         }
-      ]
+      ],
+      "removed_at_revision": "abcdf87",
+      "removal_rationale": "Removed from this repository. It was presented as a reference implementation while diverging from the protocol it was meant to demonstrate; the claims below are the record of why."
     }
   ],
   "repository_level_findings": [
@@ -117,41 +125,51 @@
       "status": "confirmed"
     },
     {
-      "finding": "The end-to-end harness is not part of the local gate. 'integration-test' is not a dependency of 'ci', and this repository contains no CI workflow directory, so the Makefile is the entire gate surface. The harness also cannot currently pass: it drives the home-minted pairing URL, which the home pairing server 404s.",
+      "finding": "Historical, as of the reference-implementation removal: the end-to-end harness drove the removed example client, was not part of the local gate, and could not pass because the removed home component 404'd its own minted pairing URL. This repository has no end-to-end protocol test.",
       "status": "confirmed",
       "evidence": "Makefile:15, absence of .github/, home/src/spl/home/pair_server.py:191"
     }
   ],
-  "out_of_repo_implementations": [
+  "implementations": [
     {
-      "language": "swift",
-      "note": "Shared client package consumed by the Apple applications. Not audited here; no revision recorded."
-    },
-    {
+      "role": "shared client library",
       "language": "rust",
-      "note": "Shared client package that generated this corpus. Not audited here; no revision recorded."
+      "repository": "https://github.com/solpbc/spl-rust"
     },
     {
-      "language": "kotlin",
-      "note": "Android client. Not audited here; no revision recorded."
+      "role": "shared client library",
+      "language": "swift",
+      "repository": "https://github.com/solpbc/spl-swift"
     },
     {
-      "language": "javascript",
-      "note": "Browser extension client, relay-form only. Not audited here; no revision recorded."
-    },
-    {
+      "role": "home (journal)",
       "language": "python",
-      "note": "A second, independent home-side implementation exists outside this repository and is not the same code as this repository's home component. Not audited here; no revision recorded."
+      "repository": "https://github.com/solpbc/solstone-journal"
+    },
+    {
+      "role": "client \u2014 iOS, watchOS",
+      "language": "swift",
+      "repository": "https://github.com/solpbc/solstone-swift"
+    },
+    {
+      "role": "client \u2014 macOS",
+      "language": "swift",
+      "repository": "https://github.com/solpbc/solstone-macos"
+    },
+    {
+      "role": "client \u2014 Android",
+      "language": "kotlin",
+      "repository": "https://github.com/solpbc/solstone-android"
+    },
+    {
+      "role": "client \u2014 Windows",
+      "language": "rust",
+      "repository": "https://github.com/solpbc/solstone-windows"
+    },
+    {
+      "role": "client \u2014 browser extension",
+      "language": "javascript",
+      "repository": "https://github.com/solpbc/solstone-browser"
     }
-  ],
-  "scope_and_impact": {
-    "these_are_reference_implementations": "The relay is production. The home and mobile components in this repository are reference/example implementations, not shipped software. mobile/README.md describes itself as an example CLI that exercises the protocol end-to-end.",
-    "owner_impact": "None. Every client that ships to a person implements the current pair-window form (0x06) and the HKDF relay-key derivation: the Swift shared package, the Android client, the Windows client, the browser extension, and the Rust shared package. The shipping home side also accepts the specification-conformant query-parameter nonce. The divergences below are confined to this repository's reference components.",
-    "what_it_does_cost": [
-      "The example client is advertised as the wire-format reference for a downstream build, so a reader following it gets a retired mechanism.",
-      "The end-to-end harness drives the example client and therefore cannot pass, and it is not part of the local gate. The result is that this repository has no working end-to-end protocol test.",
-      "The relay's pair-window path has no in-repo client counterpart that derives the relay key from the pairing nonce the way a real client does; relay coverage uses synthesized keys."
-    ],
-    "partial_mitigation": "The conformance corpus in proto/definition/ now pins the 0x06 pair-link forms and the relay-key derivation as vectors, including a published-fixture vector carrying a known nonce and its derived key. A new implementation therefore has machine-checkable truth in this repository even though the reference code here is stale."
-  }
+  ]
 }

@@ -15,8 +15,6 @@ Read the architecture section of the README before writing code. If the change y
 | Directory | Purpose | Go here when |
 |-----------|---------|--------------|
 | [`relay/`](relay/) | CF Worker + Durable Object — the relay. TypeScript. | Editing the relay server, wrangler config, migrations. |
-| [`home/`](home/) | Python tunnel module. Embeds in solstone. | Editing the home-side listen/TLS/pairing code. |
-| [`ios/`](ios/) | iOS client (stub). | Once the iOS build lands — not yet. |
 | [`proto/`](proto/) | Shared protocol spec (framing, pairing, token shape). | Changing the wire format or token shape — both sides must agree. |
 | [`docs/`](docs/) | Architecture notes, self-host guide, decision log. | Reference lookups; never the first stop. |
 
@@ -84,7 +82,7 @@ Headers go immediately after any shebang. Do not add them to docs, configs, gene
 
 ### build system
 
-Top-level `Makefile` orchestrates. Per-component Makefiles live in `relay/` and `home/`. Required targets at each level:
+Top-level `Makefile` orchestrates; the only component Makefile is `relay/`. This repository ships no client or home implementation — those live in their own repositories (README.md § implementations), and a change here that adds one is wrong. Required targets:
 
 | Target | Does |
 |--------|------|

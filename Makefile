@@ -1,39 +1,30 @@
 # spl — sol private link
-# Top-level orchestrator. Per-component Makefiles live in relay/, home/,
-# mobile/, and (eventually) ios/.
+# Top-level orchestrator. This repository holds the protocol definition and the
+# relay. Client and home implementations live in their own repositories — see
+# README.md § implementations.
 
-.PHONY: install test ci format clean integration-test \
+.PHONY: install test ci format clean \
         definition-generate definition-ci \
-        relay-install relay-test relay-ci relay-dev relay-deploy \
-        home-install home-test home-ci home-format \
-        mobile-install mobile-test mobile-ci mobile-format
+        relay-install relay-test relay-ci relay-dev relay-deploy
 
-install: relay-install home-install mobile-install
+install: relay-install
 
-test: relay-test home-test mobile-test
+test: relay-test
 
-ci: definition-ci relay-ci home-ci mobile-ci
+ci: definition-ci relay-ci
 
+# proto/definition — the machine-readable wire definition + conformance corpus.
 definition-generate:
 	python3 proto/definition/generate.py --write
 
 definition-ci:
 	python3 proto/definition/generate.py --check
 
-# End-to-end integration suite — runs the full pair → dial → test flow
-# against a local Miniflare spl-relay and a live spl.home process. See
-# tests/e2e/README.md for how it wires things up.
-integration-test:
-	cd tests/e2e && python run.py
-
-format: home-format
+format:
 	$(MAKE) -C relay format
-	$(MAKE) -C mobile format
 
 clean:
 	$(MAKE) -C relay clean
-	$(MAKE) -C home clean
-	$(MAKE) -C mobile clean
 
 # spl-relay (Cloudflare Worker + Durable Object)
 relay-install:
@@ -50,29 +41,3 @@ relay-dev:
 
 relay-deploy:
 	$(MAKE) -C relay deploy
-
-# home (Python tunnel module)
-home-install:
-	$(MAKE) -C home install
-
-home-test:
-	$(MAKE) -C home test
-
-home-ci:
-	$(MAKE) -C home ci
-
-home-format:
-	$(MAKE) -C home format
-
-# mobile (Bun/TypeScript CLI)
-mobile-install:
-	$(MAKE) -C mobile install
-
-mobile-test:
-	$(MAKE) -C mobile test
-
-mobile-ci:
-	$(MAKE) -C mobile ci
-
-mobile-format:
-	$(MAKE) -C mobile format

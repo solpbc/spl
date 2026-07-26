@@ -11,7 +11,7 @@ Scaffold only. The full walk-through lands with the MVP build. The intent for th
 Approximate steps, subject to revision as the MVP lands:
 
 1. **Clone the repo.** `git clone https://github.com/solpbc/spl && cd spl`
-2. **Prerequisites.** Node 20+ for `relay/`, Python 3.11+ for `home/`. `make install` covers both. Also install **wrangler globally** (`npm install -g wrangler` or `bun add -g wrangler`) — `npx wrangler` is acceptable for local Miniflare dev only; it loses the OAuth session and breaks R2/D1 commands. The deploy target in `relay/Makefile` invokes the global binary.
+2. **Prerequisites.** Node 20+ (or bun) for `relay/`. `make install` covers it. Also install **wrangler globally** (`npm install -g wrangler` or `bun add -g wrangler`) — `npx wrangler` is acceptable for local Miniflare dev only; it loses the OAuth session and breaks R2/D1 commands. The deploy target in `relay/Makefile` invokes the global binary.
 3. **Cloudflare account.** Workers Paid plan (~$5/mo) is required — the free tier's Durable Object allocations do not cover production shape.
 4. **Account context.** Run `wrangler login` once. wrangler stores your account binding in `~/.wrangler/config/` (outside the repo) and uses it for every subsequent invocation. The checked-in `wrangler.toml` deliberately omits `account_id` — do not add it; let your local OAuth session supply it.
 
@@ -21,7 +21,7 @@ Approximate steps, subject to revision as the MVP lands:
 7. **Admin secret.** Generate a strong independent `GRANT_SECRET` and provision it with `wrangler secret put GRANT_SECRET --env production`. It authorizes entitlement changes, inspection, and irreversible instance retirement; never reuse a signing key or token as this bearer. The canonical endpoint and retry contract are in the relay [Admin API](../relay/README.md#admin-api). **Retirement cannot be undone:** verify the instance id before issuing DELETE.
 8. **Auth tokens.** Decide the service-token and device-token issuance story for your deployment. The production sol pbc flow mints these through a control-plane service inside the Worker; a self-host can hand-issue them for personal use.
 9. **Deploy.** `cd relay && make deploy` (which calls `wrangler deploy` from the global binary). Your relay is live at the route you configured.
-10. **Home side.** Point your solstone install at your relay by setting `SPL_RELAY_ENDPOINT` in `home/.env.local` and bootstrapping with a service token signed by your key.
+10. **Home side.** Point your solstone journal at your relay by setting `SPL_RELAY_ENDPOINT` in its environment and bootstrapping with a service token signed by your key. See [`solpbc/solstone-journal`](https://github.com/solpbc/solstone-journal).
 11. **Mobile.** Update the app's `AppConfig` with the new relay endpoint and public signing key (or rebuild against them). Pair on LAN as usual.
 
 ## placeholder sections

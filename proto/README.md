@@ -17,7 +17,7 @@ The rule for this directory: **if any two components would need to agree on the 
 
 If you're new to the protocol: [`session.md`](session.md) first (the lifecycle), then [`framing.md`](framing.md) (what flows inside), then [`pairing.md`](pairing.md) and [`pair-window.md`](pair-window.md) (how a device first becomes able to dial), then [`tokens.md`](tokens.md) (the JWT shapes that authorize the rendezvous). Read [`blob-uplink.md`](blob-uplink.md) when working on the cert-less browser client class.
 
-If you're touching code in `relay/`, `home/`, or `ios/`: read the document for the layer you're touching, plus [`tokens.md`](tokens.md) (because every WebSocket open touches token validation).
+If you're touching the relay in this repository, or any client or home implementation in its own repository (see the root README's implementations table): read the document for the layer you're touching, plus [`tokens.md`](tokens.md) (because every WebSocket open touches token validation). Check your implementation against [`definition/`](definition/) — it carries the wire values and a conformance corpus as data, so you do not have to re-derive them from prose.
 
 ## boundary
 

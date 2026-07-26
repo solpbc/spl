@@ -14,7 +14,7 @@ MVP build — Worker + Durable Object implement the full v1 protocol surface:
 - D1 schema (`migrations/`) for instance, device, grant, and ephemeral pairing-owner metadata — no payload bytes, ever
 - Blind forwarding: the DO holds `ArrayBuffer`s and forwards them without parsing; no code path reads a relayed frame
 
-**What's not built yet:** the Python home (`spl/home/`) and Bun mobile (`spl/mobile/`) MVP programs that exercise the relay end-to-end. Those are the next chunk of the MVP scope.
+**Endpoint implementations live in their own repositories** — see the root README's implementations table. This repository holds the protocol and the relay only.
 
 ## what it is
 
@@ -24,7 +24,7 @@ See [`../README.md`](../README.md#architecture) for the diagram and [`../AGENTS.
 
 ## prerequisites
 
-- **bun 1.2+** — the toolchain for this component (install, typecheck, lint, test, local dev). Matches `spl/mobile/`. The relay runs `bun install` rather than `npm install`: bun's installer cleanly resolves the platform-prebuilt native binaries that wrangler/miniflare pull in transitively, where npm currently falls back to a broken source build on modern hosts.
+- **bun 1.2+** — the toolchain for this component (install, typecheck, lint, test, local dev). The relay runs `bun install` rather than `npm install`: bun's installer cleanly resolves the platform-prebuilt native binaries that wrangler/miniflare pull in transitively, where npm currently falls back to a broken source build on modern hosts.
 - **wrangler 4+** installed **globally** for any operation that touches a real CF account (`bun add -g wrangler`). The project-local wrangler (`bun run wrangler`) is acceptable for local Miniflare dev only; do not use it for deploy or for any command that needs your OAuth session (R2, D1, secret put, tail).
 - A Cloudflare account (free tier is fine for local development; production needs Workers Paid, ~$5/mo)
 
