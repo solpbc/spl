@@ -10,6 +10,7 @@
 //   POST /admin/entitlement         — grant/revoke paid-tier session access
 //   GET  /admin/instances           — operator inspection: list rendezvous metadata
 //   GET  /admin/instances/<id>      — operator inspection: single instance metadata
+//   DELETE /admin/instances/<id>    — irreversibly retire an instance and its sockets
 //   POST /token/refresh             — re-issue a device token from a current/recently-expired one
 //   GET  /session/listen?instance=  — home holds this open indefinitely
 //   GET  /session/dial?instance=    — mobile opens, becomes tunnel WS on pair
@@ -30,6 +31,7 @@ import type { Env } from "./env";
 import { unauthorizedResponse } from "./instance-do";
 import { normalizeRk, parsePairSubprotocol } from "./pair-subprotocol";
 import { handleTokenRefresh } from "./refresh";
+import { handleRetireInstance } from "./retire";
 
 export { InstanceDO } from "./instance-do";
 
@@ -54,6 +56,9 @@ async function routeRequest(request: Request, env: Env): Promise<Response> {
 	}
 	if (request.method === "GET" && url.pathname.startsWith("/admin/instances/")) {
 		return handleShowInstance(request, env, url.pathname.slice("/admin/instances/".length));
+	}
+	if (request.method === "DELETE" && url.pathname.startsWith("/admin/instances/")) {
+		return handleRetireInstance(request, env, url.pathname.slice("/admin/instances/".length));
 	}
 	if (request.method === "POST" && url.pathname === "/token/refresh") {
 		return handleTokenRefresh(request, env);

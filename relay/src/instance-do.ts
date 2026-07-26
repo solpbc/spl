@@ -14,7 +14,7 @@
 
 import { DurableObject } from "cloudflare:workers";
 import type { Env } from "./env";
-import { type Direction, type LogFields, log } from "./logging";
+import { type CloseReason, type Direction, type LogFields, log } from "./logging";
 import { SUBPROTOCOL_V1, parsePairSubprotocol } from "./pair-subprotocol";
 import { verifyToken } from "./tokens";
 
@@ -47,13 +47,122 @@ const CLOSE_CODE_UNAUTHORIZED = 4401;
 // 4402 is the not-entitled-close code for the opt-in session gate.
 const CLOSE_CODE_NOT_ENTITLED = 4402;
 
+// 4403 terminates sockets owned by an irreversibly retired instance.
+const CLOSE_CODE_INSTANCE_RETIRED = 4403;
+
 const PAIR_DIAL_FAILED_LIMIT = 50;
 const PAIR_WINDOW_TTL_MS = 7 * 60 * 1000;
+
+export interface RetireInstanceResult {
+	markerVerified: boolean;
+	socketsClosed: boolean;
+	pendingCleared: boolean;
+	alarmCleared: boolean;
+	socketCount: number;
+}
 
 export class InstanceDO extends DurableObject<Env> {
 	// Buffers keyed by WS-tag destination (e.g., `tunnel_home:<id>`).
 	private pending: Map<string, PendingBuffer> = new Map();
 	private failedDials = 0;
+	private retirementClosing = new WeakSet<WebSocket>();
+
+	constructor(ctx: DurableObjectState, env: Env) {
+		super(ctx, env);
+		this.ctx.storage.sql.exec(`
+			CREATE TABLE IF NOT EXISTS retired_instances (
+				instance_id TEXT PRIMARY KEY,
+				retired_at  INTEGER NOT NULL
+			)
+		`);
+	}
+
+	async retireInstance(instanceId: string, retiredAt: number): Promise<RetireInstanceResult> {
+		// The marker is the derived, DO-local enforcement record. It must exist
+		// before any socket sweep so an interleaved admission either accepts
+		// first and is swept, or observes the marker and refuses synchronously.
+		this.ctx.storage.sql.exec(
+			"INSERT INTO retired_instances (instance_id, retired_at) VALUES (?, ?) ON CONFLICT(instance_id) DO UPDATE SET retired_at = excluded.retired_at",
+			instanceId,
+			retiredAt,
+		);
+		if (!this.hasRetiredMarker(instanceId, retiredAt)) {
+			return {
+				markerVerified: false,
+				socketsClosed: false,
+				pendingCleared: false,
+				alarmCleared: false,
+				socketCount: 0,
+			};
+		}
+
+		const matching: WebSocket[] = [];
+		const pairingOwners = new Set<string>();
+		const tunnelIds = new Set<string>();
+		let socketsClosed = true;
+
+		for (const ws of this.ctx.getWebSockets()) {
+			let att: Attachment | null;
+			try {
+				att = ws.deserializeAttachment() as Attachment | null;
+			} catch {
+				// An unreadable attachment means the ownership sweep cannot be
+				// verified, even though cleanup continues for readable sockets.
+				socketsClosed = false;
+				continue;
+			}
+			if (!att || att.instance_id !== instanceId) continue;
+			matching.push(ws);
+			if (this.ctx.getTags(ws).includes(tagPairOwner(att.instance_id))) {
+				pairingOwners.add(att.instance_id);
+			}
+			if (att.tunnel_id) tunnelIds.add(att.tunnel_id);
+		}
+
+		for (const ws of matching) {
+			try {
+				this.retirementClosing.add(ws);
+				ws.close(CLOSE_CODE_INSTANCE_RETIRED, "instance_retired");
+			} catch {
+				socketsClosed = false;
+			}
+		}
+		for (const pairingOwner of pairingOwners) {
+			// Server-initiated closes do not reliably invoke webSocketClose.
+			// Release at the close site so the registry never outlives its sockets.
+			this.ctx.waitUntil(this.releasePairingOwnerIfUnused(pairingOwner));
+		}
+
+		for (const tunnelId of tunnelIds) {
+			this.pending.delete(tagTunnelHome(tunnelId));
+			this.pending.delete(tagTunnelMobile(tunnelId));
+		}
+		const pendingCleared = [...tunnelIds].every(
+			(tunnelId) =>
+				!this.pending.has(tagTunnelHome(tunnelId)) && !this.pending.has(tagTunnelMobile(tunnelId)),
+		);
+
+		let alarmCleared = true;
+		const matchingSet = new Set(matching);
+		const hasOtherPairWindow = this.ctx
+			.getWebSockets(tagPairWindow())
+			.some((ws) => !matchingSet.has(ws) && ws.readyState === WebSocket.OPEN);
+		if (!hasOtherPairWindow) {
+			try {
+				await this.ctx.storage.deleteAlarm();
+			} catch {
+				alarmCleared = false;
+			}
+		}
+
+		return {
+			markerVerified: this.hasRetiredMarker(instanceId, retiredAt),
+			socketsClosed,
+			pendingCleared,
+			alarmCleared,
+			socketCount: matching.length,
+		};
+	}
 
 	override async fetch(request: Request): Promise<Response> {
 		const url = new URL(request.url);
@@ -109,6 +218,12 @@ export class InstanceDO extends DurableObject<Env> {
 		if (this.env.ENTITLEMENT_REQUIRED === "true" && !(await this.isEntitled(instanceId))) {
 			log({ event: "not_entitled", route: "/session/listen", instance_id: instanceId });
 			return notEntitledResponse();
+		}
+
+		// Load-bearing retirement check: do not insert an await between this
+		// synchronous marker read and acceptWebSocket below.
+		if (this.hasRetiredMarker(instanceId)) {
+			return unauthorizedWithLog("/session/listen", "revoked", instanceId);
 		}
 
 		// WS-tag cardinality: at most one active listen WS per instance.
@@ -176,6 +291,12 @@ export class InstanceDO extends DurableObject<Env> {
 			return notEntitledResponse();
 		}
 
+		// Load-bearing retirement check: do not insert an await between this
+		// synchronous marker read and the acceptWebSocket reached below.
+		if (this.hasRetiredMarker(instanceId)) {
+			return unauthorizedWithLog("/session/dial", "revoked", instanceId);
+		}
+
 		const listeners = this.ctx.getWebSockets(tagListen(instanceId));
 		if (listeners.length === 0) {
 			if (this.env.PRESENCE_HOLD_ENABLED === "true") {
@@ -207,6 +328,7 @@ export class InstanceDO extends DurableObject<Env> {
 				instance_id: att?.instance_id,
 				reason: "ttl_expired",
 			});
+			if (att) await this.releasePairingOwnerIfUnused(att.instance_id, ws);
 		}
 	}
 
@@ -222,21 +344,48 @@ export class InstanceDO extends DurableObject<Env> {
 		if (!result.ok) return unauthorizedWithLog("/session/pair-window", result.reason);
 
 		const instanceId = result.claims.instance_id;
-		const row = await this.env.DB.prepare("SELECT revoked_at FROM instances WHERE instance_id = ?")
-			.bind(instanceId)
-			.first<{ revoked_at: number | null }>();
-		if (!row) {
-			return unauthorizedWithLog("/session/pair-window", "not_enrolled", instanceId);
+		const registeredAt = Math.floor(Date.now() / 1000);
+		const registration = await this.env.DB.prepare(
+			"INSERT INTO pairing_owners (instance_id, do_id, registered_at) SELECT instance_id, ?, ? FROM instances WHERE instance_id = ? AND revoked_at IS NULL ON CONFLICT(instance_id, do_id) DO UPDATE SET registered_at = excluded.registered_at",
+		)
+			.bind(this.ctx.id.toString(), registeredAt, instanceId)
+			.run();
+		if (registration.meta.changes === 0) {
+			// Keep the existing not_enrolled/revoked log distinction only on
+			// this cold deny branch; successful admission is one D1 statement.
+			const row = await this.env.DB.prepare(
+				"SELECT revoked_at FROM instances WHERE instance_id = ?",
+			)
+				.bind(instanceId)
+				.first<{ revoked_at: number | null }>();
+			return unauthorizedWithLog(
+				"/session/pair-window",
+				row ? "revoked" : "not_enrolled",
+				instanceId,
+			);
 		}
-		if (row.revoked_at !== null) {
+
+		// Load-bearing retirement check: do not insert an await between this
+		// synchronous marker read and acceptWebSocket below. A concurrent
+		// retirement that won before registration made the upsert a no-op;
+		// one that wins after registration writes this marker before sweeping.
+		if (this.hasRetiredMarker(instanceId)) {
+			await this.releasePairingOwnerIfUnused(instanceId);
 			return unauthorizedWithLog("/session/pair-window", "revoked", instanceId);
 		}
 
 		for (const ws of this.ctx.getWebSockets(tagPairWindow())) {
 			const existing = ws.deserializeAttachment() as Attachment | null;
+			let closed = false;
 			try {
 				ws.close(CLOSE_CODE_NORMAL, "replaced");
+				closed = true;
 			} catch {}
+			if (closed && existing) {
+				// Keep this asynchronous: the retirement marker check immediately
+				// above must remain adjacent to acceptWebSocket below.
+				this.ctx.waitUntil(this.releasePairingOwnerIfUnused(existing.instance_id, ws));
+			}
 			log({
 				event: "cardinality_violation",
 				instance_id: existing?.instance_id ?? instanceId,
@@ -252,7 +401,7 @@ export class InstanceDO extends DurableObject<Env> {
 			jti: result.claims.jti,
 		};
 		server.serializeAttachment(att);
-		this.ctx.acceptWebSocket(server, [tagPairWindow()]);
+		this.ctx.acceptWebSocket(server, [tagPairWindow(), tagPairOwner(instanceId)]);
 		this.failedDials = 0;
 		await this.ctx.storage.setAlarm(Date.now() + PAIR_WINDOW_TTL_MS);
 		log({ event: "pair_window_open", instance_id: instanceId, jti: result.claims.jti });
@@ -265,7 +414,9 @@ export class InstanceDO extends DurableObject<Env> {
 			return unauthorizedResponse();
 		}
 
-		const windows = this.ctx.getWebSockets(tagPairWindow());
+		const windows = this.ctx
+			.getWebSockets(tagPairWindow())
+			.filter((ws) => ws.readyState === WebSocket.OPEN);
 		if (windows.length === 0) {
 			this.failedDials++;
 			log({ event: "pair_dial_rejected", reason: "no_window" });
@@ -286,7 +437,19 @@ export class InstanceDO extends DurableObject<Env> {
 		}
 
 		const offeredV1 = parsePairSubprotocol(request.headers.get("sec-websocket-protocol")).offeredV1;
-		const resp = this.brokerTunnel(window, watt.instance_id, watt.jti, "pair_dial_open", offeredV1);
+		// Load-bearing retirement check: do not insert an await between this
+		// synchronous marker read and the acceptWebSocket in brokerTunnel.
+		if (this.hasRetiredMarker(watt.instance_id)) {
+			return unauthorizedWithLog("/session/pair-dial", "revoked", watt.instance_id);
+		}
+		const resp = this.brokerTunnel(
+			window,
+			watt.instance_id,
+			watt.jti,
+			"pair_dial_open",
+			offeredV1,
+			[tagPairOwner(watt.instance_id)],
+		);
 		if (resp.status === 101) {
 			watt.signaled = true;
 			window.serializeAttachment(watt);
@@ -335,7 +498,9 @@ export class InstanceDO extends DurableObject<Env> {
 		});
 		if (!result.ok) return unauthorizedWithLog("/tunnel", result.reason, undefined, tunnelId);
 
-		const windows = this.ctx.getWebSockets(tagPairWindow());
+		const windows = this.ctx
+			.getWebSockets(tagPairWindow())
+			.filter((ws) => ws.readyState === WebSocket.OPEN);
 		if (windows.length === 0) {
 			return unauthorizedWithLog("/tunnel", "no_window", undefined, tunnelId);
 		}
@@ -352,16 +517,33 @@ export class InstanceDO extends DurableObject<Env> {
 			);
 		}
 
-		return this.attachHomeTunnel(tunnelId, result.claims.instance_id, result.claims.jti);
+		return this.attachHomeTunnel(
+			tunnelId,
+			result.claims.instance_id,
+			result.claims.jti,
+			result.claims.instance_id,
+		);
 	}
 
-	private attachHomeTunnel(tunnelId: string, instanceId: string, jti: string): Response {
+	private attachHomeTunnel(
+		tunnelId: string,
+		instanceId: string,
+		jti: string,
+		pairingOwnerId?: string,
+	): Response {
 		// The mobile side must already be attached — otherwise there's no
 		// tunnel to pair into. (If the mobile has disconnected, we refuse the
 		// home-side attach; fresh dial mints a new tunnel_id.)
 		const mobilePeers = this.ctx.getWebSockets(tagTunnelMobile(tunnelId));
 		if (mobilePeers.length === 0) {
 			return new Response("no mobile for tunnel_id", { status: 404 });
+		}
+
+		// Load-bearing retirement check for both normal and pairing tunnels:
+		// do not insert an await between this synchronous marker read and
+		// acceptWebSocket below.
+		if (this.hasRetiredMarker(instanceId)) {
+			return unauthorizedWithLog("/tunnel", "revoked", instanceId, tunnelId);
 		}
 
 		// Cardinality: at most one home tunnel WS per tunnel_id.
@@ -387,7 +569,9 @@ export class InstanceDO extends DurableObject<Env> {
 			jti,
 		};
 		server.serializeAttachment(att);
-		this.ctx.acceptWebSocket(server, [tagTunnelHome(tunnelId)]);
+		const tags = [tagTunnelHome(tunnelId)];
+		if (pairingOwnerId) tags.push(tagPairOwner(pairingOwnerId));
+		this.ctx.acceptWebSocket(server, tags);
 
 		log({
 			event: "tunnel_home_open",
@@ -483,6 +667,10 @@ export class InstanceDO extends DurableObject<Env> {
 	): Promise<void> {
 		const att = ws.deserializeAttachment() as Attachment | null;
 		if (!att) return;
+		const pairingOwnerSocket = this.ctx.getTags(ws).includes(tagPairOwner(att.instance_id));
+		const closeReason: CloseReason = this.retirementClosing.has(ws)
+			? "instance_retired"
+			: "peer_closed";
 
 		const durationMs = Date.now() - att.opened_at;
 		log({
@@ -490,15 +678,17 @@ export class InstanceDO extends DurableObject<Env> {
 			instance_id: att.instance_id,
 			tunnel_id: att.tunnel_id,
 			close_code: code,
-			reason: "peer_closed",
+			reason: closeReason,
 			duration_ms: durationMs,
 		});
 
 		if (att.role === "tunnel_home" || att.role === "tunnel_mobile") {
 			const tunnelId = att.tunnel_id;
-			if (!tunnelId) return;
-			this.closeTunnel(tunnelId, code === 1006 ? CLOSE_CODE_NORMAL : code, "peer_closed", att.role);
+			if (tunnelId) {
+				this.closeTunnel(tunnelId, code === 1006 ? CLOSE_CODE_NORMAL : code, closeReason, att.role);
+			}
 		}
+		if (pairingOwnerSocket) await this.releasePairingOwnerIfUnused(att.instance_id, ws);
 	}
 
 	override async webSocketError(ws: WebSocket, _error: unknown): Promise<void> {
@@ -514,6 +704,30 @@ export class InstanceDO extends DurableObject<Env> {
 	}
 
 	// Helpers
+
+	private hasRetiredMarker(instanceId: string, retiredAt?: number): boolean {
+		const row = this.ctx.storage.sql
+			.exec<{ retired_at: number }>(
+				"SELECT retired_at FROM retired_instances WHERE instance_id = ?",
+				instanceId,
+			)
+			.toArray()[0];
+		return row !== undefined && (retiredAt === undefined || row.retired_at === retiredAt);
+	}
+
+	private async releasePairingOwnerIfUnused(
+		instanceId: string,
+		leavingSocket?: WebSocket,
+	): Promise<void> {
+		const hasOwnedSocket = this.ctx
+			.getWebSockets(tagPairOwner(instanceId))
+			.some((ws) => ws !== leavingSocket && ws.readyState === WebSocket.OPEN);
+		if (hasOwnedSocket) return;
+
+		await this.env.DB.prepare("DELETE FROM pairing_owners WHERE instance_id = ? AND do_id = ?")
+			.bind(instanceId, this.ctx.id.toString())
+			.run();
+	}
 
 	private async isEntitled(instanceId: string): Promise<boolean> {
 		const now = Math.floor(Date.now() / 1000);
@@ -561,11 +775,13 @@ export class InstanceDO extends DurableObject<Env> {
 		jti: string,
 		openEvent: "dial_open" | "pair_dial_open",
 		echoV1 = false,
+		additionalTags: string[] = [],
 		onSendFail?: () => void,
 	): Response {
 		const tunnelId = crypto.randomUUID();
 		const { client, server } = this.acceptMobileTunnel(instanceId, jti, tunnelId, [
 			tagTunnelMobile(tunnelId),
+			...additionalTags,
 		]);
 
 		log({
@@ -718,6 +934,9 @@ export function tagWaiting(instanceId: string): string {
 }
 export function tagPairWindow(): string {
 	return "pair_window";
+}
+export function tagPairOwner(instanceId: string): string {
+	return `pair_owner:${instanceId}`;
 }
 export function tagTunnelHome(tunnelId: string): string {
 	return `tunnel_home:${tunnelId}`;

@@ -3,9 +3,11 @@
 
 // Environment bindings shared across the Worker and the Durable Object.
 
+import type { InstanceDO } from "./instance-do";
+
 export interface Env {
 	// Durable Object namespace — one DO instance per home.
-	INSTANCE: DurableObjectNamespace;
+	INSTANCE: DurableObjectNamespace<InstanceDO>;
 
 	// D1 database — token metadata (instances, devices, revocation). Never
 	// payload bytes.
