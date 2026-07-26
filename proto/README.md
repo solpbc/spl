@@ -29,6 +29,9 @@ The protocol documents own the **wire**. They do not own:
 
 ## related
 
+- [`../docs/client-implementation-audit.json`](../docs/client-implementation-audit.json) — what each in-repo component actually implements of the pair-link contract, with per-claim evidence. Read it before assuming a component here conforms to these documents; several do not.
+
+
 - [`../README.md`](../README.md) — product framing, architecture diagram, install / run / test.
 - [`../AGENTS.md`](../AGENTS.md) — the developer guide. Read before changing anything in this directory.
 - [`../docs/architecture.md`](../docs/architecture.md) — trust boundaries.

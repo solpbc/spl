@@ -1,0 +1,147 @@
+{
+  "audit_schema_version": 1,
+  "purpose": "Records what each in-repo SPL component actually implements of the pair-link and address-admission contract defined in proto/definition/. It lives in docs/ rather than under proto/definition/ deliberately: the definition gate treats any content change under proto/definition/ as a contract change requiring a bundle_semver increase, and a documentation refresh is not a contract change. Per-component revisions also go stale on every commit to those components, so coupling this record to the contract version would force meaningless bumps.",
+  "how_to_refresh": "Re-derive every claim from the cited path:line evidence, update audited_revision to the component's current last-touching commit, and correct any claim whose status changed. Do not carry a claim forward without re-deriving it.",
+  "evidence_convention": "Every claim carries status (confirmed | refuted | undetermined) and a repo-relative evidence pointer. A claim without both is not a finding.",
+  "components": [
+    {
+      "component": "relay",
+      "language": "typescript",
+      "role": "rendezvous server",
+      "audited_revision": "92b54d057d445d60b06b0fbe6f0c6b14120148ff",
+      "pair_link_forms_parsed": [],
+      "gate_wired_to_vectors": false,
+      "gate_not_wired_reason": "The relay is blind by construction and parses no pair-link at all, so no vector in this corpus exercises code it ships. Wiring it would require adding a pair-link parser to its test directory that tests nothing the relay runs.",
+      "claims": [
+        {
+          "claim": "The relay never reads, parses, stores, or forwards relayed frame payloads.",
+          "status": "confirmed",
+          "evidence": "relay/src/index.ts:24"
+        },
+        {
+          "claim": "The relay contains no pair-link version byte handling; zero occurrences of 0x06 in relay/src/.",
+          "status": "confirmed",
+          "evidence": "relay/src/ (grep 0x06 -> 0 hits)"
+        },
+        {
+          "claim": "The relay implements the pair-window rendezvous mechanism, addressed by an opaque RK string it does not decode.",
+          "status": "confirmed",
+          "evidence": "relay/src/index.ts:69-70 (/session/pair-window, /session/pair-dial)"
+        },
+        {
+          "claim": "The relay does not route /session/pair-ticket.",
+          "status": "confirmed",
+          "evidence": "relay/src/ (grep pair-ticket -> 0 hits)"
+        }
+      ]
+    },
+    {
+      "component": "home",
+      "language": "python",
+      "role": "home-side reference implementation",
+      "audited_revision": "04a5577bdff6cded48b5d4e096c414088543fe13",
+      "pair_link_forms_emitted": [],
+      "gate_wired_to_vectors": false,
+      "gate_not_wired_reason": "No pair-link parser or emitter exists in this component; it emits a pairing URL rather than an encoded pair-link blob, so no vector applies.",
+      "claims": [
+        {
+          "claim": "Emits a pairing URL (https://<host>:<port>/pair?token=<nonce>) rather than an encoded pair-link blob; no Crockford encoding and no QR payload.",
+          "status": "confirmed",
+          "evidence": "home/src/spl/home/__main__.py:163"
+        },
+        {
+          "claim": "Contains no HKDF and no 0x06 handling, so it cannot participate in the pair-window mechanism.",
+          "status": "confirmed",
+          "evidence": "home/src/ (grep -i 'hkdf|0x06' -> 0 hits)"
+        },
+        {
+          "claim": "DIVERGENCE \u2014 reads the pairing nonce from the JSON body, which proto/pairing.md:157 explicitly forbids: 'the single-use nonce travels as the token query parameter (lowercase hex), not in the JSON body'.",
+          "status": "confirmed",
+          "evidence": "home/src/spl/home/pair_server.py:210 vs proto/pairing.md:148,157"
+        },
+        {
+          "claim": "DIVERGENCE \u2014 rejects the spec-conformant request outright. The handler compares the full request target for exact equality against '/pair', and that target includes the query string, so any '?token=' request 404s. The component therefore accepts only the form the specification forbids and refuses the form it requires.",
+          "status": "confirmed",
+          "evidence": "home/src/spl/home/pair_server.py:191"
+        },
+        {
+          "claim": "DIVERGENCE \u2014 the pairing URL this component mints is 404'd by its own pairing server, so the reference implementation cannot pair with itself.",
+          "status": "confirmed",
+          "evidence": "home/src/spl/home/__main__.py:163 vs home/src/spl/home/pair_server.py:191"
+        }
+      ]
+    },
+    {
+      "component": "mobile",
+      "language": "typescript",
+      "role": "client reference implementation",
+      "audited_revision": "3f718ce63769566e316924d0e40f2e2f0b7f5e7b",
+      "pair_link_forms_parsed": [
+        "0x03",
+        "0x04",
+        "0x05"
+      ],
+      "gate_wired_to_vectors": false,
+      "gate_not_wired_reason": "This component holds the only pair-link parser in the repository and covers the 0x04/0x05 forms that a majority of the corpus exercises. Whether it passes those vectors is an open, untested question and adopting the corpus here is the most valuable next step \u2014 it is deliberately deferred to its own change rather than bundled into the corpus landing.",
+      "claims": [
+        {
+          "claim": "Parses pair-link form 0x03 and throws on any version outside 0x03/0x04/0x05, including 0x06.",
+          "status": "confirmed",
+          "evidence": "mobile/src/qr_link.ts:53-56"
+        },
+        {
+          "claim": "DIVERGENCE \u2014 the 0x03 relay-pairing path is retired. proto/pair-window.md:3 declares a hard cutover to the 0x06 home-opened pairing window with no 0x03 or TOTP fallback, and proto/pairing.md contains no 0x03 layout.",
+          "status": "confirmed",
+          "evidence": "mobile/src/qr_link.ts:53 vs proto/pair-window.md:3"
+        },
+        {
+          "claim": "DIVERGENCE \u2014 posts a TOTP to /session/pair-ticket, an endpoint the relay does not route, so this path cannot complete against this repository's own relay.",
+          "status": "confirmed",
+          "evidence": "mobile/src/pair_relay.ts:31-32 vs relay/src/index.ts route table"
+        },
+        {
+          "claim": "Contains no HKDF, so it cannot derive the pair-window relay key even if 0x06 parsing were added.",
+          "status": "confirmed",
+          "evidence": "mobile/src/ (grep -i hkdf -> 0 hits)"
+        }
+      ]
+    }
+  ],
+  "repository_level_findings": [
+    {
+      "finding": "No component in this repository parses or emits pair-link form 0x06. The mechanism is specified in proto/pair-window.md and implemented on the rendezvous side by the relay, but the encoded form itself has no in-repo producer or consumer.",
+      "status": "confirmed"
+    },
+    {
+      "finding": "No component in this repository implements HKDF, so the RK derivation specified in proto/pair-window.md has no in-repo implementation. The relay's absence is correct by design \u2014 it only ever handles RK \u2014 but the client and home sides are gaps.",
+      "status": "confirmed"
+    },
+    {
+      "finding": "The end-to-end harness is not part of the local gate. 'integration-test' is not a dependency of 'ci', and this repository contains no CI workflow directory, so the Makefile is the entire gate surface. The harness also cannot currently pass: it drives the home-minted pairing URL, which the home pairing server 404s.",
+      "status": "confirmed",
+      "evidence": "Makefile:15, absence of .github/, home/src/spl/home/pair_server.py:191"
+    }
+  ],
+  "out_of_repo_implementations": [
+    {
+      "language": "swift",
+      "note": "Shared client package consumed by the Apple applications. Not audited here; no revision recorded."
+    },
+    {
+      "language": "rust",
+      "note": "Shared client package that generated this corpus. Not audited here; no revision recorded."
+    },
+    {
+      "language": "kotlin",
+      "note": "Android client. Not audited here; no revision recorded."
+    },
+    {
+      "language": "javascript",
+      "note": "Browser extension client, relay-form only. Not audited here; no revision recorded."
+    },
+    {
+      "language": "python",
+      "note": "A second, independent home-side implementation exists outside this repository and is not the same code as this repository's home component. Not audited here; no revision recorded."
+    }
+  ]
+}
