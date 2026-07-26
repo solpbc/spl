@@ -97,7 +97,6 @@ export class InstanceDO extends DurableObject<Env> {
 		}
 
 		const matching: WebSocket[] = [];
-		const pairingOwners = new Set<string>();
 		const tunnelIds = new Set<string>();
 		let socketsClosed = true;
 
@@ -113,9 +112,6 @@ export class InstanceDO extends DurableObject<Env> {
 			}
 			if (!att || att.instance_id !== instanceId) continue;
 			matching.push(ws);
-			if (this.ctx.getTags(ws).includes(tagPairOwner(att.instance_id))) {
-				pairingOwners.add(att.instance_id);
-			}
 			if (att.tunnel_id) tunnelIds.add(att.tunnel_id);
 		}
 
@@ -127,11 +123,7 @@ export class InstanceDO extends DurableObject<Env> {
 				socketsClosed = false;
 			}
 		}
-		for (const pairingOwner of pairingOwners) {
-			// Server-initiated closes do not reliably invoke webSocketClose.
-			// Release at the close site so the registry never outlives its sockets.
-			this.ctx.waitUntil(this.releasePairingOwnerIfUnused(pairingOwner));
-		}
+		socketsClosed &&= matching.every((ws) => ws.readyState !== WebSocket.OPEN);
 
 		for (const tunnelId of tunnelIds) {
 			this.pending.delete(tagTunnelHome(tunnelId));
@@ -590,6 +582,7 @@ export class InstanceDO extends DurableObject<Env> {
 	}
 
 	override async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
+		if (this.retirementClosing.has(ws)) return;
 		const att = ws.deserializeAttachment() as Attachment | null;
 		if (!att) return;
 
@@ -668,9 +661,8 @@ export class InstanceDO extends DurableObject<Env> {
 		const att = ws.deserializeAttachment() as Attachment | null;
 		if (!att) return;
 		const pairingOwnerSocket = this.ctx.getTags(ws).includes(tagPairOwner(att.instance_id));
-		const closeReason: CloseReason = this.retirementClosing.has(ws)
-			? "instance_retired"
-			: "peer_closed";
+		const retirementClose = this.retirementClosing.has(ws);
+		const closeReason: CloseReason = retirementClose ? "instance_retired" : "peer_closed";
 
 		const durationMs = Date.now() - att.opened_at;
 		log({
@@ -688,7 +680,9 @@ export class InstanceDO extends DurableObject<Env> {
 				this.closeTunnel(tunnelId, code === 1006 ? CLOSE_CODE_NORMAL : code, closeReason, att.role);
 			}
 		}
-		if (pairingOwnerSocket) await this.releasePairingOwnerIfUnused(att.instance_id, ws);
+		if (pairingOwnerSocket && !retirementClose) {
+			await this.releasePairingOwnerIfUnused(att.instance_id, ws);
+		}
 	}
 
 	override async webSocketError(ws: WebSocket, _error: unknown): Promise<void> {

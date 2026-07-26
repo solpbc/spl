@@ -62,6 +62,24 @@ export async function handleRetireInstance(
 	let state: Exclude<RetirementState, "absent"> = "already_retired";
 	let retiredAt = initial.revoked_at ?? now;
 	let authorityEstablished = initial.revoked_at !== null;
+	let socketCount = 0;
+	let instanceMarkerVerified = false;
+	let instanceCleanupComplete = false;
+
+	// Establish the fail-closed DO marker and sweep before making D1's revoked
+	// state authoritative. If this step fails, an active D1 row stays active.
+	try {
+		const stub = env.INSTANCE.get(env.INSTANCE.idFromName(instanceId));
+		const result = await stub.retireInstance(instanceId, retiredAt);
+		socketCount += result.socketCount;
+		instanceMarkerVerified = result.markerVerified;
+		instanceCleanupComplete = isDoCleanupComplete(result);
+		if (!instanceCleanupComplete) {
+			return failureResponse(instanceId, checks, "instance_do_cleanup");
+		}
+	} catch {
+		return failureResponse(instanceId, checks, "instance_do_cleanup");
+	}
 
 	if (initial.revoked_at === null) {
 		try {
@@ -92,8 +110,8 @@ export async function handleRetireInstance(
 	}
 
 	// A lost conditional race without a readable committed tombstone has no
-	// timestamp to propagate. Do not create a derived DO marker until D1 is
-	// confirmed authoritative.
+	// authoritative state to verify. The already-written DO marker keeps
+	// admission fail-closed while the operator retries.
 	if (!authorityEstablished) {
 		return failureResponse(instanceId, checks, failedComponent ?? "retired_state");
 	}
@@ -108,20 +126,6 @@ export async function handleRetireInstance(
 		registryRead = true;
 	} catch {
 		fail("rk_do_cleanup");
-	}
-
-	let socketCount = 0;
-	let instanceMarkerVerified = false;
-	let instanceCleanupComplete = false;
-	try {
-		const stub = env.INSTANCE.get(env.INSTANCE.idFromName(instanceId));
-		const result = await stub.retireInstance(instanceId, retiredAt);
-		socketCount += result.socketCount;
-		instanceMarkerVerified = result.markerVerified;
-		instanceCleanupComplete = isDoCleanupComplete(result);
-		if (!instanceCleanupComplete) fail("instance_do_cleanup");
-	} catch {
-		fail("instance_do_cleanup");
 	}
 
 	let rkMarkersVerified = registryRead;
