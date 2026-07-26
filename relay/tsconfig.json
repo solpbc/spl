@@ -17,10 +17,12 @@
     "src/**/*.ts",
     "test/**/*.ts",
     "test-integration/**/*.ts",
+    "vitest.keys.ts",
     "vitest.config.ts",
     "vitest.workers.config.ts",
     "vitest.workers.gate.config.ts",
-    "vitest.workers.presence.config.ts"
+    "vitest.workers.presence.config.ts",
+    "vitest.workers.retirement.config.ts"
   ],
   "exclude": ["node_modules", "dist", ".wrangler"]
 }
