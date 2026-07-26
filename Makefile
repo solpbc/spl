@@ -3,6 +3,7 @@
 # mobile/, and (eventually) ios/.
 
 .PHONY: install test ci format clean integration-test \
+        definition-generate definition-ci \
         relay-install relay-test relay-ci relay-dev relay-deploy \
         home-install home-test home-ci home-format \
         mobile-install mobile-test mobile-ci mobile-format
@@ -11,7 +12,13 @@ install: relay-install home-install mobile-install
 
 test: relay-test home-test mobile-test
 
-ci: relay-ci home-ci mobile-ci
+ci: definition-ci relay-ci home-ci mobile-ci
+
+definition-generate:
+	python3 proto/definition/generate.py --write
+
+definition-ci:
+	python3 proto/definition/generate.py --check
 
 # End-to-end integration suite — runs the full pair → dial → test flow
 # against a local Miniflare spl-relay and a live spl.home process. See
