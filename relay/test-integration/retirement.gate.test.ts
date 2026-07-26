@@ -13,7 +13,6 @@ import {
 } from "cloudflare:test";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { fingerprintDer } from "../src/attestation";
-import type { InstanceDO } from "../src/instance-do";
 import { base64UrlDecode, mintDeviceToken } from "../src/tokens";
 import { genCaKeypair, genClientCertDer, mintAttestation } from "../test/fixtures";
 import { applyRelayD1Migrations } from "./apply-migrations";
@@ -463,11 +462,11 @@ async function installDoFault(stub: DurableObjectStub, fault: DoFault): Promise<
 			const sql = state.storage.sql;
 			const original = sql.exec.bind(sql);
 			Reflect.set(sql, "exec", (query: string, ...bindings: unknown[]) => {
+				if (fault === "marker_write" && query.includes("INSERT INTO retired_instances")) {
+					throw new Error(`injected DO ${fault} failure`);
+				}
 				const result = original(query, ...bindings);
-				if (
-					(fault === "marker_write" && query.includes("INSERT INTO retired_instances")) ||
-					(fault === "marker_verification" && query.includes("SELECT retired_at"))
-				) {
+				if (fault === "marker_verification" && query.includes("SELECT retired_at")) {
 					throw new Error(`injected DO ${fault} failure`);
 				}
 				return result;
@@ -544,22 +543,18 @@ describe("DELETE /admin/instances/<id>", () => {
 		secondWindow.close(1000, "test_done");
 	});
 
-	it("releases an owner row when retirement closes the final owned socket", async () => {
+	it("clears an owner row when retirement closes the final owned socket", async () => {
 		const rk = "a2".repeat(16);
 		const enrolled = await enrollForTest();
 		const pairWindow = await openPairWindow(rk, enrolled.serviceToken);
 		const closed = onClose(pairWindow);
 		expect((await pairingOwner(enrolled.instanceId))?.instance_id).toBe(enrolled.instanceId);
 
-		const stub = env.INSTANCE.get(env.INSTANCE.idFromName(rk)) as DurableObjectStub<InstanceDO>;
-		const result = await stub.retireInstance(enrolled.instanceId, Math.floor(Date.now() / 1000));
-		expect(result.socketsClosed).toBe(true);
+		await expectRetirementSuccess(await retireInstance(enrolled.instanceId), "retired");
 		const close = await closed;
 		expect(close.code).toBe(4403);
 		expect(close.reason).toBe("instance_retired");
-		await expectEventually(async () => {
-			expect(await pairingOwner(enrolled.instanceId)).toBeNull();
-		});
+		expect(await pairingOwner(enrolled.instanceId)).toBeNull();
 	});
 
 	it("retains an owner only until the last pairing bridge socket closes", async () => {
@@ -1067,6 +1062,7 @@ describe("DELETE /admin/instances/<id>", () => {
 			} else {
 				expect(partialRow?.revoked_at).toBeNull();
 			}
+			await expectFreshListenDenied(enrolled);
 
 			await expectRetirementSuccess(
 				await retireInstance(enrolled.instanceId),
@@ -1158,25 +1154,35 @@ describe("DELETE /admin/instances/<id>", () => {
 				await retireInstance(enrolled.instanceId),
 				"instance_do_cleanup",
 			);
-			expect(partial.entry_denial_verified).toBe(
-				fault === "socket_close" || fault === "pending_cleanup" || fault === "alarm_cleanup",
-			);
+			expect(partial.entry_denial_verified).toBe(false);
 			restore();
 			const firstRow = await env.DB.prepare(
 				"SELECT revoked_at FROM instances WHERE instance_id = ?",
 			)
 				.bind(enrolled.instanceId)
-				.first<{ revoked_at: number }>();
-			expect(firstRow?.revoked_at).toBeTypeOf("number");
-			await expectFreshListenDenied(enrolled);
+				.first<{ revoked_at: number | null }>();
+			expect(firstRow?.revoked_at).toBeNull();
+			let admittedAfterFailure: WebSocket | undefined;
+			if (fault === "marker_write") {
+				const response = await wsFetch(
+					`http://spl.test/session/listen?instance=${enrolled.instanceId}`,
+					enrolled.serviceToken,
+				);
+				expect(response.status).toBe(101);
+				if (!response.webSocket) throw new Error("active instance listen missing socket");
+				admittedAfterFailure = response.webSocket;
+				admittedAfterFailure.accept();
+			} else {
+				await expectFreshListenDenied(enrolled);
+			}
 
-			await expectRetirementSuccess(await retireInstance(enrolled.instanceId), "already_retired");
+			await expectRetirementSuccess(await retireInstance(enrolled.instanceId), "retired");
 			const finalRow = await env.DB.prepare(
 				"SELECT revoked_at FROM instances WHERE instance_id = ?",
 			)
 				.bind(enrolled.instanceId)
 				.first<{ revoked_at: number }>();
-			expect(finalRow?.revoked_at).toBe(firstRow?.revoked_at);
+			expect(finalRow?.revoked_at).toBeTypeOf("number");
 			if (fault === "pending_cleanup") {
 				const size = await runInDurableObject(stub, (instance) => {
 					const pending = Reflect.get(instance, "pending") as Map<string, unknown>;
@@ -1184,7 +1190,7 @@ describe("DELETE /admin/instances/<id>", () => {
 				});
 				expect(size).toBe(0);
 			}
-			closeAll(listen, dial);
+			closeAll(listen, dial, admittedAfterFailure);
 		});
 	}
 
@@ -1217,6 +1223,73 @@ describe("DELETE /admin/instances/<id>", () => {
 		expect(finalRow?.revoked_at).toBe(firstRow?.revoked_at);
 		expect(await countRows("pairing_owners", enrolled.instanceId)).toBe(0);
 	});
+
+	for (const fault of ["pending_cleanup", "alarm_cleanup"] as const) {
+		it(`retains the RK-DO retry cursor after ${fault} failure and converges`, async () => {
+			const enrolled = await enrollActive();
+			const rk = (fault === "pending_cleanup" ? "d3" : "d4").repeat(16);
+			const window = await openPairWindow(rk, enrolled.serviceToken);
+			let mobile: WebSocket | undefined;
+			const stub = env.INSTANCE.get(env.INSTANCE.idFromName(rk));
+
+			if (fault === "pending_cleanup") {
+				const incoming = onMessage(window);
+				const dial = await pairFetch("/session/pair-dial", rk);
+				expect(dial.status).toBe(101);
+				if (!dial.webSocket) throw new Error("pair-dial response did not contain a WebSocket");
+				mobile = dial.webSocket;
+				mobile.accept();
+				parseIncoming(await incoming);
+				mobile.send("opaque-rk-pending-fault-frame");
+				await expectEventually(async () => {
+					const size = await runInDurableObject(stub, (instance) => {
+						const pending = Reflect.get(instance, "pending") as Map<string, unknown>;
+						return pending.size;
+					});
+					expect(size).toBe(1);
+				});
+			}
+
+			const restore = await installDoFault(stub, fault);
+			const partial = await expectRetirementFailure(
+				await retireInstance(enrolled.instanceId),
+				"rk_do_cleanup",
+			);
+			expect(partial.entry_denial_verified).toBe(true);
+			await runInDurableObject(stub, async (instance, state) => {
+				const retirementClosedSocket = state.getWebSockets()[0];
+				if (!retirementClosedSocket) throw new Error("RK cleanup fault missing owned socket");
+				const webSocketClose = instance.webSocketClose;
+				if (!webSocketClose) throw new Error("InstanceDO missing webSocketClose handler");
+				await webSocketClose.call(instance, retirementClosedSocket, 4403, "ignored", true);
+			});
+			expect(await countRows("pairing_owners", enrolled.instanceId)).toBe(1);
+			const firstRow = await env.DB.prepare(
+				"SELECT revoked_at FROM instances WHERE instance_id = ?",
+			)
+				.bind(enrolled.instanceId)
+				.first<{ revoked_at: number }>();
+			expect(firstRow?.revoked_at).toBeTypeOf("number");
+			restore();
+
+			await expectRetirementSuccess(await retireInstance(enrolled.instanceId), "already_retired");
+			expect(await countRows("pairing_owners", enrolled.instanceId)).toBe(0);
+			if (fault === "pending_cleanup") {
+				const size = await runInDurableObject(stub, (instance) => {
+					const pending = Reflect.get(instance, "pending") as Map<string, unknown>;
+					return pending.size;
+				});
+				expect(size).toBe(0);
+			}
+			const finalRow = await env.DB.prepare(
+				"SELECT revoked_at FROM instances WHERE instance_id = ?",
+			)
+				.bind(enrolled.instanceId)
+				.first<{ revoked_at: number }>();
+			expect(finalRow?.revoked_at).toBe(firstRow?.revoked_at);
+			closeAll(window, mobile);
+		});
+	}
 
 	it("denies a pair-window whose real registration committed before the retirement sweep but resumed after it", async () => {
 		const enrolled = await enrollActive();
