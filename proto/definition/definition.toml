@@ -1,0 +1,650 @@
+bundle_semver = "1.0.0"
+
+# Citation markers are exact source substrings. The longer markers below are
+# deliberate: the obvious markers `0x01` = IPv4, first 16 bytes of SHA-256
+# over the CA cert DER, loopback, 128-bit single-use nonce, unsigned
+# big-endian, and selector `0x00` each occur more than once across the cited
+# documents. Marker length alone is not enough: `0x01` = IPv4 is 13
+# characters and still occurs twice.
+
+[citations.first_byte_discriminator]
+document = "proto/pairing.md"
+marker = "The form is discriminated by the first decoded byte (`version`), never by URL path."
+
+[citations.allow_10]
+document = "proto/pairing.md"
+marker = "`10.0.0.0/8`"
+
+[citations.allow_172]
+document = "proto/pairing.md"
+marker = "`172.16.0.0/12`"
+
+[citations.allow_192]
+document = "proto/pairing.md"
+marker = "`192.168.0.0/16`"
+
+[citations.allow_link_local]
+document = "proto/pairing.md"
+marker = "IPv4 link-local `169.254.0.0/16`"
+
+[citations.allow_shared]
+document = "proto/pairing.md"
+marker = "RFC 6598 shared address space `100.64.0.0/10`"
+
+[citations.allow_ula]
+document = "proto/pairing.md"
+marker = "IPv6 ULA `fc00::/7`"
+
+[citations.allow_loopback]
+document = "proto/pairing.md"
+marker = "`fc00::/7`, loopback). v1 refuses every other address at this step"
+
+[citations.form_04]
+document = "proto/pairing.md"
+marker = "Direct form, version `0x04` (40 bytes):"
+
+[citations.form_04_version]
+document = "proto/pairing.md"
+marker = "| 0 | 1 | version | `0x04` |"
+
+[citations.form_04_addr_type]
+document = "proto/pairing.md"
+marker = '''| 0 | 1 | version | `0x04` |
+| 1 | 1 | addr_type | `0x01` = IPv4 |'''
+
+[citations.form_04_ipv4]
+document = "proto/pairing.md"
+marker = "| 2 | 4 | ipv4 | raw IPv4 bytes |"
+
+[citations.form_04_port]
+document = "proto/pairing.md"
+marker = "| 6 | 2 | port | unsigned big-endian |"
+
+[citations.form_04_nonce]
+document = "proto/pairing.md"
+marker = "| 8 | 16 | nonce | 128-bit single-use nonce |"
+
+[citations.form_04_ca_fp]
+document = "proto/pairing.md"
+marker = "| 24 | 16 | ca_fp | first 16 bytes of SHA-256 over the CA cert DER |"
+
+[citations.direct_pin_domain]
+document = "proto/pairing.md"
+marker = "direct form pins SHA-256(cert DER), first 16 bytes"
+
+[citations.direct_pin_dispatch]
+document = "proto/pairing.md"
+marker = "A parser MUST key the pin algorithm off version and tag"
+
+[citations.direct_ipv4_only]
+document = "proto/pairing.md"
+marker = "The `0x04` and `0x05` forms currently encode IPv4 only."
+
+[citations.form_05]
+document = "proto/pairing.md"
+marker = "Multi-candidate direct form, version `0x05` (variable length):"
+
+[citations.form_05_version]
+document = "proto/pairing.md"
+marker = "| 0 | 1 | version | `0x05` |"
+
+[citations.form_05_addr_type]
+document = "proto/pairing.md"
+marker = '''| 0 | 1 | version | `0x05` |
+| 1 | 1 | addr_type | `0x01` = IPv4 |'''
+
+[citations.form_05_count]
+document = "proto/pairing.md"
+marker = "| 2 | 1 | count | number of candidate addresses, 1–4 |"
+
+[citations.form_05_port]
+document = "proto/pairing.md"
+marker = "| 3 | 2 | port | unsigned big-endian, shared by all candidates |"
+
+[citations.form_05_ipv4]
+document = "proto/pairing.md"
+marker = "| 5 | 4 × count | ipv4[] | `count` raw IPv4 addresses, 4 bytes each |"
+
+[citations.form_05_nonce]
+document = "proto/pairing.md"
+marker = "| 5 + 4·count | 16 | nonce | 128-bit single-use nonce |"
+
+[citations.form_05_ca_fp]
+document = "proto/pairing.md"
+marker = "| 5 + 4·count + 16 | 16 | ca_fp | first 16 bytes of SHA-256 over the CA cert DER |"
+
+[citations.form_05_total]
+document = "proto/pairing.md"
+marker = "Total length is `5 + 4·count + 32`."
+
+[citations.form_05_count_bounds]
+document = "proto/pairing.md"
+marker = "A `0x05` link whose count is outside `1...4` is malformed and MUST be refused before key generation or dialing."
+
+[citations.form_06]
+document = "proto/pair-window.md"
+marker = "pair-link wire format — version `0x06`"
+
+[citations.form_06_version]
+document = "proto/pair-window.md"
+marker = "| 0 | 1 | version | `0x06` |"
+
+[citations.form_06_nonce]
+document = "proto/pair-window.md"
+marker = "| 1 | 8 | `S` | 64-bit single-use pairing nonce |"
+
+[citations.form_06_tag]
+document = "proto/pair-window.md"
+marker = "| 9 | 1 | ca_fp_tag | `0x01` = SHA-256 over CA DER SPKI, first 16 bytes |"
+
+[citations.form_06_ca_fp]
+document = "proto/pair-window.md"
+marker = "| 10 | 16 | ca_fp_spki | first 16 bytes of SHA-256 over the CA DER SubjectPublicKeyInfo |"
+
+[citations.form_06_selector]
+document = "proto/pair-window.md"
+marker = "| 26 | 1 | relay_origin_selector | `0x00` = well-known default relay; `N` (`1..255`) = custom origin byte length |"
+
+[citations.form_06_origin]
+document = "proto/pair-window.md"
+marker = "| 27 | N | relay_origin | UTF-8 bytes of the custom origin; omitted when selector is `0x00` |"
+
+[citations.form_06_base]
+document = "proto/pair-window.md"
+marker = "Base size **27 bytes** (selector `0x00`)."
+
+[citations.form_06_default_relay]
+document = "proto/pair-window.md"
+marker = "The well-known default relay origin is `https://link.solstone.app`."
+
+[citations.form_06_pin_dispatch]
+document = "proto/pair-window.md"
+marker = "parsers MUST key the pin algorithm off `version` + `ca_fp_tag`"
+
+[citations.form_06_deleted_03]
+document = "proto/pair-window.md"
+marker = "identical in meaning to the `0x03` form"
+
+[citations.form_03_retired]
+document = "proto/pair-window.md"
+marker = "there is no `0x03`/TOTP fallback"
+
+[citations.stale_pairing_03]
+document = "proto/pair-window.md"
+marker = "the `0x03` relay QR form in [`pairing.md`](pairing.md)"
+
+[citations.stale_tokens_pair_ticket]
+document = "proto/pair-window.md"
+marker = "the TOTP / `current_totp` / `pair_ticket` mechanism in [`tokens.md`](tokens.md)"
+
+[[source_claims]]
+id = "source_claim.pair_window.supersedes_pairing_0x03"
+citation = "stale_pairing_03"
+description = "Claims that pair-window supersedes a 0x03 relay QR form in pairing.md."
+
+[[source_claims]]
+id = "source_claim.pair_window.supersedes_tokens_pair_ticket"
+citation = "stale_tokens_pair_ticket"
+description = "Claims that pair-window supersedes a TOTP, current_totp, and pair_ticket mechanism in tokens.md."
+
+[[address_allow_list]]
+id = "direct_address.10_8"
+family = "ipv4"
+kind = "cidr"
+value = "10.0.0.0/8"
+citation = "allow_10"
+
+[[address_allow_list]]
+id = "direct_address.172_16_12"
+family = "ipv4"
+kind = "cidr"
+value = "172.16.0.0/12"
+citation = "allow_172"
+
+[[address_allow_list]]
+id = "direct_address.192_168_16"
+family = "ipv4"
+kind = "cidr"
+value = "192.168.0.0/16"
+citation = "allow_192"
+
+[[address_allow_list]]
+id = "direct_address.ipv4_link_local"
+family = "ipv4"
+kind = "cidr"
+value = "169.254.0.0/16"
+citation = "allow_link_local"
+
+[[address_allow_list]]
+id = "direct_address.rfc6598_shared"
+family = "ipv4"
+kind = "cidr"
+value = "100.64.0.0/10"
+citation = "allow_shared"
+
+[[address_allow_list]]
+id = "direct_address.ipv6_ula"
+family = "ipv6"
+kind = "cidr"
+value = "fc00::/7"
+citation = "allow_ula"
+
+[[address_allow_list]]
+id = "direct_address.loopback"
+family = "unspecified_in_source_documents"
+kind = "source_term"
+value = "loopback"
+citation = "allow_loopback"
+gap_ref = "gap.address_policy.loopback_scope"
+
+[[pin_domains]]
+id = "ca_cert_der_sha256_prefix16"
+versions = [4, 5]
+version_labels = ["0x04", "0x05"]
+tag = "absent_in_layout"
+tag_label = "absent_in_layout"
+hash = "sha256"
+input = "ca_certificate_der"
+prefix_bytes = 16
+citation = "direct_pin_domain"
+gap_refs = ["gap.direct_forms.ca_fp_tag_missing"]
+
+[[pin_domains]]
+id = "ca_spki_der_sha256_prefix16"
+versions = [6]
+version_labels = ["0x06"]
+tag = 1
+tag_label = "0x01"
+hash = "sha256"
+input = "ca_subject_public_key_info_der"
+prefix_bytes = 16
+citation = "form_06_pin_dispatch"
+
+[[ca_pin_tags]]
+id = "ca_fp_tag.spki_sha256_prefix16"
+value = 1
+label = "0x01"
+status = "active"
+pin_domain_ref = "ca_spki_der_sha256_prefix16"
+citation = "form_06_tag"
+
+[[forms]]
+id = "pair_link.form.0x03"
+version = 3
+label = "0x03"
+status = "retired"
+reuse = "reserved"
+citation = "form_03_retired"
+gap_refs = ["gap.version_0x03.reservation_delta"]
+
+[[forms]]
+id = "pair_link.form.0x04"
+version = 4
+label = "0x04"
+status = "active"
+citation = "form_04"
+
+[[forms.fields]]
+id = "pair_link.form.0x04.field.version"
+offset = 0
+length = 1
+encoding = "fixed_byte"
+semantic_ref = "pair_link.version"
+citation = "form_04_version"
+
+[[forms.fields]]
+id = "pair_link.form.0x04.field.addr_type"
+offset = 1
+length = 1
+encoding = "vocabulary_byte"
+semantic_ref = "pair_link.addr_type"
+citation = "form_04_addr_type"
+
+[[forms.fields]]
+id = "pair_link.form.0x04.field.ipv4"
+offset = 2
+length = 4
+encoding = "raw_ipv4_bytes"
+citation = "form_04_ipv4"
+
+[[forms.fields]]
+id = "pair_link.form.0x04.field.port"
+offset = 6
+length = 2
+encoding = "unsigned_big_endian"
+citation = "form_04_port"
+
+[[forms.fields]]
+id = "pair_link.form.0x04.field.nonce"
+offset = 8
+length = 16
+encoding = "opaque_nonce"
+citation = "form_04_nonce"
+
+[[forms.fields]]
+id = "pair_link.form.0x04.field.ca_fp"
+offset = 24
+length = 16
+encoding = "sha256_prefix"
+semantic_ref = "ca_cert_der_sha256_prefix16"
+citation = "form_04_ca_fp"
+gap_refs = ["gap.direct_forms.ca_fp_tag_missing"]
+
+[forms.total_length]
+kind = "exact"
+bytes = 40
+citation = "form_04"
+
+[[forms]]
+id = "pair_link.form.0x05"
+version = 5
+label = "0x05"
+status = "active"
+citation = "form_05"
+
+[[forms.fields]]
+id = "pair_link.form.0x05.field.version"
+offset = 0
+length = 1
+encoding = "fixed_byte"
+semantic_ref = "pair_link.version"
+citation = "form_05_version"
+
+[[forms.fields]]
+id = "pair_link.form.0x05.field.addr_type"
+offset = 1
+length = 1
+encoding = "vocabulary_byte"
+semantic_ref = "pair_link.addr_type"
+citation = "form_05_addr_type"
+
+[[forms.fields]]
+id = "pair_link.form.0x05.field.count"
+offset = 2
+length = 1
+encoding = "unsigned_integer"
+semantic_ref = "pair_link.0x05.candidate_count"
+citation = "form_05_count"
+
+[[forms.fields]]
+id = "pair_link.form.0x05.field.port"
+offset = 3
+length = 2
+encoding = "unsigned_big_endian"
+citation = "form_05_port"
+
+[[forms.fields]]
+id = "pair_link.form.0x05.field.ipv4"
+offset = 5
+length = "4 * count"
+encoding = "raw_ipv4_byte_array"
+citation = "form_05_ipv4"
+
+[[forms.fields]]
+id = "pair_link.form.0x05.field.nonce"
+offset = "5 + 4 * count"
+length = 16
+encoding = "opaque_nonce"
+citation = "form_05_nonce"
+
+[[forms.fields]]
+id = "pair_link.form.0x05.field.ca_fp"
+offset = "5 + 4 * count + 16"
+length = 16
+encoding = "sha256_prefix"
+semantic_ref = "ca_cert_der_sha256_prefix16"
+citation = "form_05_ca_fp"
+gap_refs = ["gap.direct_forms.ca_fp_tag_missing"]
+
+[forms.total_length]
+kind = "expression"
+expression = "5 + 4 * count + 32"
+citation = "form_05_total"
+
+[[forms]]
+id = "pair_link.form.0x06"
+version = 6
+label = "0x06"
+status = "active"
+citation = "form_06"
+gap_refs = ["gap.form_0x06.total_length", "gap.form_0x06.invalid_length_behavior"]
+
+[[forms.fields]]
+id = "pair_link.form.0x06.field.version"
+offset = 0
+length = 1
+encoding = "fixed_byte"
+semantic_ref = "pair_link.version"
+citation = "form_06_version"
+
+[[forms.fields]]
+id = "pair_link.form.0x06.field.S"
+offset = 1
+length = 8
+encoding = "opaque_nonce"
+citation = "form_06_nonce"
+
+[[forms.fields]]
+id = "pair_link.form.0x06.field.ca_fp_tag"
+offset = 9
+length = 1
+encoding = "vocabulary_byte"
+semantic_ref = "pair_link.ca_fp_tag"
+citation = "form_06_tag"
+
+[[forms.fields]]
+id = "pair_link.form.0x06.field.ca_fp_spki"
+offset = 10
+length = 16
+encoding = "sha256_prefix"
+semantic_ref = "ca_spki_der_sha256_prefix16"
+citation = "form_06_ca_fp"
+gap_refs = ["gap.form_0x06.ca_fp_name", "gap.form_0x06.deleted_0x03_dependency"]
+
+[[forms.fields]]
+id = "pair_link.form.0x06.field.relay_origin_selector"
+offset = 26
+length = 1
+encoding = "zero_sentinel_or_byte_length"
+semantic_ref = "pair_link.relay_origin_selector"
+citation = "form_06_selector"
+gap_refs = ["gap.relay_origin_selector.unknown_behavior", "gap.form_0x06.invalid_length_behavior"]
+
+[[forms.fields]]
+id = "pair_link.form.0x06.field.relay_origin"
+offset = 27
+length = "N"
+encoding = "utf8"
+citation = "form_06_origin"
+gap_refs = ["gap.form_0x06.invalid_utf8_behavior", "gap.form_0x06.origin_syntax"]
+
+[forms.total_length]
+kind = "incomplete_source_rule"
+base_bytes = 27
+variable_field = "relay_origin"
+exact_rule = "unspecified_in_source_documents"
+citation = "form_06_base"
+gap_ref = "gap.form_0x06.total_length"
+
+[[vocabularies]]
+id = "pair_link.version"
+classification = "extensible"
+unknown_value_behavior = "unspecified_in_source_documents"
+source_pointer = "/forms"
+citation = "first_byte_discriminator"
+gap_ref = "gap.version.unknown_behavior"
+values = [
+  { value = 3, label = "0x03" },
+  { value = 4, label = "0x04" },
+  { value = 5, label = "0x05" },
+  { value = 6, label = "0x06" },
+]
+
+[[vocabularies]]
+id = "pair_link.addr_type"
+classification = "closed"
+unknown_value_behavior = "unspecified_in_source_documents"
+source_pointer = "/forms"
+citation = "direct_ipv4_only"
+gap_ref = "gap.addr_type.unknown_behavior"
+values = [{ value = 1, label = "0x01" }]
+
+[[vocabularies]]
+id = "pair_link.ca_fp_tag"
+classification = "extensible"
+unknown_value_behavior = "unspecified_in_source_documents"
+source_pointer = "/ca_pin_tags"
+citation = "form_06_tag"
+gap_ref = "gap.ca_fp_tag.unknown_behavior"
+values = [{ value = 1, label = "0x01" }]
+
+[[vocabularies]]
+id = "pair_link.relay_origin_selector"
+classification = "closed"
+unknown_value_behavior = "unspecified_in_source_documents"
+source_pointer = "/forms"
+citation = "form_06_selector"
+gap_ref = "gap.relay_origin_selector.unknown_behavior"
+known_registry = { default_sentinel = { value = 0, label = "0x00" }, default_origin = { value = "https://link.solstone.app", citation = "form_06_default_relay" }, custom_origin_byte_length = { minimum = 1, minimum_label = "0x01", maximum = 255, maximum_label = "0xff" } }
+
+[[vocabularies]]
+id = "pair_link.0x05.candidate_count"
+classification = "closed"
+unknown_value_behavior = "reject"
+source_pointer = "/forms"
+citation = "form_05_count_bounds"
+values = [
+  { value = 1, label = "0x01" },
+  { value = 2, label = "0x02" },
+  { value = 3, label = "0x03" },
+  { value = 4, label = "0x04" },
+]
+
+[[vocabularies]]
+id = "direct_address_policy.allow_list"
+classification = "closed"
+unknown_value_behavior = "reject"
+source_pointer = "/address_allow_list"
+citation = "allow_loopback"
+values = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "169.254.0.0/16", "100.64.0.0/10", "fc00::/7", "loopback"]
+
+[[vocabularies]]
+id = "pair_link.pin_domain"
+classification = "extensible"
+unknown_value_behavior = "unspecified_in_source_documents"
+source_pointer = "/pin_domains"
+citation = "direct_pin_dispatch"
+gap_ref = "gap.pin_domain.unknown_behavior"
+values = ["ca_cert_der_sha256_prefix16", "ca_spki_der_sha256_prefix16"]
+
+[[gaps]]
+id = "gap.version.unknown_behavior"
+subject = "pair_link.version"
+kind = "silent"
+citation = "first_byte_discriminator"
+description = "The source documents do not state what a parser does with an unrecognized pair-link version byte."
+
+[[gaps]]
+id = "gap.addr_type.unknown_behavior"
+subject = "pair_link.addr_type"
+kind = "silent"
+citation = "direct_ipv4_only"
+description = "The source documents define only IPv4 address type 0x01 and do not state what a parser does with another address-type value."
+
+[[gaps]]
+id = "gap.ca_fp_tag.unknown_behavior"
+subject = "pair_link.ca_fp_tag"
+kind = "silent"
+citation = "form_06_tag"
+description = "The source documents define CA fingerprint tag 0x01 and do not state what a parser does with another tag value."
+
+[[gaps]]
+id = "gap.relay_origin_selector.unknown_behavior"
+subject = "pair_link.relay_origin_selector"
+kind = "silent"
+citation = "form_06_selector"
+description = "The source documents assign every selector byte to the default sentinel or a length but do not state behavior when the declared length disagrees with the blob."
+
+[[gaps]]
+id = "gap.pin_domain.unknown_behavior"
+subject = "pair_link.pin_domain"
+kind = "silent"
+citation = "direct_pin_dispatch"
+description = "The source documents require version-and-tag pin dispatch but do not state behavior for an unknown version and tag combination."
+
+[[gaps]]
+id = "gap.address_policy.loopback_scope"
+subject = "direct_address.loopback"
+kind = "silent"
+citation = "allow_loopback"
+description = "The source document says loopback without specifying IPv4 127.0.0.0/8, IPv6 ::1/128, or both."
+
+[[gaps]]
+id = "gap.direct_forms.ca_fp_tag_missing"
+subject = "ca_cert_der_sha256_prefix16"
+kind = "internally_inconsistent"
+citation = "direct_pin_dispatch"
+description = "The 0x04 and 0x05 layouts have no ca_fp_tag field although the prose requires pin selection by version and tag."
+
+[[gaps]]
+id = "gap.form_0x06.total_length"
+subject = "pair_link.form.0x06"
+kind = "silent"
+citation = "form_06_base"
+description = "The source document states a 27-byte base and an N-byte field but never states an exact total-length rule."
+
+[[gaps]]
+id = "gap.form_0x06.invalid_length_behavior"
+subject = "pair_link.form.0x06"
+kind = "silent"
+citation = "form_06_selector"
+description = "The source document does not state how a parser handles truncated or trailing bytes relative to the relay-origin selector."
+
+[[gaps]]
+id = "gap.form_0x06.invalid_utf8_behavior"
+subject = "pair_link.form.0x06.field.relay_origin"
+kind = "silent"
+citation = "form_06_origin"
+description = "The source document calls relay_origin UTF-8 but does not state behavior for invalid UTF-8."
+
+[[gaps]]
+id = "gap.form_0x06.origin_syntax"
+subject = "pair_link.form.0x06.field.relay_origin"
+kind = "silent"
+citation = "form_06_origin"
+description = "The source document does not define accepted relay-origin schemes or URL syntax."
+
+[[gaps]]
+id = "gap.form_0x06.ca_fp_name"
+subject = "pair_link.form.0x06.field.ca_fp_spki"
+kind = "internally_inconsistent"
+citation = "form_06_base"
+description = "The 0x06 table names ca_fp_spki while the immediately following prose calls the field ca_fp."
+
+[[gaps]]
+id = "gap.form_0x06.deleted_0x03_dependency"
+subject = "ca_spki_der_sha256_prefix16"
+kind = "stale_cross_reference"
+citation = "form_06_deleted_03"
+description = "The 0x06 pin is described by comparison to a deleted 0x03 form whose layout is no longer present in the source documents."
+
+[[gaps]]
+id = "gap.version_0x03.reservation_delta"
+subject = "pair_link.form.0x03"
+kind = "assignment_delta"
+citation = "form_03_retired"
+description = "The source documents retire and delete 0x03 but do not permanently reserve the byte; reuse is reserved by this definition assignment."
+
+[[gaps]]
+id = "gap.cross_reference.pairing_0x03"
+subject = "source_claim.pair_window.supersedes_pairing_0x03"
+kind = "stale_cross_reference"
+citation = "stale_pairing_03"
+description = "The pair-window document claims to supersede an 0x03 passage in pairing.md, but pairing.md contains no 0x03, totp, or TOTP passage."
+
+[[gaps]]
+id = "gap.cross_reference.tokens_totp_pair_ticket"
+subject = "source_claim.pair_window.supersedes_tokens_pair_ticket"
+kind = "stale_cross_reference"
+citation = "stale_tokens_pair_ticket"
+description = "The pair-window document claims to supersede TOTP and pair_ticket passages in tokens.md, but tokens.md contains neither totp nor pair_ticket."

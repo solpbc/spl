@@ -1,0 +1,858 @@
+{
+  "$defs": {
+    "active_form": {
+      "additionalProperties": false,
+      "properties": {
+        "citation": {
+          "$ref": "#/$defs/citation"
+        },
+        "fields": {
+          "items": {
+            "$ref": "#/$defs/form_field"
+          },
+          "type": "array"
+        },
+        "gap_refs": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "label": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "status": {
+          "const": "active"
+        },
+        "total_length": {
+          "oneOf": [
+            {
+              "$ref": "#/$defs/total_length_exact"
+            },
+            {
+              "$ref": "#/$defs/total_length_expression"
+            },
+            {
+              "$ref": "#/$defs/total_length_incomplete"
+            }
+          ]
+        },
+        "version": {
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "version",
+        "label",
+        "status",
+        "fields",
+        "total_length",
+        "citation",
+        "gap_refs"
+      ],
+      "type": "object"
+    },
+    "allow_entry": {
+      "additionalProperties": false,
+      "properties": {
+        "citation": {
+          "$ref": "#/$defs/citation"
+        },
+        "family": {
+          "enum": [
+            "ipv4",
+            "ipv6",
+            "unspecified_in_source_documents"
+          ]
+        },
+        "gap_ref": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "cidr",
+            "source_term"
+          ]
+        },
+        "value": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "family",
+        "kind",
+        "value",
+        "citation",
+        "gap_ref"
+      ],
+      "type": "object"
+    },
+    "byte_range": {
+      "additionalProperties": false,
+      "properties": {
+        "maximum": {
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "maximum_label": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "minimum": {
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        },
+        "minimum_label": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "minimum",
+        "minimum_label",
+        "maximum",
+        "maximum_label"
+      ],
+      "type": "object"
+    },
+    "byte_value": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "value": {
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "value",
+        "label"
+      ],
+      "type": "object"
+    },
+    "ca_pin_tag": {
+      "additionalProperties": false,
+      "properties": {
+        "citation": {
+          "$ref": "#/$defs/citation"
+        },
+        "gap_ref": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "label": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "pin_domain_ref": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "status": {
+          "const": "active"
+        },
+        "value": {
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "value",
+        "label",
+        "status",
+        "pin_domain_ref",
+        "citation",
+        "gap_ref"
+      ],
+      "type": "object"
+    },
+    "citation": {
+      "additionalProperties": false,
+      "properties": {
+        "document": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "marker": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "document",
+        "marker"
+      ],
+      "type": "object"
+    },
+    "default_origin": {
+      "additionalProperties": false,
+      "properties": {
+        "citation": {
+          "$ref": "#/$defs/citation"
+        },
+        "value": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "value",
+        "citation"
+      ],
+      "type": "object"
+    },
+    "form_field": {
+      "additionalProperties": false,
+      "properties": {
+        "citation": {
+          "$ref": "#/$defs/citation"
+        },
+        "encoding": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "gap_refs": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "length": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "minLength": 1,
+              "type": "string"
+            }
+          ]
+        },
+        "offset": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "minLength": 1,
+              "type": "string"
+            }
+          ]
+        },
+        "semantic_ref": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "id",
+        "offset",
+        "length",
+        "encoding",
+        "semantic_ref",
+        "citation",
+        "gap_refs"
+      ],
+      "type": "object"
+    },
+    "gap": {
+      "additionalProperties": false,
+      "properties": {
+        "citation": {
+          "$ref": "#/$defs/citation"
+        },
+        "description": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "assignment_delta",
+            "internally_inconsistent",
+            "silent",
+            "stale_cross_reference"
+          ]
+        },
+        "subject": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "subject",
+        "kind",
+        "citation",
+        "description"
+      ],
+      "type": "object"
+    },
+    "pin_domain": {
+      "additionalProperties": false,
+      "properties": {
+        "citation": {
+          "$ref": "#/$defs/citation"
+        },
+        "gap_refs": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "hash": {
+          "const": "sha256"
+        },
+        "id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "input": {
+          "enum": [
+            "ca_certificate_der",
+            "ca_subject_public_key_info_der"
+          ]
+        },
+        "prefix_bytes": {
+          "const": 16
+        },
+        "tag": {
+          "anyOf": [
+            {
+              "maximum": 255,
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "const": "absent_in_layout"
+            }
+          ]
+        },
+        "tag_label": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "version_labels": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "minItems": 1,
+          "type": "array"
+        },
+        "versions": {
+          "items": {
+            "maximum": 255,
+            "minimum": 0,
+            "type": "integer"
+          },
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "versions",
+        "version_labels",
+        "tag",
+        "tag_label",
+        "hash",
+        "input",
+        "prefix_bytes",
+        "citation",
+        "gap_refs"
+      ],
+      "type": "object"
+    },
+    "retired_form": {
+      "additionalProperties": false,
+      "properties": {
+        "citation": {
+          "$ref": "#/$defs/citation"
+        },
+        "gap_refs": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "label": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "reuse": {
+          "const": "reserved"
+        },
+        "status": {
+          "const": "retired"
+        },
+        "version": {
+          "maximum": 255,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "version",
+        "label",
+        "status",
+        "reuse",
+        "citation",
+        "gap_refs"
+      ],
+      "type": "object"
+    },
+    "selector_registry": {
+      "additionalProperties": false,
+      "properties": {
+        "custom_origin_byte_length": {
+          "$ref": "#/$defs/byte_range"
+        },
+        "default_origin": {
+          "$ref": "#/$defs/default_origin"
+        },
+        "default_sentinel": {
+          "$ref": "#/$defs/byte_value"
+        }
+      },
+      "required": [
+        "default_sentinel",
+        "default_origin",
+        "custom_origin_byte_length"
+      ],
+      "type": "object"
+    },
+    "source_claim": {
+      "additionalProperties": false,
+      "properties": {
+        "citation": {
+          "$ref": "#/$defs/citation"
+        },
+        "description": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "citation",
+        "description"
+      ],
+      "type": "object"
+    },
+    "total_length_exact": {
+      "additionalProperties": false,
+      "properties": {
+        "bytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "citation": {
+          "$ref": "#/$defs/citation"
+        },
+        "kind": {
+          "const": "exact"
+        }
+      },
+      "required": [
+        "kind",
+        "bytes",
+        "citation"
+      ],
+      "type": "object"
+    },
+    "total_length_expression": {
+      "additionalProperties": false,
+      "properties": {
+        "citation": {
+          "$ref": "#/$defs/citation"
+        },
+        "expression": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "const": "expression"
+        }
+      },
+      "required": [
+        "kind",
+        "expression",
+        "citation"
+      ],
+      "type": "object"
+    },
+    "total_length_incomplete": {
+      "additionalProperties": false,
+      "properties": {
+        "base_bytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "citation": {
+          "$ref": "#/$defs/citation"
+        },
+        "exact_rule": {
+          "const": "unspecified_in_source_documents"
+        },
+        "gap_ref": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "const": "incomplete_source_rule"
+        },
+        "variable_field": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "base_bytes",
+        "variable_field",
+        "exact_rule",
+        "citation",
+        "gap_ref"
+      ],
+      "type": "object"
+    },
+    "vocabulary_registry_documented": {
+      "additionalProperties": false,
+      "properties": {
+        "citation": {
+          "$ref": "#/$defs/citation"
+        },
+        "classification": {
+          "enum": [
+            "closed",
+            "extensible",
+            "extensible_integer"
+          ]
+        },
+        "id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "known_registry": {
+          "$ref": "#/$defs/selector_registry"
+        },
+        "source_pointer": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "unknown_value_behavior": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "classification",
+        "unknown_value_behavior",
+        "source_pointer",
+        "citation",
+        "known_registry"
+      ],
+      "type": "object"
+    },
+    "vocabulary_registry_gap": {
+      "additionalProperties": false,
+      "properties": {
+        "citation": {
+          "$ref": "#/$defs/citation"
+        },
+        "classification": {
+          "enum": [
+            "closed",
+            "extensible",
+            "extensible_integer"
+          ]
+        },
+        "gap_ref": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "known_registry": {
+          "$ref": "#/$defs/selector_registry"
+        },
+        "source_pointer": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "unknown_value_behavior": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "classification",
+        "unknown_value_behavior",
+        "source_pointer",
+        "citation",
+        "known_registry",
+        "gap_ref"
+      ],
+      "type": "object"
+    },
+    "vocabulary_values_documented": {
+      "additionalProperties": false,
+      "properties": {
+        "citation": {
+          "$ref": "#/$defs/citation"
+        },
+        "classification": {
+          "enum": [
+            "closed",
+            "extensible",
+            "extensible_integer"
+          ]
+        },
+        "id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "source_pointer": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "unknown_value_behavior": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "values": {
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/byte_value"
+              },
+              {
+                "minLength": 1,
+                "type": "string"
+              }
+            ]
+          },
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "classification",
+        "unknown_value_behavior",
+        "source_pointer",
+        "citation",
+        "values"
+      ],
+      "type": "object"
+    },
+    "vocabulary_values_gap": {
+      "additionalProperties": false,
+      "properties": {
+        "citation": {
+          "$ref": "#/$defs/citation"
+        },
+        "classification": {
+          "enum": [
+            "closed",
+            "extensible",
+            "extensible_integer"
+          ]
+        },
+        "gap_ref": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "source_pointer": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "unknown_value_behavior": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "values": {
+          "items": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/byte_value"
+              },
+              {
+                "minLength": 1,
+                "type": "string"
+              }
+            ]
+          },
+          "minItems": 1,
+          "type": "array"
+        }
+      },
+      "required": [
+        "id",
+        "classification",
+        "unknown_value_behavior",
+        "source_pointer",
+        "citation",
+        "values",
+        "gap_ref"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "address_allow_list": {
+      "items": {
+        "$ref": "#/$defs/allow_entry"
+      },
+      "type": "array"
+    },
+    "ca_pin_tags": {
+      "items": {
+        "$ref": "#/$defs/ca_pin_tag"
+      },
+      "type": "array"
+    },
+    "forms": {
+      "items": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/active_form"
+          },
+          {
+            "$ref": "#/$defs/retired_form"
+          }
+        ]
+      },
+      "type": "array"
+    },
+    "gaps": {
+      "items": {
+        "$ref": "#/$defs/gap"
+      },
+      "type": "array"
+    },
+    "pin_domains": {
+      "items": {
+        "$ref": "#/$defs/pin_domain"
+      },
+      "type": "array"
+    },
+    "source_claims": {
+      "items": {
+        "$ref": "#/$defs/source_claim"
+      },
+      "type": "array"
+    },
+    "vocabularies": {
+      "items": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/vocabulary_values_documented"
+          },
+          {
+            "$ref": "#/$defs/vocabulary_values_gap"
+          },
+          {
+            "$ref": "#/$defs/vocabulary_registry_documented"
+          },
+          {
+            "$ref": "#/$defs/vocabulary_registry_gap"
+          }
+        ]
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "address_allow_list",
+    "ca_pin_tags",
+    "forms",
+    "gaps",
+    "pin_domains",
+    "source_claims",
+    "vocabularies"
+  ],
+  "title": "SPL pair-link and direct-address definition",
+  "type": "object"
+}

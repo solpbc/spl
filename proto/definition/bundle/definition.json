@@ -1,0 +1,802 @@
+{
+  "address_allow_list": [
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "`10.0.0.0/8`"
+      },
+      "family": "ipv4",
+      "gap_ref": null,
+      "id": "direct_address.10_8",
+      "kind": "cidr",
+      "value": "10.0.0.0/8"
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "`172.16.0.0/12`"
+      },
+      "family": "ipv4",
+      "gap_ref": null,
+      "id": "direct_address.172_16_12",
+      "kind": "cidr",
+      "value": "172.16.0.0/12"
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "`192.168.0.0/16`"
+      },
+      "family": "ipv4",
+      "gap_ref": null,
+      "id": "direct_address.192_168_16",
+      "kind": "cidr",
+      "value": "192.168.0.0/16"
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "IPv4 link-local `169.254.0.0/16`"
+      },
+      "family": "ipv4",
+      "gap_ref": null,
+      "id": "direct_address.ipv4_link_local",
+      "kind": "cidr",
+      "value": "169.254.0.0/16"
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "RFC 6598 shared address space `100.64.0.0/10`"
+      },
+      "family": "ipv4",
+      "gap_ref": null,
+      "id": "direct_address.rfc6598_shared",
+      "kind": "cidr",
+      "value": "100.64.0.0/10"
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "IPv6 ULA `fc00::/7`"
+      },
+      "family": "ipv6",
+      "gap_ref": null,
+      "id": "direct_address.ipv6_ula",
+      "kind": "cidr",
+      "value": "fc00::/7"
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "`fc00::/7`, loopback). v1 refuses every other address at this step"
+      },
+      "family": "unspecified_in_source_documents",
+      "gap_ref": "gap.address_policy.loopback_scope",
+      "id": "direct_address.loopback",
+      "kind": "source_term",
+      "value": "loopback"
+    }
+  ],
+  "ca_pin_tags": [
+    {
+      "citation": {
+        "document": "proto/pair-window.md",
+        "marker": "| 9 | 1 | ca_fp_tag | `0x01` = SHA-256 over CA DER SPKI, first 16 bytes |"
+      },
+      "gap_ref": null,
+      "id": "ca_fp_tag.spki_sha256_prefix16",
+      "label": "0x01",
+      "pin_domain_ref": "ca_spki_der_sha256_prefix16",
+      "status": "active",
+      "value": 1
+    }
+  ],
+  "forms": [
+    {
+      "citation": {
+        "document": "proto/pair-window.md",
+        "marker": "there is no `0x03`/TOTP fallback"
+      },
+      "gap_refs": [
+        "gap.version_0x03.reservation_delta"
+      ],
+      "id": "pair_link.form.0x03",
+      "label": "0x03",
+      "reuse": "reserved",
+      "status": "retired",
+      "version": 3
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Direct form, version `0x04` (40 bytes):"
+      },
+      "fields": [
+        {
+          "citation": {
+            "document": "proto/pairing.md",
+            "marker": "| 0 | 1 | version | `0x04` |"
+          },
+          "encoding": "fixed_byte",
+          "gap_refs": [],
+          "id": "pair_link.form.0x04.field.version",
+          "length": 1,
+          "offset": 0,
+          "semantic_ref": "pair_link.version"
+        },
+        {
+          "citation": {
+            "document": "proto/pairing.md",
+            "marker": "| 0 | 1 | version | `0x04` |\n| 1 | 1 | addr_type | `0x01` = IPv4 |"
+          },
+          "encoding": "vocabulary_byte",
+          "gap_refs": [],
+          "id": "pair_link.form.0x04.field.addr_type",
+          "length": 1,
+          "offset": 1,
+          "semantic_ref": "pair_link.addr_type"
+        },
+        {
+          "citation": {
+            "document": "proto/pairing.md",
+            "marker": "| 2 | 4 | ipv4 | raw IPv4 bytes |"
+          },
+          "encoding": "raw_ipv4_bytes",
+          "gap_refs": [],
+          "id": "pair_link.form.0x04.field.ipv4",
+          "length": 4,
+          "offset": 2,
+          "semantic_ref": null
+        },
+        {
+          "citation": {
+            "document": "proto/pairing.md",
+            "marker": "| 6 | 2 | port | unsigned big-endian |"
+          },
+          "encoding": "unsigned_big_endian",
+          "gap_refs": [],
+          "id": "pair_link.form.0x04.field.port",
+          "length": 2,
+          "offset": 6,
+          "semantic_ref": null
+        },
+        {
+          "citation": {
+            "document": "proto/pairing.md",
+            "marker": "| 8 | 16 | nonce | 128-bit single-use nonce |"
+          },
+          "encoding": "opaque_nonce",
+          "gap_refs": [],
+          "id": "pair_link.form.0x04.field.nonce",
+          "length": 16,
+          "offset": 8,
+          "semantic_ref": null
+        },
+        {
+          "citation": {
+            "document": "proto/pairing.md",
+            "marker": "| 24 | 16 | ca_fp | first 16 bytes of SHA-256 over the CA cert DER |"
+          },
+          "encoding": "sha256_prefix",
+          "gap_refs": [
+            "gap.direct_forms.ca_fp_tag_missing"
+          ],
+          "id": "pair_link.form.0x04.field.ca_fp",
+          "length": 16,
+          "offset": 24,
+          "semantic_ref": "ca_cert_der_sha256_prefix16"
+        }
+      ],
+      "gap_refs": [],
+      "id": "pair_link.form.0x04",
+      "label": "0x04",
+      "status": "active",
+      "total_length": {
+        "bytes": 40,
+        "citation": {
+          "document": "proto/pairing.md",
+          "marker": "Direct form, version `0x04` (40 bytes):"
+        },
+        "kind": "exact"
+      },
+      "version": 4
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Multi-candidate direct form, version `0x05` (variable length):"
+      },
+      "fields": [
+        {
+          "citation": {
+            "document": "proto/pairing.md",
+            "marker": "| 0 | 1 | version | `0x05` |"
+          },
+          "encoding": "fixed_byte",
+          "gap_refs": [],
+          "id": "pair_link.form.0x05.field.version",
+          "length": 1,
+          "offset": 0,
+          "semantic_ref": "pair_link.version"
+        },
+        {
+          "citation": {
+            "document": "proto/pairing.md",
+            "marker": "| 0 | 1 | version | `0x05` |\n| 1 | 1 | addr_type | `0x01` = IPv4 |"
+          },
+          "encoding": "vocabulary_byte",
+          "gap_refs": [],
+          "id": "pair_link.form.0x05.field.addr_type",
+          "length": 1,
+          "offset": 1,
+          "semantic_ref": "pair_link.addr_type"
+        },
+        {
+          "citation": {
+            "document": "proto/pairing.md",
+            "marker": "| 2 | 1 | count | number of candidate addresses, 1\u20134 |"
+          },
+          "encoding": "unsigned_integer",
+          "gap_refs": [],
+          "id": "pair_link.form.0x05.field.count",
+          "length": 1,
+          "offset": 2,
+          "semantic_ref": "pair_link.0x05.candidate_count"
+        },
+        {
+          "citation": {
+            "document": "proto/pairing.md",
+            "marker": "| 3 | 2 | port | unsigned big-endian, shared by all candidates |"
+          },
+          "encoding": "unsigned_big_endian",
+          "gap_refs": [],
+          "id": "pair_link.form.0x05.field.port",
+          "length": 2,
+          "offset": 3,
+          "semantic_ref": null
+        },
+        {
+          "citation": {
+            "document": "proto/pairing.md",
+            "marker": "| 5 | 4 \u00d7 count | ipv4[] | `count` raw IPv4 addresses, 4 bytes each |"
+          },
+          "encoding": "raw_ipv4_byte_array",
+          "gap_refs": [],
+          "id": "pair_link.form.0x05.field.ipv4",
+          "length": "4 * count",
+          "offset": 5,
+          "semantic_ref": null
+        },
+        {
+          "citation": {
+            "document": "proto/pairing.md",
+            "marker": "| 5 + 4\u00b7count | 16 | nonce | 128-bit single-use nonce |"
+          },
+          "encoding": "opaque_nonce",
+          "gap_refs": [],
+          "id": "pair_link.form.0x05.field.nonce",
+          "length": 16,
+          "offset": "5 + 4 * count",
+          "semantic_ref": null
+        },
+        {
+          "citation": {
+            "document": "proto/pairing.md",
+            "marker": "| 5 + 4\u00b7count + 16 | 16 | ca_fp | first 16 bytes of SHA-256 over the CA cert DER |"
+          },
+          "encoding": "sha256_prefix",
+          "gap_refs": [
+            "gap.direct_forms.ca_fp_tag_missing"
+          ],
+          "id": "pair_link.form.0x05.field.ca_fp",
+          "length": 16,
+          "offset": "5 + 4 * count + 16",
+          "semantic_ref": "ca_cert_der_sha256_prefix16"
+        }
+      ],
+      "gap_refs": [],
+      "id": "pair_link.form.0x05",
+      "label": "0x05",
+      "status": "active",
+      "total_length": {
+        "citation": {
+          "document": "proto/pairing.md",
+          "marker": "Total length is `5 + 4\u00b7count + 32`."
+        },
+        "expression": "5 + 4 * count + 32",
+        "kind": "expression"
+      },
+      "version": 5
+    },
+    {
+      "citation": {
+        "document": "proto/pair-window.md",
+        "marker": "pair-link wire format \u2014 version `0x06`"
+      },
+      "fields": [
+        {
+          "citation": {
+            "document": "proto/pair-window.md",
+            "marker": "| 0 | 1 | version | `0x06` |"
+          },
+          "encoding": "fixed_byte",
+          "gap_refs": [],
+          "id": "pair_link.form.0x06.field.version",
+          "length": 1,
+          "offset": 0,
+          "semantic_ref": "pair_link.version"
+        },
+        {
+          "citation": {
+            "document": "proto/pair-window.md",
+            "marker": "| 1 | 8 | `S` | 64-bit single-use pairing nonce |"
+          },
+          "encoding": "opaque_nonce",
+          "gap_refs": [],
+          "id": "pair_link.form.0x06.field.S",
+          "length": 8,
+          "offset": 1,
+          "semantic_ref": null
+        },
+        {
+          "citation": {
+            "document": "proto/pair-window.md",
+            "marker": "| 9 | 1 | ca_fp_tag | `0x01` = SHA-256 over CA DER SPKI, first 16 bytes |"
+          },
+          "encoding": "vocabulary_byte",
+          "gap_refs": [],
+          "id": "pair_link.form.0x06.field.ca_fp_tag",
+          "length": 1,
+          "offset": 9,
+          "semantic_ref": "pair_link.ca_fp_tag"
+        },
+        {
+          "citation": {
+            "document": "proto/pair-window.md",
+            "marker": "| 10 | 16 | ca_fp_spki | first 16 bytes of SHA-256 over the CA DER SubjectPublicKeyInfo |"
+          },
+          "encoding": "sha256_prefix",
+          "gap_refs": [
+            "gap.form_0x06.ca_fp_name",
+            "gap.form_0x06.deleted_0x03_dependency"
+          ],
+          "id": "pair_link.form.0x06.field.ca_fp_spki",
+          "length": 16,
+          "offset": 10,
+          "semantic_ref": "ca_spki_der_sha256_prefix16"
+        },
+        {
+          "citation": {
+            "document": "proto/pair-window.md",
+            "marker": "| 26 | 1 | relay_origin_selector | `0x00` = well-known default relay; `N` (`1..255`) = custom origin byte length |"
+          },
+          "encoding": "zero_sentinel_or_byte_length",
+          "gap_refs": [
+            "gap.relay_origin_selector.unknown_behavior",
+            "gap.form_0x06.invalid_length_behavior"
+          ],
+          "id": "pair_link.form.0x06.field.relay_origin_selector",
+          "length": 1,
+          "offset": 26,
+          "semantic_ref": "pair_link.relay_origin_selector"
+        },
+        {
+          "citation": {
+            "document": "proto/pair-window.md",
+            "marker": "| 27 | N | relay_origin | UTF-8 bytes of the custom origin; omitted when selector is `0x00` |"
+          },
+          "encoding": "utf8",
+          "gap_refs": [
+            "gap.form_0x06.invalid_utf8_behavior",
+            "gap.form_0x06.origin_syntax"
+          ],
+          "id": "pair_link.form.0x06.field.relay_origin",
+          "length": "N",
+          "offset": 27,
+          "semantic_ref": null
+        }
+      ],
+      "gap_refs": [
+        "gap.form_0x06.total_length",
+        "gap.form_0x06.invalid_length_behavior"
+      ],
+      "id": "pair_link.form.0x06",
+      "label": "0x06",
+      "status": "active",
+      "total_length": {
+        "base_bytes": 27,
+        "citation": {
+          "document": "proto/pair-window.md",
+          "marker": "Base size **27 bytes** (selector `0x00`)."
+        },
+        "exact_rule": "unspecified_in_source_documents",
+        "gap_ref": "gap.form_0x06.total_length",
+        "kind": "incomplete_source_rule",
+        "variable_field": "relay_origin"
+      },
+      "version": 6
+    }
+  ],
+  "gaps": [
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "The form is discriminated by the first decoded byte (`version`), never by URL path."
+      },
+      "description": "The source documents do not state what a parser does with an unrecognized pair-link version byte.",
+      "id": "gap.version.unknown_behavior",
+      "kind": "silent",
+      "subject": "pair_link.version"
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "The `0x04` and `0x05` forms currently encode IPv4 only."
+      },
+      "description": "The source documents define only IPv4 address type 0x01 and do not state what a parser does with another address-type value.",
+      "id": "gap.addr_type.unknown_behavior",
+      "kind": "silent",
+      "subject": "pair_link.addr_type"
+    },
+    {
+      "citation": {
+        "document": "proto/pair-window.md",
+        "marker": "| 9 | 1 | ca_fp_tag | `0x01` = SHA-256 over CA DER SPKI, first 16 bytes |"
+      },
+      "description": "The source documents define CA fingerprint tag 0x01 and do not state what a parser does with another tag value.",
+      "id": "gap.ca_fp_tag.unknown_behavior",
+      "kind": "silent",
+      "subject": "pair_link.ca_fp_tag"
+    },
+    {
+      "citation": {
+        "document": "proto/pair-window.md",
+        "marker": "| 26 | 1 | relay_origin_selector | `0x00` = well-known default relay; `N` (`1..255`) = custom origin byte length |"
+      },
+      "description": "The source documents assign every selector byte to the default sentinel or a length but do not state behavior when the declared length disagrees with the blob.",
+      "id": "gap.relay_origin_selector.unknown_behavior",
+      "kind": "silent",
+      "subject": "pair_link.relay_origin_selector"
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "A parser MUST key the pin algorithm off version and tag"
+      },
+      "description": "The source documents require version-and-tag pin dispatch but do not state behavior for an unknown version and tag combination.",
+      "id": "gap.pin_domain.unknown_behavior",
+      "kind": "silent",
+      "subject": "pair_link.pin_domain"
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "`fc00::/7`, loopback). v1 refuses every other address at this step"
+      },
+      "description": "The source document says loopback without specifying IPv4 127.0.0.0/8, IPv6 ::1/128, or both.",
+      "id": "gap.address_policy.loopback_scope",
+      "kind": "silent",
+      "subject": "direct_address.loopback"
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "A parser MUST key the pin algorithm off version and tag"
+      },
+      "description": "The 0x04 and 0x05 layouts have no ca_fp_tag field although the prose requires pin selection by version and tag.",
+      "id": "gap.direct_forms.ca_fp_tag_missing",
+      "kind": "internally_inconsistent",
+      "subject": "ca_cert_der_sha256_prefix16"
+    },
+    {
+      "citation": {
+        "document": "proto/pair-window.md",
+        "marker": "Base size **27 bytes** (selector `0x00`)."
+      },
+      "description": "The source document states a 27-byte base and an N-byte field but never states an exact total-length rule.",
+      "id": "gap.form_0x06.total_length",
+      "kind": "silent",
+      "subject": "pair_link.form.0x06"
+    },
+    {
+      "citation": {
+        "document": "proto/pair-window.md",
+        "marker": "| 26 | 1 | relay_origin_selector | `0x00` = well-known default relay; `N` (`1..255`) = custom origin byte length |"
+      },
+      "description": "The source document does not state how a parser handles truncated or trailing bytes relative to the relay-origin selector.",
+      "id": "gap.form_0x06.invalid_length_behavior",
+      "kind": "silent",
+      "subject": "pair_link.form.0x06"
+    },
+    {
+      "citation": {
+        "document": "proto/pair-window.md",
+        "marker": "| 27 | N | relay_origin | UTF-8 bytes of the custom origin; omitted when selector is `0x00` |"
+      },
+      "description": "The source document calls relay_origin UTF-8 but does not state behavior for invalid UTF-8.",
+      "id": "gap.form_0x06.invalid_utf8_behavior",
+      "kind": "silent",
+      "subject": "pair_link.form.0x06.field.relay_origin"
+    },
+    {
+      "citation": {
+        "document": "proto/pair-window.md",
+        "marker": "| 27 | N | relay_origin | UTF-8 bytes of the custom origin; omitted when selector is `0x00` |"
+      },
+      "description": "The source document does not define accepted relay-origin schemes or URL syntax.",
+      "id": "gap.form_0x06.origin_syntax",
+      "kind": "silent",
+      "subject": "pair_link.form.0x06.field.relay_origin"
+    },
+    {
+      "citation": {
+        "document": "proto/pair-window.md",
+        "marker": "Base size **27 bytes** (selector `0x00`)."
+      },
+      "description": "The 0x06 table names ca_fp_spki while the immediately following prose calls the field ca_fp.",
+      "id": "gap.form_0x06.ca_fp_name",
+      "kind": "internally_inconsistent",
+      "subject": "pair_link.form.0x06.field.ca_fp_spki"
+    },
+    {
+      "citation": {
+        "document": "proto/pair-window.md",
+        "marker": "identical in meaning to the `0x03` form"
+      },
+      "description": "The 0x06 pin is described by comparison to a deleted 0x03 form whose layout is no longer present in the source documents.",
+      "id": "gap.form_0x06.deleted_0x03_dependency",
+      "kind": "stale_cross_reference",
+      "subject": "ca_spki_der_sha256_prefix16"
+    },
+    {
+      "citation": {
+        "document": "proto/pair-window.md",
+        "marker": "there is no `0x03`/TOTP fallback"
+      },
+      "description": "The source documents retire and delete 0x03 but do not permanently reserve the byte; reuse is reserved by this definition assignment.",
+      "id": "gap.version_0x03.reservation_delta",
+      "kind": "assignment_delta",
+      "subject": "pair_link.form.0x03"
+    },
+    {
+      "citation": {
+        "document": "proto/pair-window.md",
+        "marker": "the `0x03` relay QR form in [`pairing.md`](pairing.md)"
+      },
+      "description": "The pair-window document claims to supersede an 0x03 passage in pairing.md, but pairing.md contains no 0x03, totp, or TOTP passage.",
+      "id": "gap.cross_reference.pairing_0x03",
+      "kind": "stale_cross_reference",
+      "subject": "source_claim.pair_window.supersedes_pairing_0x03"
+    },
+    {
+      "citation": {
+        "document": "proto/pair-window.md",
+        "marker": "the TOTP / `current_totp` / `pair_ticket` mechanism in [`tokens.md`](tokens.md)"
+      },
+      "description": "The pair-window document claims to supersede TOTP and pair_ticket passages in tokens.md, but tokens.md contains neither totp nor pair_ticket.",
+      "id": "gap.cross_reference.tokens_totp_pair_ticket",
+      "kind": "stale_cross_reference",
+      "subject": "source_claim.pair_window.supersedes_tokens_pair_ticket"
+    }
+  ],
+  "pin_domains": [
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "direct form pins SHA-256(cert DER), first 16 bytes"
+      },
+      "gap_refs": [
+        "gap.direct_forms.ca_fp_tag_missing"
+      ],
+      "hash": "sha256",
+      "id": "ca_cert_der_sha256_prefix16",
+      "input": "ca_certificate_der",
+      "prefix_bytes": 16,
+      "tag": "absent_in_layout",
+      "tag_label": "absent_in_layout",
+      "version_labels": [
+        "0x04",
+        "0x05"
+      ],
+      "versions": [
+        4,
+        5
+      ]
+    },
+    {
+      "citation": {
+        "document": "proto/pair-window.md",
+        "marker": "parsers MUST key the pin algorithm off `version` + `ca_fp_tag`"
+      },
+      "gap_refs": [],
+      "hash": "sha256",
+      "id": "ca_spki_der_sha256_prefix16",
+      "input": "ca_subject_public_key_info_der",
+      "prefix_bytes": 16,
+      "tag": 1,
+      "tag_label": "0x01",
+      "version_labels": [
+        "0x06"
+      ],
+      "versions": [
+        6
+      ]
+    }
+  ],
+  "source_claims": [
+    {
+      "citation": {
+        "document": "proto/pair-window.md",
+        "marker": "the `0x03` relay QR form in [`pairing.md`](pairing.md)"
+      },
+      "description": "Claims that pair-window supersedes a 0x03 relay QR form in pairing.md.",
+      "id": "source_claim.pair_window.supersedes_pairing_0x03"
+    },
+    {
+      "citation": {
+        "document": "proto/pair-window.md",
+        "marker": "the TOTP / `current_totp` / `pair_ticket` mechanism in [`tokens.md`](tokens.md)"
+      },
+      "description": "Claims that pair-window supersedes a TOTP, current_totp, and pair_ticket mechanism in tokens.md.",
+      "id": "source_claim.pair_window.supersedes_tokens_pair_ticket"
+    }
+  ],
+  "vocabularies": [
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "The form is discriminated by the first decoded byte (`version`), never by URL path."
+      },
+      "classification": "extensible",
+      "gap_ref": "gap.version.unknown_behavior",
+      "id": "pair_link.version",
+      "source_pointer": "/forms",
+      "unknown_value_behavior": "unspecified_in_source_documents",
+      "values": [
+        {
+          "label": "0x03",
+          "value": 3
+        },
+        {
+          "label": "0x04",
+          "value": 4
+        },
+        {
+          "label": "0x05",
+          "value": 5
+        },
+        {
+          "label": "0x06",
+          "value": 6
+        }
+      ]
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "The `0x04` and `0x05` forms currently encode IPv4 only."
+      },
+      "classification": "closed",
+      "gap_ref": "gap.addr_type.unknown_behavior",
+      "id": "pair_link.addr_type",
+      "source_pointer": "/forms",
+      "unknown_value_behavior": "unspecified_in_source_documents",
+      "values": [
+        {
+          "label": "0x01",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "citation": {
+        "document": "proto/pair-window.md",
+        "marker": "| 9 | 1 | ca_fp_tag | `0x01` = SHA-256 over CA DER SPKI, first 16 bytes |"
+      },
+      "classification": "extensible",
+      "gap_ref": "gap.ca_fp_tag.unknown_behavior",
+      "id": "pair_link.ca_fp_tag",
+      "source_pointer": "/ca_pin_tags",
+      "unknown_value_behavior": "unspecified_in_source_documents",
+      "values": [
+        {
+          "label": "0x01",
+          "value": 1
+        }
+      ]
+    },
+    {
+      "citation": {
+        "document": "proto/pair-window.md",
+        "marker": "| 26 | 1 | relay_origin_selector | `0x00` = well-known default relay; `N` (`1..255`) = custom origin byte length |"
+      },
+      "classification": "closed",
+      "gap_ref": "gap.relay_origin_selector.unknown_behavior",
+      "id": "pair_link.relay_origin_selector",
+      "known_registry": {
+        "custom_origin_byte_length": {
+          "maximum": 255,
+          "maximum_label": "0xff",
+          "minimum": 1,
+          "minimum_label": "0x01"
+        },
+        "default_origin": {
+          "citation": {
+            "document": "proto/pair-window.md",
+            "marker": "The well-known default relay origin is `https://link.solstone.app`."
+          },
+          "value": "https://link.solstone.app"
+        },
+        "default_sentinel": {
+          "label": "0x00",
+          "value": 0
+        }
+      },
+      "source_pointer": "/forms",
+      "unknown_value_behavior": "unspecified_in_source_documents"
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "A `0x05` link whose count is outside `1...4` is malformed and MUST be refused before key generation or dialing."
+      },
+      "classification": "closed",
+      "id": "pair_link.0x05.candidate_count",
+      "source_pointer": "/forms",
+      "unknown_value_behavior": "reject",
+      "values": [
+        {
+          "label": "0x01",
+          "value": 1
+        },
+        {
+          "label": "0x02",
+          "value": 2
+        },
+        {
+          "label": "0x03",
+          "value": 3
+        },
+        {
+          "label": "0x04",
+          "value": 4
+        }
+      ]
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "`fc00::/7`, loopback). v1 refuses every other address at this step"
+      },
+      "classification": "closed",
+      "id": "direct_address_policy.allow_list",
+      "source_pointer": "/address_allow_list",
+      "unknown_value_behavior": "reject",
+      "values": [
+        "10.0.0.0/8",
+        "172.16.0.0/12",
+        "192.168.0.0/16",
+        "169.254.0.0/16",
+        "100.64.0.0/10",
+        "fc00::/7",
+        "loopback"
+      ]
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "A parser MUST key the pin algorithm off version and tag"
+      },
+      "classification": "extensible",
+      "gap_ref": "gap.pin_domain.unknown_behavior",
+      "id": "pair_link.pin_domain",
+      "source_pointer": "/pin_domains",
+      "unknown_value_behavior": "unspecified_in_source_documents",
+      "values": [
+        "ca_cert_der_sha256_prefix16",
+        "ca_spki_der_sha256_prefix16"
+      ]
+    }
+  ]
+}
