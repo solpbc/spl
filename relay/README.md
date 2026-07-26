@@ -11,7 +11,7 @@ MVP build — Worker + Durable Object implement the full v1 protocol surface:
 - `/enroll/home` and `/enroll/device` control-plane endpoints with Ed25519 JWT issuance and ES256 home-attestation verification (see [`../proto/tokens.md`](../proto/tokens.md))
 - `/session/listen`, `/session/dial`, `/tunnel/<id>` WebSocket routes with JWT verify, WS-tag cardinality, and 16 MiB pending-buffer cap with 1009 close on overflow
 - `/.well-known/jwks.json` transparency mirror
-- D1 schema (`migrations/0001_init.sql`) for instance + device metadata — no payload bytes, ever
+- D1 schema (`migrations/`) for instance, device, grant, and ephemeral pairing-owner metadata — no payload bytes, ever
 - Blind forwarding: the DO holds `ArrayBuffer`s and forwards them without parsing; no code path reads a relayed frame
 
 **What's not built yet:** the Python home (`spl/home/`) and Bun mobile (`spl/mobile/`) MVP programs that exercise the relay end-to-end. Those are the next chunk of the MVP scope.
@@ -48,9 +48,9 @@ Runs the Worker under Miniflare. No CF account required. Secrets can be set in a
 make test
 ```
 
-Two suites, both run via `bun run test` (vitest, driven by bun). Unit tests (`test/`) cover the pure crypto helpers — JWT verify/mint, attestation verify, fingerprinting. Integration tests (`test-integration/`, `@cloudflare/vitest-pool-workers`) spin up the real Worker under Miniflare with D1 and InstanceDO bindings and exercise the full request path, WebSocket pairing, cardinality enforcement, and pending-buffer overflow.
+Unit tests plus four Workers configurations run via `bun run test` (vitest, driven by bun). Unit tests (`test/`) cover the pure crypto helpers. Integration tests (`test-integration/`, `@cloudflare/vitest-pool-workers`) run the real Worker under Miniflare in the default, entitlement-gated, retirement-without-entitlement-gate, and presence-hold configurations with D1 and InstanceDO bindings.
 
-A fresh Ed25519 signing keypair is minted at config-load time in `vitest.workers.config.ts`; no keys are committed. Full CI (`make ci`) runs typecheck + biome + both suites.
+Every Workers config imports `vitest.keys.ts`, which mints a fresh in-memory Ed25519 signing keypair at config-load time; no key file is written or committed. Full CI (`make ci`) runs typecheck, biome, and all five vitest invocations.
 
 ## deploy
 
@@ -101,6 +101,54 @@ Run `bun run gen-key` to mint a self-host keypair — it writes to `~/.spl/signi
 ## configuration
 
 `wrangler.toml` is checked in and contains no secrets. The top-level block is a dev-only placeholder; `[env.production]` is sol pbc's hosted deploy target. It deploys Worker `spl-relay`, D1 database `spl-relay`, and custom domain `link.solstone.app`. Fill in the target env's `database_id` (from `wrangler d1 create ...`) before deploying your own copy. Signing keys and tokens are secrets, provisioned via `wrangler secret put`.
+
+## admin API
+
+All admin endpoints require `Authorization: Bearer <GRANT_SECRET>`. Provision `GRANT_SECRET` with `wrangler secret put GRANT_SECRET --env production`; an unprovisioned relay returns 503, and a missing or incorrect bearer returns 401.
+
+- `POST /admin/entitlement` sets or clears `entitled_until` for an instance. A grant received before home enrollment is held in `pending_grants`; a retired instance returns 409 and any stale pending grant for it is deleted.
+- `GET /admin/instances` lists instance metadata.
+- `GET /admin/instances/<id>` returns one instance or 404.
+- `DELETE /admin/instances/<id>` irreversibly retires an instance. There is no reactivation endpoint, soft mode, or rollback.
+
+For example, with the secret held in the shell environment:
+
+```sh
+curl -X DELETE \
+  -H "Authorization: Bearer ${GRANT_SECRET}" \
+  https://relay.example/admin/instances/018f6b79-9a7c-7d31-a021-4b91c02c7a10
+```
+
+A complete retirement returns HTTP 200 with exactly this shape:
+
+```json
+{
+  "state": "retired",
+  "entry_denial_verified": true,
+  "sockets_closed": true,
+  "devices_revoked": true,
+  "entitlement_cleared": true,
+  "pending_grants_cleared": true,
+  "tombstone_verified": true
+}
+```
+
+`state` is `retired` when this request established the tombstone, `already_retired` when a prior request established it, or `absent` when an independent post-cleanup read proved that neither a live instance row nor a tombstone exists. The `absent` path still clears a pre-enrollment pending grant, but creates no instance row, device row, tombstone, or Durable Object.
+
+The six booleans attest separate postconditions:
+
+- `entry_denial_verified`: D1 contains the terminal revoked state and every discovered instance-addressed or RK-addressed Durable Object contains its derived synchronous denial marker.
+- `sockets_closed`: all discovered sockets and associated DO cleanup completed; already accepted sockets close with code 4403 and reason `instance_retired`.
+- `devices_revoked`: the device mutation completed and no unrevoked device row remains for the instance.
+- `entitlement_cleared`: the mutation completed and `instances.entitled_until` reads back as null.
+- `pending_grants_cleared`: the mutation completed and no pending grant reads back for the instance.
+- `tombstone_verified`: for a known instance, the original `revoked_at` and empty RK-owner registry read back successfully; for `absent`, a separate read proved no instance or tombstone exists.
+
+After `revoked_at` commits, cleanup is best-effort and continues across independent components. If any component cannot be verified, the endpoint returns HTTP 503, omits `state`, returns the same six booleans with their current verified values, and adds exactly one `failed_component` field. Its value is one of `retired_state`, `instance_do_cleanup`, `rk_do_cleanup`, `device_revocation`, `entitlement_clear`, `pending_grant_clear`, `rk_registry_clear`, or `verification`. Retry the authenticated DELETE until it returns 200; retries preserve the original `revoked_at`, repeat and re-verify cleanup, and never reactivate the instance. A malformed id returns 400 before any D1 write or Durable Object invocation.
+
+Retirement uses projection-only tombstones. D1 retains the original `ca_fp`, `ca_pubkey_pem`, `home_label`, and service-token metadata so the same CA cannot be registered again, but retired list/show responses expose exactly `instance_id`, `created_at`, `revoked_at`, `entitled_until: null`, and `entitled: false`. The retained CA public material is not secret and confers no live capability; all enrollment, refresh, session, tunnel, and pairing entry paths refuse the retired instance.
+
+To find RK-addressed sockets without retaining `RK`, D1 temporarily records `(instance_id, do_id, registered_at)` in `pairing_owners`. `do_id` is the opaque 64-hex result of `idFromName(RK)`, not `RK`; it cannot be reversed to recover `RK`, and public routes accept only `RK`, never a DO id. Someone with D1 read access learns that an instance has an active pairing-owned DO and its opaque address, but gains neither the RK nor authority to pair or attach through the public router. Each row is removed when the last owned socket closes or is replaced, when its alarm expires, or during retirement.
 
 ## logging policy
 

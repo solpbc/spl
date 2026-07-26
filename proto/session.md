@@ -393,6 +393,8 @@ Both sides may close at any time. The relay propagates close events across the p
 
 The listen WS closing does **not** close active tunnel WSes — those continue until either side hangs up. The relay does, however, refuse new dials while the listen WS is down.
 
+Irreversible instance retirement is the administrative exception. After the revoked state is established, the relay refuses every new listen, dial, tunnel, pair-window, pair-dial, and pairing-tunnel admission for that instance. It closes every already accepted socket it can discover, including hibernated sockets and sockets in RK-addressed pairing DOs, with application close code `4403` and the fixed reason `instance_retired`. Clients must treat 4403 as terminal for the instance rather than reconnecting with an old token.
+
 ## what `spl-relay` logs about a session
 
 For audit and debugging, the Worker emits structured log events at session boundaries. Logged fields are an exhaustive list:
@@ -400,7 +402,7 @@ For audit and debugging, the Worker emits structured log events at session bound
 - `tunnel_id` (uuid)
 - `instance_id` (uuid)
 - `direction` (one of `home → mobile`, `mobile → home`, or `meta`)
-- `event` (one of `listen_open`, `listen_close`, `dial_open`, `dial_close`, `pair_window_open`, `pair_window_close`, `pair_dial_open`, `pair_dial_rejected`, `tunnel_home_open`, `tunnel_home_close`, `tunnel_mobile_close`, `pair`, `fwd`, `pending_buffer`, `pending_buffer_overflow`, `unauthorized`, `cardinality_violation`, `not_entitled`)
+- `event` (one of `listen_open`, `listen_close`, `dial_open`, `dial_close`, `tunnel_home_open`, `tunnel_home_close`, `tunnel_mobile_open`, `tunnel_mobile_close`, `pair`, `fwd`, `pending_buffer`, `pending_buffer_overflow`, `unauthorized`, `cardinality_violation`, `enroll_home`, `enroll_device`, `enroll_device_remint`, `device_refresh`, `enroll_home_rotate`, `enroll_rejected`, `pair_window_open`, `pair_window_close`, `pair_dial_open`, `pair_dial_rejected`, `entitlement_set`, `entitlement_pending`, `entitlement_revoke`, `pending_grant_claimed`, `admin_instances_list`, `admin_instance_show`, `instance_retire`, `instance_retire_failed`, `not_entitled`, `internal_error`)
 - `byte_count` (when applicable)
 - `close_code` (when applicable)
 - `reason` (on close/error events; a relay-authored classification drawn from a fixed closed set)
