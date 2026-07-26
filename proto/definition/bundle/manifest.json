@@ -1,6 +1,6 @@
 {
   "bundle_schema_identity": "spl.pair-link-definition-bundle.schema.v1",
-  "bundle_semver": "1.1.0",
+  "bundle_semver": "1.1.1",
   "files": [
     {
       "path": "definition.json",
@@ -25,7 +25,7 @@
       "id": "definition.authored_source",
       "path": "proto/definition/definition.toml",
       "role": "authored_source",
-      "sha256": "e9ab09005ea3b220d937dec50cf79e5bdf77f08cacadc7e9dffc6be4331e7e12"
+      "sha256": "956462f638abc3bb25af86e8134546385ad081dca702f1418c0d28e99551a3a5"
     },
     {
       "id": "definition.conformance_corpus",
@@ -37,7 +37,7 @@
       "id": "definition.generator",
       "path": "proto/definition/generate.py",
       "role": "generator",
-      "sha256": "c0428ff8def389d4b14ed64ce2df46a0e448d0dfa01e7212a9f3f32e3fa76bae"
+      "sha256": "531f031cb04d991fa9c5d09e11564441517532ca109a15a686e1ffe810ec1639"
     },
     {
       "id": "source.pair_window",

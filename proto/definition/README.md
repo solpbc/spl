@@ -12,7 +12,7 @@ particular way. The bundle contains canonical `definition.json` and
 `bundle/manifest.json` contains the single format-level identity and SemVer,
 payload digests, and generator-input digests.
 
-The current bundle version is `1.1.0`. The stable identities are:
+The current bundle version is `1.1.1`. The stable identities are:
 
 - generator: `spl.proto.definition.generate.v1`
 - bundle schema: `spl.pair-link-definition-bundle.schema.v1`
@@ -52,7 +52,7 @@ The gate enforces:
   vector order, and operation-specific record shapes;
 - vector citations restricted to normative source documents, declared-vector
   payload literals present in both their own payload fields and cited document,
-  and per-vector definition-entry digests;
+  and per-vector definition-entry digests or explicit unbound reasons;
 - an authored `covers` list that is sorted and unique, resolves completely,
   includes every bound entry, and has at least one citing vector per claim;
 - canonical JSON rendered with sorted keys, two-space indentation, and one

@@ -418,7 +418,6 @@ VECTOR_EXPECTED_SCHEMA = object_schema(
 VECTOR_COMMON_PROPERTIES = {
     "id": STRING,
     "kind": {"enum": ["declared", "recorded"]},
-    "operation": {"enum": ["decode_crockford", "derive_relay_key", "parse_pair_link"]},
     "citation": CITATION_REF,
     "entry_digests": {
         "type": "object",
@@ -427,7 +426,15 @@ VECTOR_COMMON_PROPERTIES = {
     "unbound_reason": {"anyOf": [STRING, {"type": "null"}]},
     "document_literals": {"type": "array", "items": STRING},
 }
-VECTOR_COMMON_REQUIRED = list(VECTOR_COMMON_PROPERTIES)
+VECTOR_COMMON_REQUIRED = [
+    "id",
+    "kind",
+    "operation",
+    "citation",
+    "entry_digests",
+    "unbound_reason",
+    "document_literals",
+]
 VECTOR_PARSE_SCHEMA = object_schema(
     {
         **VECTOR_COMMON_PROPERTIES,
@@ -527,7 +534,11 @@ def read_text_exact(path: Path) -> str:
 
 
 def load_json(
-    text: str, label: str, failures: Failures, recovery: str | None = None
+    text: str,
+    label: str,
+    failures: Failures,
+    recovery: str | None = None,
+    namespace: str = "definition",
 ) -> Any | None:
     recovery = recovery or f"run make definition-generate to restore {label}"
     duplicates: list[str] = []
@@ -544,13 +555,13 @@ def load_json(
         payload = json.loads(text, object_pairs_hook=no_duplicates)
     except json.JSONDecodeError as exc:
         failures.add(
-            f"definition JSON parse failed: {label}: {exc}",
+            f"{namespace} JSON parse failed: {label}: {exc}",
             recovery,
         )
         return None
     if duplicates:
         failures.add(
-            f"definition JSON structure failed: {label} has duplicate key(s) {sorted(set(duplicates))}",
+            f"{namespace} JSON structure failed: {label} has duplicate key(s) {sorted(set(duplicates))}",
             recovery,
         )
     return payload
@@ -569,48 +580,56 @@ def validate_schema_value(
     pointer: str,
     label: str,
     failures: Failures,
+    namespace: str = "definition",
 ) -> None:
     if "$ref" in schema:
-        validate_schema_value(value, resolve_schema_ref(schema["$ref"]), pointer, label, failures)
+        validate_schema_value(
+            value,
+            resolve_schema_ref(schema["$ref"]),
+            pointer,
+            label,
+            failures,
+            namespace,
+        )
         return
     if "oneOf" in schema:
         matches = sum(schema_matches(value, candidate) for candidate in schema["oneOf"])
         if matches != 1:
             failures.add(
-                f"definition structure failed: {label}{pointer} matches {matches} record variants, expected exactly one",
+                f"{namespace} structure failed: {label}{pointer} matches {matches} record variants, expected exactly one",
                 f"fix {label}{pointer} to use one declared record shape",
             )
             return
         for candidate in schema["oneOf"]:
             if schema_matches(value, candidate):
-                validate_schema_value(value, candidate, pointer, label, failures)
+                validate_schema_value(value, candidate, pointer, label, failures, namespace)
                 return
     if "anyOf" in schema:
         for candidate in schema["anyOf"]:
             if schema_matches(value, candidate):
-                validate_schema_value(value, candidate, pointer, label, failures)
+                validate_schema_value(value, candidate, pointer, label, failures, namespace)
                 return
         failures.add(
-            f"definition structure failed: {label}{pointer} does not match any permitted type",
+            f"{namespace} structure failed: {label}{pointer} does not match any permitted type",
             f"fix {label}{pointer} to match its declared record shape",
         )
         return
     if "const" in schema and value != schema["const"]:
         failures.add(
-            f"definition structure failed: {label}{pointer} must equal {schema['const']!r}, got {value!r}",
+            f"{namespace} structure failed: {label}{pointer} must equal {schema['const']!r}, got {value!r}",
             f"set {label}{pointer} to {schema['const']!r}",
         )
         return
     if "enum" in schema and value not in schema["enum"]:
         failures.add(
-            f"definition structure failed: {label}{pointer} has unsupported value {value!r}",
+            f"{namespace} structure failed: {label}{pointer} has unsupported value {value!r}",
             f"set {label}{pointer} to one of {schema['enum']!r}",
         )
         return
     expected_type = schema.get("type")
     if expected_type == "object":
         if not isinstance(value, dict):
-            type_failure(value, "object", pointer, label, failures)
+            type_failure(value, "object", pointer, label, failures, namespace)
             return
         properties = schema.get("properties", {})
         required = schema.get("required", [])
@@ -618,67 +637,78 @@ def validate_schema_value(
         extra = sorted(set(value) - set(properties)) if schema.get("additionalProperties") is False else []
         if missing:
             failures.add(
-                f"definition structure failed: {label}{pointer} is missing required key(s) {missing}",
+                f"{namespace} structure failed: {label}{pointer} is missing required key(s) {missing}",
                 f"add {', '.join(missing)} to {label}{pointer}",
             )
         if extra:
             failures.add(
-                f"definition structure failed: {label}{pointer} has undeclared key(s) {extra}",
+                f"{namespace} structure failed: {label}{pointer} has undeclared key(s) {extra}",
                 f"remove {', '.join(extra)} from {label}{pointer}",
             )
         for key in sorted(set(value) & set(properties)):
-            validate_schema_value(value[key], properties[key], f"{pointer}/{key}", label, failures)
+            validate_schema_value(
+                value[key], properties[key], f"{pointer}/{key}", label, failures, namespace
+            )
         return
     if expected_type == "array":
         if not isinstance(value, list):
-            type_failure(value, "array", pointer, label, failures)
+            type_failure(value, "array", pointer, label, failures, namespace)
             return
         if len(value) < schema.get("minItems", 0):
             failures.add(
-                f"definition structure failed: {label}{pointer} has too few items",
+                f"{namespace} structure failed: {label}{pointer} has too few items",
                 f"add the required items to {label}{pointer}",
             )
         for index, item in enumerate(value):
-            validate_schema_value(item, schema["items"], f"{pointer}/{index}", label, failures)
+            validate_schema_value(
+                item, schema["items"], f"{pointer}/{index}", label, failures, namespace
+            )
         return
     if expected_type == "string":
         if not isinstance(value, str):
-            type_failure(value, "string", pointer, label, failures)
+            type_failure(value, "string", pointer, label, failures, namespace)
             return
         if len(value) < schema.get("minLength", 0):
             failures.add(
-                f"definition structure failed: {label}{pointer} is empty",
+                f"{namespace} structure failed: {label}{pointer} is empty",
                 f"set {label}{pointer} to a non-empty string",
             )
         pattern = schema.get("pattern")
         if pattern and re.fullmatch(pattern, value) is None:
             failures.add(
-                f"definition structure failed: {label}{pointer} does not match {pattern}",
+                f"{namespace} structure failed: {label}{pointer} does not match {pattern}",
                 f"fix {label}{pointer} to match {pattern}",
             )
         return
     if expected_type == "integer":
         if not isinstance(value, int) or isinstance(value, bool):
-            type_failure(value, "integer", pointer, label, failures)
+            type_failure(value, "integer", pointer, label, failures, namespace)
             return
         if value < schema.get("minimum", value):
             failures.add(
-                f"definition structure failed: {label}{pointer} is below its minimum",
+                f"{namespace} structure failed: {label}{pointer} is below its minimum",
                 f"raise {label}{pointer} to at least {schema['minimum']}",
             )
         if value > schema.get("maximum", value):
             failures.add(
-                f"definition structure failed: {label}{pointer} is above its maximum",
+                f"{namespace} structure failed: {label}{pointer} is above its maximum",
                 f"lower {label}{pointer} to at most {schema['maximum']}",
             )
         return
     if expected_type == "null" and value is not None:
-        type_failure(value, "null", pointer, label, failures)
+        type_failure(value, "null", pointer, label, failures, namespace)
 
 
-def type_failure(value: Any, expected: str, pointer: str, label: str, failures: Failures) -> None:
+def type_failure(
+    value: Any,
+    expected: str,
+    pointer: str,
+    label: str,
+    failures: Failures,
+    namespace: str = "definition",
+) -> None:
     failures.add(
-        f"definition structure failed: {label}{pointer} must be {expected}, got {type(value).__name__}",
+        f"{namespace} structure failed: {label}{pointer} must be {expected}, got {type(value).__name__}",
         f"fix {label}{pointer} to use the declared {expected} type",
     )
 
@@ -1328,6 +1358,7 @@ def validate_citation_reference(
     allowed_recovery: str,
     missing_recovery: str,
     failures: Failures,
+    read_label: str | None = None,
 ) -> str | None:
     document = citation.get("document")
     marker = citation.get("marker")
@@ -1353,8 +1384,9 @@ def validate_citation_reference(
     try:
         text = read_text_exact(path)
     except (OSError, UnicodeDecodeError) as exc:
+        read_subject = f"{read_label} {document!r}" if read_label else str(document)
         failures.add(
-            f"{category} read failed: {document} is not UTF-8: {exc}",
+            f"{category} read failed: {read_subject} is not UTF-8: {exc}",
             f"encode {document} as UTF-8",
         )
         return None
@@ -1421,10 +1453,18 @@ def load_vector_source(root: Path, failures: Failures) -> dict[str, Any] | None:
         VECTORS_SOURCE_REL.as_posix(),
         failures,
         f"fix {VECTORS_SOURCE_REL.as_posix()} as UTF-8 JSON without duplicate keys",
+        namespace="conformance",
     )
     if payload is None:
         return None
-    validate_schema_value(payload, VECTORS_SCHEMA, "", VECTORS_SOURCE_REL.as_posix(), failures)
+    validate_schema_value(
+        payload,
+        VECTORS_SCHEMA,
+        "",
+        VECTORS_SOURCE_REL.as_posix(),
+        failures,
+        namespace="conformance",
+    )
     return payload if isinstance(payload, dict) else None
 
 
@@ -1441,43 +1481,48 @@ def validate_vector_ids(vectors: list[Any], failures: Failures) -> None:
     )
     if duplicate_ids:
         failures.add(
-            f"conformance vector identity failed: {VECTORS_SOURCE_REL.as_posix()} repeats vector id(s) {duplicate_ids}",
-            f"remove duplicate vectors from {VECTORS_SOURCE_REL.as_posix()}",
+            f"conformance vector identity failed: {VECTORS_SOURCE_REL.as_posix()} vectors[].id repeats id(s) {duplicate_ids}",
+            f"remove duplicate vectors[].id entries from {VECTORS_SOURCE_REL.as_posix()}",
         )
     actual_ids = set(string_ids)
     missing = sorted(set(EXPECTED_VECTOR_IDS) - actual_ids)
     unexpected = sorted(actual_ids - set(EXPECTED_VECTOR_IDS))
     if missing:
         failures.add(
-            f"conformance vector id set failed: {VECTORS_SOURCE_REL.as_posix()} is missing vector id(s) {missing}",
+            f"conformance vector id set failed: {VECTORS_SOURCE_REL.as_posix()} vectors[].id is missing id(s) {missing}",
             f"regenerate {VECTORS_SOURCE_REL.as_posix()} from the solpbc/spl-rust conformance corpus",
         )
     if unexpected:
         failures.add(
-            f"conformance vector id set failed: {VECTORS_SOURCE_REL.as_posix()} has unexpected vector id(s) {unexpected}",
+            f"conformance vector id set failed: {VECTORS_SOURCE_REL.as_posix()} vectors[].id has unexpected id(s) {unexpected}",
             f"regenerate {VECTORS_SOURCE_REL.as_posix()} from the solpbc/spl-rust conformance corpus",
         )
     declared_ids = {
         vector.get("id")
         for vector in vectors
-        if isinstance(vector, dict) and vector.get("kind") == "declared"
+        if isinstance(vector, dict)
+        and isinstance(vector.get("id"), str)
+        and vector.get("kind") == "declared"
     }
     declared_missing = sorted(set(EXPECTED_DECLARED_VECTOR_IDS) - declared_ids)
     declared_unexpected = sorted(declared_ids - set(EXPECTED_DECLARED_VECTOR_IDS))
     if declared_missing or declared_unexpected:
         failures.add(
-            f"conformance vector kind set failed: declared ids missing={declared_missing}, unexpected={declared_unexpected}",
-            f"restore vector kind values in {VECTORS_SOURCE_REL.as_posix()} from the solpbc/spl-rust conformance corpus",
+            f"conformance vector kind set failed: {VECTORS_SOURCE_REL.as_posix()} vectors[].kind declared ids missing={declared_missing}, unexpected={declared_unexpected}",
+            f"restore vectors[].kind values in {VECTORS_SOURCE_REL.as_posix()} from the solpbc/spl-rust conformance corpus",
         )
     recorded_ids = {
         vector.get("id")
         for vector in vectors
-        if isinstance(vector, dict) and vector.get("kind") == "recorded"
+        if isinstance(vector, dict)
+        and isinstance(vector.get("id"), str)
+        and vector.get("kind") == "recorded"
     }
-    if len(recorded_ids) != 64:
+    expected_recorded_count = len(EXPECTED_RECORDED_VECTOR_IDS)
+    if len(recorded_ids) != expected_recorded_count:
         failures.add(
-            f"conformance vector kind count failed: observed {len(recorded_ids)} recorded ids, expected 64",
-            f"restore vector kind values in {VECTORS_SOURCE_REL.as_posix()} from the solpbc/spl-rust conformance corpus",
+            f"conformance vector kind count failed: {VECTORS_SOURCE_REL.as_posix()} vectors[].kind has {len(recorded_ids)} recorded ids, expected {expected_recorded_count}",
+            f"restore vectors[].kind values in {VECTORS_SOURCE_REL.as_posix()} from the solpbc/spl-rust conformance corpus",
         )
 
 
@@ -1519,6 +1564,7 @@ def validate_vector_citation_and_literals(
             allowed_recovery=f"set {label}.document to one of {normative_paths!r}",
             missing_recovery=f"set {label}.document to an existing normative source document",
             failures=failures,
+            read_label=f"{label}.document",
         )
 
     literals = vector.get("document_literals")
@@ -1553,12 +1599,12 @@ def validate_vector_citation_and_literals(
         if document_text is not None and literal not in document_text:
             failures.add(
                 f"conformance document literal failed: {VECTORS_SOURCE_REL.as_posix()} {field} does not occur in its citation document",
-                f"restore {field} from the cited protocol document or regenerate the upstream corpus",
+                f"edit {field} in {VECTORS_SOURCE_REL.as_posix()} to match the cited document; separately review the public solpbc/spl-rust conformance corpus before changing any promoted payload",
             )
         if literal not in payload_text:
             failures.add(
                 f"conformance document literal failed: {VECTORS_SOURCE_REL.as_posix()} {field} does not occur in the vector payload fields",
-                f"restore vectors[{vector_id}] from the solpbc/spl-rust conformance corpus",
+                f"edit {field} in {VECTORS_SOURCE_REL.as_posix()} if the literal is wrong, or restore vectors[{vector_id}] payload fields from the public solpbc/spl-rust conformance corpus",
             )
 
 
@@ -1776,7 +1822,11 @@ def build_bundle(
             "covers": corpus.get("covers", []),
             "vectors": sorted(
                 corpus.get("vectors", []),
-                key=lambda vector: vector.get("id", "") if isinstance(vector, dict) else "",
+                key=lambda vector: (
+                    vector.get("id", "")
+                    if isinstance(vector, dict) and isinstance(vector.get("id"), str)
+                    else ""
+                ),
             ),
         }
     else:
