@@ -26,17 +26,110 @@ SCHEMA_DIALECT_URI = "https://json-schema.org/draft/2020-12/schema"
 INITIAL_BUNDLE_SEMVER = "1.0.0"
 DEFINITION_REL = Path("proto/definition/bundle/definition.json")
 SCHEMA_REL = Path("proto/definition/bundle/definition.schema.json")
+VECTORS_REL = Path("proto/definition/bundle/vectors.json")
+VECTORS_SCHEMA_REL = Path("proto/definition/bundle/vectors.schema.json")
 MANIFEST_REL = Path("proto/definition/bundle/manifest.json")
 BUNDLE_REL = Path("proto/definition/bundle")
 SOURCE_REL = Path("proto/definition/definition.toml")
+VECTORS_SOURCE_REL = Path("proto/definition/vectors.json")
 GENERATOR_REL = Path("proto/definition/generate.py")
+PAYLOAD_RELS = (DEFINITION_REL, SCHEMA_REL, VECTORS_REL, VECTORS_SCHEMA_REL)
 
 GENERATOR_INPUTS: tuple[tuple[str, Path, str], ...] = (
     ("definition.authored_source", SOURCE_REL, "authored_source"),
+    ("definition.conformance_corpus", VECTORS_SOURCE_REL, "conformance_corpus"),
     ("definition.generator", GENERATOR_REL, "generator"),
     ("source.pair_window", Path("proto/pair-window.md"), "normative_source_document"),
     ("source.pairing", Path("proto/pairing.md"), "normative_source_document"),
 )
+
+EXPECTED_VECTOR_IDS = (
+    "direct.admission.link-local.above",
+    "direct.admission.link-local.below",
+    "direct.admission.link-local.example",
+    "direct.admission.link-local.lower",
+    "direct.admission.link-local.upper",
+    "direct.admission.loopback.above",
+    "direct.admission.loopback.below",
+    "direct.admission.loopback.lower",
+    "direct.admission.loopback.upper",
+    "direct.admission.rfc1918-10.above",
+    "direct.admission.rfc1918-10.below",
+    "direct.admission.rfc1918-10.lower",
+    "direct.admission.rfc1918-10.upper",
+    "direct.admission.rfc1918-172.above",
+    "direct.admission.rfc1918-172.below",
+    "direct.admission.rfc1918-172.lower",
+    "direct.admission.rfc1918-172.upper",
+    "direct.admission.rfc1918-192.above",
+    "direct.admission.rfc1918-192.below",
+    "direct.admission.rfc1918-192.lower",
+    "direct.admission.rfc1918-192.upper",
+    "direct.admission.rfc6598.above",
+    "direct.admission.rfc6598.below",
+    "direct.admission.rfc6598.lower",
+    "direct.admission.rfc6598.upper",
+    "pair.v04.canonical.admission",
+    "pair.v04.canonical.decode",
+    "pair.v04.truncated.0",
+    "pair.v04.truncated.1",
+    "pair.v04.truncated.2",
+    "pair.v04.truncated.24",
+    "pair.v04.truncated.39",
+    "pair.v04.truncated.6",
+    "pair.v04.truncated.8",
+    "pair.v04.unsupported-address-tag",
+    "pair.v05.admission.all-allowed",
+    "pair.v05.admission.mixed-refused",
+    "pair.v05.count.0.refuse",
+    "pair.v05.count.1",
+    "pair.v05.count.2",
+    "pair.v05.count.255.refuse",
+    "pair.v05.count.3",
+    "pair.v05.count.4",
+    "pair.v05.count.5.refuse",
+    "pair.v05.disallowed-member.first",
+    "pair.v05.disallowed-member.last",
+    "pair.v05.disallowed-member.middle",
+    "pair.v05.duplicate.coalesced",
+    "pair.v05.duplicate.count-five-refused",
+    "pair.v05.duplicate.disallowed",
+    "pair.v05.truncated.1",
+    "pair.v05.truncated.12",
+    "pair.v05.truncated.2",
+    "pair.v05.truncated.3",
+    "pair.v05.truncated.4",
+    "pair.v05.truncated.44",
+    "pair.v05.truncated.5",
+    "pair.v05.truncated.8",
+    "pair.v05.unsupported-address-tag",
+    "pair.v06.custom-origin-invalid-utf8",
+    "pair.v06.custom-origin-truncated",
+    "pair.v06.custom.published",
+    "pair.v06.default.published",
+    "pair.v06.truncated.1",
+    "pair.v06.truncated.10",
+    "pair.v06.truncated.26",
+    "pair.v06.truncated.9",
+    "pair.v06.unknown-ca-tag",
+    "relay.rk.published",
+)
+EXPECTED_DECLARED_VECTOR_IDS = (
+    "pair.v04.canonical.admission",
+    "pair.v04.canonical.decode",
+    "pair.v06.custom.published",
+    "pair.v06.default.published",
+    "relay.rk.published",
+)
+EXPECTED_RECORDED_VECTOR_IDS = tuple(
+    vector_id for vector_id in EXPECTED_VECTOR_IDS if vector_id not in EXPECTED_DECLARED_VECTOR_IDS
+)
+assert len(EXPECTED_VECTOR_IDS) == 69
+assert EXPECTED_VECTOR_IDS == tuple(sorted(set(EXPECTED_VECTOR_IDS)))
+assert len(EXPECTED_DECLARED_VECTOR_IDS) == 5
+assert EXPECTED_DECLARED_VECTOR_IDS == tuple(sorted(set(EXPECTED_DECLARED_VECTOR_IDS)))
+assert set(EXPECTED_DECLARED_VECTOR_IDS) < set(EXPECTED_VECTOR_IDS)
+assert len(EXPECTED_RECORDED_VECTOR_IDS) == 64
 
 SEMVER_RE = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -296,6 +389,92 @@ MANIFEST_SCHEMA = object_schema(
     }
 )
 
+VECTOR_ERROR_SCHEMA = object_schema(
+    {
+        "kind": STRING,
+        "address": STRING,
+        "address_type": BYTE_INTEGER,
+        "count": BYTE_INTEGER,
+        "expected": NONNEGATIVE_INTEGER,
+        "got": NONNEGATIVE_INTEGER,
+        "tag": BYTE_INTEGER,
+    },
+    required=["kind"],
+)
+VECTOR_CANDIDATE_SCHEMA = object_schema({"host": STRING, "port": NONNEGATIVE_INTEGER})
+VECTOR_EXPECTED_SCHEMA = object_schema(
+    {
+        "result": {"enum": ["direct", "error", "relay"]},
+        "error": VECTOR_ERROR_SCHEMA,
+        "candidates": {"type": "array", "items": VECTOR_CANDIDATE_SCHEMA},
+        "nonce_hex": STRING,
+        "ca_fp_hex": STRING,
+        "secret_hex": STRING,
+        "ca_fp_spki_hex": STRING,
+        "relay_origin": STRING,
+    },
+    required=["result"],
+)
+VECTOR_COMMON_PROPERTIES = {
+    "id": STRING,
+    "kind": {"enum": ["declared", "recorded"]},
+    "operation": {"enum": ["decode_crockford", "derive_relay_key", "parse_pair_link"]},
+    "citation": CITATION_REF,
+    "entry_digests": {
+        "type": "object",
+        "additionalProperties": {"type": "string", "pattern": SHA256_RE.pattern},
+    },
+    "unbound_reason": {"anyOf": [STRING, {"type": "null"}]},
+    "document_literals": {"type": "array", "items": STRING},
+}
+VECTOR_COMMON_REQUIRED = list(VECTOR_COMMON_PROPERTIES)
+VECTOR_PARSE_SCHEMA = object_schema(
+    {
+        **VECTOR_COMMON_PROPERTIES,
+        "operation": {"const": "parse_pair_link"},
+        "input": object_schema(
+            {"encoding": {"enum": ["blob_hex", "link"]}, "value": {"type": "string"}}
+        ),
+        "expected": VECTOR_EXPECTED_SCHEMA,
+    },
+    required=[*VECTOR_COMMON_REQUIRED, "input", "expected"],
+)
+VECTOR_DECODE_SCHEMA = object_schema(
+    {
+        **VECTOR_COMMON_PROPERTIES,
+        "operation": {"const": "decode_crockford"},
+        "input": STRING,
+        "expected_hex": STRING,
+    },
+    required=[*VECTOR_COMMON_REQUIRED, "input", "expected_hex"],
+)
+VECTOR_DERIVE_SCHEMA = object_schema(
+    {
+        **VECTOR_COMMON_PROPERTIES,
+        "operation": {"const": "derive_relay_key"},
+        "secret_hex": STRING,
+        "expected_hex": STRING,
+    },
+    required=[*VECTOR_COMMON_REQUIRED, "secret_hex", "expected_hex"],
+)
+VECTORS_SCHEMA: dict[str, Any] = {
+    "$schema": SCHEMA_DIALECT_URI,
+    "title": "SPL pair-link conformance vectors",
+    "type": "object",
+    "properties": {
+        "covers": {"type": "array", "items": STRING},
+        "vectors": {
+            "type": "array",
+            "items": {
+                "oneOf": [VECTOR_PARSE_SCHEMA, VECTOR_DECODE_SCHEMA, VECTOR_DERIVE_SCHEMA]
+            },
+        },
+    },
+    "required": ["covers", "vectors"],
+    "additionalProperties": False,
+    "$defs": {"citation": RECORD_SCHEMAS["citation"]},
+}
+
 
 @dataclass
 class Failures:
@@ -310,6 +489,12 @@ class Failures:
         for message in sorted(set(self.messages)):
             print(message, file=sys.stderr)
         return 1
+
+
+@dataclass
+class CoverageReport:
+    counts: dict[str, int] = field(default_factory=dict)
+    unclaimed: list[str] = field(default_factory=list)
 
 
 def repo_root() -> Path:
@@ -341,7 +526,10 @@ def read_text_exact(path: Path) -> str:
     return path.read_bytes().decode("utf-8")
 
 
-def load_json(text: str, label: str, failures: Failures) -> Any | None:
+def load_json(
+    text: str, label: str, failures: Failures, recovery: str | None = None
+) -> Any | None:
+    recovery = recovery or f"run make definition-generate to restore {label}"
     duplicates: list[str] = []
 
     def no_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -357,13 +545,13 @@ def load_json(text: str, label: str, failures: Failures) -> Any | None:
     except json.JSONDecodeError as exc:
         failures.add(
             f"definition JSON parse failed: {label}: {exc}",
-            f"run make definition-generate to restore {label}",
+            recovery,
         )
         return None
     if duplicates:
         failures.add(
             f"definition JSON structure failed: {label} has duplicate key(s) {sorted(set(duplicates))}",
-            f"run make definition-generate to restore {label}",
+            recovery,
         )
     return payload
 
@@ -908,7 +1096,9 @@ def byte_label(value: int) -> str:
     return f"0x{value:02x}"
 
 
-def validate_definition_invariants(definition: dict[str, Any], failures: Failures) -> None:
+def definition_entry_map(
+    definition: dict[str, Any], failures: Failures | None = None
+) -> dict[str, dict[str, Any]]:
     collections = [
         definition.get("address_allow_list", []),
         definition.get("ca_pin_tags", []),
@@ -921,20 +1111,28 @@ def validate_definition_invariants(definition: dict[str, Any], failures: Failure
     all_records = [record for collection in collections for record in collection if isinstance(record, dict)]
     for form in definition.get("forms", []):
         all_records.extend(form.get("fields", []))
-    ids: dict[str, int] = {}
+    entries: dict[str, dict[str, Any]] = {}
+    duplicates: set[str] = set()
     for record in all_records:
         record_id = record.get("id")
         if isinstance(record_id, str):
-            ids[record_id] = ids.get(record_id, 0) + 1
-    duplicates = sorted(record_id for record_id, count in ids.items() if count > 1)
-    if duplicates:
+            if record_id in entries:
+                duplicates.add(record_id)
+            entries[record_id] = record
+    if failures is not None and duplicates:
         failures.add(
-            f"definition identity failed: definition.toml repeats id(s) {duplicates}",
+            f"definition identity failed: definition.toml repeats id(s) {sorted(duplicates)}",
             "give every definition.toml record a unique id",
         )
+    return entries
+
+
+def validate_definition_invariants(definition: dict[str, Any], failures: Failures) -> None:
+    entries = definition_entry_map(definition, failures)
+    all_records = list(entries.values())
 
     gaps = {item.get("id") for item in definition.get("gaps", []) if isinstance(item.get("id"), str)}
-    known_subjects = set(ids)
+    known_subjects = set(entries)
     for gap in definition.get("gaps", []):
         if gap.get("subject") not in known_subjects:
             failures.add(
@@ -1119,6 +1317,61 @@ def resolve_json_pointer(
         )
 
 
+def validate_citation_reference(
+    root: Path,
+    citation: dict[str, Any],
+    *,
+    category: str,
+    label: str,
+    allowed_paths: set[str],
+    allowed_description: str,
+    allowed_recovery: str,
+    missing_recovery: str,
+    failures: Failures,
+) -> str | None:
+    document = citation.get("document")
+    marker = citation.get("marker")
+    if not isinstance(document, str) or document not in allowed_paths:
+        failures.add(
+            f"{category} path failed: {label}.document {document!r} is not {allowed_description}",
+            allowed_recovery,
+        )
+    path = root / document if isinstance(document, str) else root / "missing"
+    if not path.is_file():
+        failures.add(
+            f"{category} path failed: {label}.document {document!r} does not exist",
+            missing_recovery,
+        )
+        return None
+    if not isinstance(marker, str) or len(marker) < 12:
+        observed = len(marker) if isinstance(marker, str) else 0
+        failures.add(
+            f"{category} marker failed: {label}.marker is too short: observed {observed}, minimum 12",
+            f"set {label}.marker to a unique exact substring of at least 12 characters",
+        )
+        return None
+    try:
+        text = read_text_exact(path)
+    except (OSError, UnicodeDecodeError) as exc:
+        failures.add(
+            f"{category} read failed: {document} is not UTF-8: {exc}",
+            f"encode {document} as UTF-8",
+        )
+        return None
+    count = text.count(marker)
+    if count == 0:
+        failures.add(
+            f"{category} marker failed: {label}.marker is broken: observed 0 exact occurrences in {document}",
+            f"set {label}.marker to a current unique clause in {document}",
+        )
+    elif count > 1:
+        failures.add(
+            f"{category} marker failed: {label}.marker is ambiguous: observed {count} exact occurrences in {document}",
+            f"set {label}.marker to a longer unique clause in {document}",
+        )
+    return text
+
+
 def validate_citations(root: Path, citations: object, failures: Failures) -> None:
     if not isinstance(citations, dict):
         return
@@ -1140,46 +1393,284 @@ def validate_citations(root: Path, citations: object, failures: Failures) -> Non
                 f"set definition.toml citations.{citation_id} to exactly document and marker",
             )
             continue
-        document = citation.get("document")
-        marker = citation.get("marker")
-        if not isinstance(document, str) or document not in declared_paths:
-            failures.add(
-                f"definition citation path failed: definition.toml citations.{citation_id}.document {document!r} is not a declared generator input",
-                f"set definition.toml citations.{citation_id}.document to one of {normative_paths!r}",
-            )
-        path = root / document if isinstance(document, str) else root / "missing"
-        if not path.is_file():
-            failures.add(
-                f"definition citation path failed: definition.toml citations.{citation_id}.document {document!r} does not exist",
-                f"set definition.toml citations.{citation_id}.document to an existing declared generator input",
-            )
+        label = f"definition.toml citations.{citation_id}"
+        validate_citation_reference(
+            root,
+            citation,
+            category="definition citation",
+            label=label,
+            allowed_paths=declared_paths,
+            allowed_description="a declared generator input",
+            allowed_recovery=f"set {label}.document to one of {normative_paths!r}",
+            missing_recovery=f"set {label}.document to an existing declared generator input",
+            failures=failures,
+        )
+
+
+def load_vector_source(root: Path, failures: Failures) -> dict[str, Any] | None:
+    try:
+        text = read_text_exact(root / VECTORS_SOURCE_REL)
+    except (OSError, UnicodeDecodeError) as exc:
+        failures.add(
+            f"conformance corpus read failed: {VECTORS_SOURCE_REL.as_posix()}: {exc}",
+            f"restore {VECTORS_SOURCE_REL.as_posix()} from the solpbc/spl-rust conformance corpus",
+        )
+        return None
+    payload = load_json(
+        text,
+        VECTORS_SOURCE_REL.as_posix(),
+        failures,
+        f"fix {VECTORS_SOURCE_REL.as_posix()} as UTF-8 JSON without duplicate keys",
+    )
+    if payload is None:
+        return None
+    validate_schema_value(payload, VECTORS_SCHEMA, "", VECTORS_SOURCE_REL.as_posix(), failures)
+    return payload if isinstance(payload, dict) else None
+
+
+def validate_vector_ids(vectors: list[Any], failures: Failures) -> None:
+    ids = [vector.get("id") for vector in vectors if isinstance(vector, dict)]
+    string_ids = [vector_id for vector_id in ids if isinstance(vector_id, str)]
+    if string_ids != sorted(string_ids):
+        failures.add(
+            f"conformance vector ordering failed: {VECTORS_SOURCE_REL.as_posix()} vectors[] is not sorted by id",
+            f"sort {VECTORS_SOURCE_REL.as_posix()} vectors[] by id",
+        )
+    duplicate_ids = sorted(
+        vector_id for vector_id in set(string_ids) if string_ids.count(vector_id) > 1
+    )
+    if duplicate_ids:
+        failures.add(
+            f"conformance vector identity failed: {VECTORS_SOURCE_REL.as_posix()} repeats vector id(s) {duplicate_ids}",
+            f"remove duplicate vectors from {VECTORS_SOURCE_REL.as_posix()}",
+        )
+    actual_ids = set(string_ids)
+    missing = sorted(set(EXPECTED_VECTOR_IDS) - actual_ids)
+    unexpected = sorted(actual_ids - set(EXPECTED_VECTOR_IDS))
+    if missing:
+        failures.add(
+            f"conformance vector id set failed: {VECTORS_SOURCE_REL.as_posix()} is missing vector id(s) {missing}",
+            f"regenerate {VECTORS_SOURCE_REL.as_posix()} from the solpbc/spl-rust conformance corpus",
+        )
+    if unexpected:
+        failures.add(
+            f"conformance vector id set failed: {VECTORS_SOURCE_REL.as_posix()} has unexpected vector id(s) {unexpected}",
+            f"regenerate {VECTORS_SOURCE_REL.as_posix()} from the solpbc/spl-rust conformance corpus",
+        )
+    declared_ids = {
+        vector.get("id")
+        for vector in vectors
+        if isinstance(vector, dict) and vector.get("kind") == "declared"
+    }
+    declared_missing = sorted(set(EXPECTED_DECLARED_VECTOR_IDS) - declared_ids)
+    declared_unexpected = sorted(declared_ids - set(EXPECTED_DECLARED_VECTOR_IDS))
+    if declared_missing or declared_unexpected:
+        failures.add(
+            f"conformance vector kind set failed: declared ids missing={declared_missing}, unexpected={declared_unexpected}",
+            f"restore vector kind values in {VECTORS_SOURCE_REL.as_posix()} from the solpbc/spl-rust conformance corpus",
+        )
+    recorded_ids = {
+        vector.get("id")
+        for vector in vectors
+        if isinstance(vector, dict) and vector.get("kind") == "recorded"
+    }
+    if len(recorded_ids) != 64:
+        failures.add(
+            f"conformance vector kind count failed: observed {len(recorded_ids)} recorded ids, expected 64",
+            f"restore vector kind values in {VECTORS_SOURCE_REL.as_posix()} from the solpbc/spl-rust conformance corpus",
+        )
+
+
+def validate_vector_operation(vector: dict[str, Any], failures: Failures) -> None:
+    vector_id = vector.get("id")
+    if "expected" in vector:
+        expected_operation = "parse_pair_link"
+    elif "input" in vector:
+        expected_operation = "decode_crockford"
+    else:
+        expected_operation = "derive_relay_key"
+    if vector.get("operation") != expected_operation:
+        failures.add(
+            f"conformance vector operation failed: {VECTORS_SOURCE_REL.as_posix()} vectors[{vector_id}].operation {vector.get('operation')!r} disagrees with its payload shape",
+            f"set vectors[{vector_id}].operation to {expected_operation!r} in {VECTORS_SOURCE_REL.as_posix()}",
+        )
+
+
+def validate_vector_citation_and_literals(
+    root: Path, vector: dict[str, Any], failures: Failures
+) -> None:
+    vector_id = vector.get("id")
+    citation = vector.get("citation")
+    document_text: str | None = None
+    if isinstance(citation, dict):
+        normative_paths = sorted(
+            path.as_posix()
+            for _, path, role in GENERATOR_INPUTS
+            if role == "normative_source_document"
+        )
+        label = f"{VECTORS_SOURCE_REL.as_posix()} vectors[{vector_id}].citation"
+        document_text = validate_citation_reference(
+            root,
+            citation,
+            category="conformance citation",
+            label=label,
+            allowed_paths=set(normative_paths),
+            allowed_description="a normative source document",
+            allowed_recovery=f"set {label}.document to one of {normative_paths!r}",
+            missing_recovery=f"set {label}.document to an existing normative source document",
+            failures=failures,
+        )
+
+    literals = vector.get("document_literals")
+    if not isinstance(literals, list):
+        return
+    kind = vector.get("kind")
+    if kind == "declared" and not literals:
+        failures.add(
+            f"conformance document literal failed: {VECTORS_SOURCE_REL.as_posix()} vectors[{vector_id}].document_literals is empty for a declared vector",
+            f"add the cited payload literals to vectors[{vector_id}].document_literals in {VECTORS_SOURCE_REL.as_posix()}",
+        )
+    if kind == "recorded" and literals:
+        failures.add(
+            f"conformance document literal failed: {VECTORS_SOURCE_REL.as_posix()} vectors[{vector_id}].document_literals is non-empty for a recorded vector",
+            f"set vectors[{vector_id}].document_literals to [] in {VECTORS_SOURCE_REL.as_posix()}",
+        )
+    payload = {
+        key: vector[key]
+        for key in ("input", "expected", "expected_hex", "secret_hex")
+        if key in vector
+    }
+    payload_text = render_json(payload)
+    for index, literal in enumerate(literals):
+        if not isinstance(literal, str):
             continue
-        if not isinstance(marker, str) or len(marker) < 12:
-            observed = len(marker) if isinstance(marker, str) else 0
+        field = f"vectors[{vector_id}].document_literals[{index}]"
+        if len(literal) < 12:
             failures.add(
-                f"definition citation marker failed: definition.toml citations.{citation_id}.marker is too short: observed {observed}, minimum 12",
-                f"set definition.toml citations.{citation_id}.marker to a unique exact substring of at least 12 characters",
+                f"conformance document literal failed: {VECTORS_SOURCE_REL.as_posix()} {field} is too short: observed {len(literal)}, minimum 12",
+                f"replace {field} in {VECTORS_SOURCE_REL.as_posix()} with a payload literal of at least 12 characters",
             )
+        if document_text is not None and literal not in document_text:
+            failures.add(
+                f"conformance document literal failed: {VECTORS_SOURCE_REL.as_posix()} {field} does not occur in its citation document",
+                f"restore {field} from the cited protocol document or regenerate the upstream corpus",
+            )
+        if literal not in payload_text:
+            failures.add(
+                f"conformance document literal failed: {VECTORS_SOURCE_REL.as_posix()} {field} does not occur in the vector payload fields",
+                f"restore vectors[{vector_id}] from the solpbc/spl-rust conformance corpus",
+            )
+
+
+def validate_vectors(
+    root: Path,
+    corpus: dict[str, Any],
+    definition: dict[str, Any],
+    failures: Failures,
+    *,
+    bless: bool,
+) -> CoverageReport:
+    vectors_value = corpus.get("vectors", [])
+    vectors = vectors_value if isinstance(vectors_value, list) else []
+    validate_vector_ids(vectors, failures)
+    entries = definition_entry_map(definition)
+
+    covers_value = corpus.get("covers", [])
+    covers = covers_value if isinstance(covers_value, list) else []
+    string_covers = [entry_id for entry_id in covers if isinstance(entry_id, str)]
+    if string_covers != sorted(string_covers):
+        failures.add(
+            f"conformance coverage ordering failed: {VECTORS_SOURCE_REL.as_posix()} covers is not sorted",
+            f"sort {VECTORS_SOURCE_REL.as_posix()} covers by definition entry id",
+        )
+    duplicate_covers = sorted(
+        entry_id for entry_id in set(string_covers) if string_covers.count(entry_id) > 1
+    )
+    if duplicate_covers:
+        failures.add(
+            f"conformance coverage identity failed: {VECTORS_SOURCE_REL.as_posix()} covers repeats id(s) {duplicate_covers}",
+            f"remove duplicate ids from {VECTORS_SOURCE_REL.as_posix()} covers",
+        )
+    unresolved_covers = sorted(set(string_covers) - set(entries))
+    if unresolved_covers:
+        failures.add(
+            f"conformance coverage reference failed: {VECTORS_SOURCE_REL.as_posix()} covers has unresolved id(s) {unresolved_covers}",
+            f"replace unresolved covers ids with current definition entry ids in {VECTORS_SOURCE_REL.as_posix()}",
+        )
+
+    counts = {entry_id: 0 for entry_id in string_covers if entry_id in entries}
+    bound_ids: set[str] = set()
+    for vector in vectors:
+        if not isinstance(vector, dict):
             continue
-        try:
-            text = read_text_exact(path)
-        except (OSError, UnicodeDecodeError) as exc:
-            failures.add(
-                f"definition citation read failed: {document} is not UTF-8: {exc}",
-                f"encode {document} as UTF-8",
-            )
+        vector_id = vector.get("id")
+        validate_vector_operation(vector, failures)
+        validate_vector_citation_and_literals(root, vector, failures)
+        digests = vector.get("entry_digests")
+        reason = vector.get("unbound_reason")
+        if not isinstance(digests, dict):
             continue
-        count = text.count(marker)
-        if count == 0:
+        if not digests and not (isinstance(reason, str) and reason):
             failures.add(
-                f"definition citation marker failed: definition.toml citations.{citation_id}.marker is broken: observed 0 exact occurrences in {document}",
-                f"set definition.toml citations.{citation_id}.marker to a current unique clause in {document}",
+                f"conformance binding failed: {VECTORS_SOURCE_REL.as_posix()} vectors[{vector_id}] has no entry_digests and no non-empty unbound_reason",
+                f"bind vectors[{vector_id}] to exercised definition entries or state its unbound reason in {VECTORS_SOURCE_REL.as_posix()}",
             )
-        elif count > 1:
+        if digests and reason is not None:
             failures.add(
-                f"definition citation marker failed: definition.toml citations.{citation_id}.marker is ambiguous: observed {count} exact occurrences in {document}",
-                f"set definition.toml citations.{citation_id}.marker to a longer unique clause in {document}",
+                f"conformance binding failed: {VECTORS_SOURCE_REL.as_posix()} vectors[{vector_id}] has entry_digests and a non-null unbound_reason",
+                f"set vectors[{vector_id}].unbound_reason to null in {VECTORS_SOURCE_REL.as_posix()}",
             )
+        for entry_id, authored_digest in sorted(digests.items(), key=lambda item: str(item[0])):
+            field = f"vectors[{vector_id}].entry_digests[{entry_id}]"
+            if not isinstance(entry_id, str) or entry_id not in entries:
+                failures.add(
+                    f"conformance binding reference failed: {VECTORS_SOURCE_REL.as_posix()} {field} does not resolve to a definition entry",
+                    f"replace {field} with a current definition entry id in {VECTORS_SOURCE_REL.as_posix()}",
+                )
+                continue
+            bound_ids.add(entry_id)
+            if entry_id in counts:
+                counts[entry_id] += 1
+            if not isinstance(authored_digest, str) or SHA256_RE.fullmatch(authored_digest) is None:
+                failures.add(
+                    f"conformance entry digest failed: {VECTORS_SOURCE_REL.as_posix()} {field} is not a lowercase SHA-256 digest",
+                    f"run python3 proto/definition/generate.py --bless-vectors after reviewing the binding",
+                )
+                continue
+            observed_digest = sha256_text(render_json(entries[entry_id]))
+            if bless:
+                digests[entry_id] = observed_digest
+            elif authored_digest != observed_digest:
+                failures.add(
+                    f"conformance entry digest failed: {VECTORS_SOURCE_REL.as_posix()} {field} authored {authored_digest!r} does not match observed {observed_digest!r}",
+                    "run python3 proto/definition/generate.py --bless-vectors after reviewing the definition change",
+                )
+
+    uncovered_bindings = sorted(bound_ids - set(string_covers))
+    if uncovered_bindings:
+        failures.add(
+            f"conformance coverage claim failed: bound definition id(s) {uncovered_bindings} are absent from {VECTORS_SOURCE_REL.as_posix()} covers",
+            f"add the bound ids to {VECTORS_SOURCE_REL.as_posix()} covers",
+        )
+    empty_claims = sorted(set(string_covers) - bound_ids)
+    if empty_claims:
+        failures.add(
+            f"conformance coverage claim failed: {VECTORS_SOURCE_REL.as_posix()} covers id(s) {empty_claims} have no citing vector",
+            f"bind a vector to each claimed id or remove the empty claims from {VECTORS_SOURCE_REL.as_posix()} covers",
+        )
+    return CoverageReport(
+        counts=dict(sorted(counts.items())),
+        unclaimed=sorted(set(entries) - set(string_covers)),
+    )
+
+
+def print_coverage_report(report: CoverageReport) -> None:
+    print("Conformance coverage (definition entry id -> citing vector count):")
+    for entry_id, count in report.counts.items():
+        print(f"  {entry_id}: {count}")
+    print("Definition entries not claimed by the conformance corpus:")
+    for entry_id in report.unclaimed:
+        print(f"  {entry_id}")
 
 
 def validate_input_paths(root: Path, failures: Failures) -> list[dict[str, Any]]:
@@ -1233,7 +1724,9 @@ def validate_input_paths(root: Path, failures: Failures) -> list[dict[str, Any]]
     return sorted(records, key=lambda item: item["id"])
 
 
-def build_bundle(root: Path, failures: Failures) -> tuple[dict[Path, str], str | None]:
+def build_bundle(
+    root: Path, failures: Failures, *, bless_vectors: bool = False
+) -> tuple[dict[Path, str], str | None, CoverageReport]:
     source_path = root / SOURCE_REL
     try:
         source_text = read_text_exact(source_path)
@@ -1243,7 +1736,7 @@ def build_bundle(root: Path, failures: Failures) -> tuple[dict[Path, str], str |
             f"definition source parse failed: {SOURCE_REL.as_posix()}: {exc}",
             f"fix {SOURCE_REL.as_posix()} as UTF-8 TOML",
         )
-        return {}, None
+        return {}, None, CoverageReport()
     structure_failure_count = len(failures.messages)
     validate_source_top_level(source, failures)
     validate_source_records(source, failures)
@@ -1266,16 +1759,39 @@ def build_bundle(root: Path, failures: Failures) -> tuple[dict[Path, str], str |
             )
     generator_inputs = validate_input_paths(root, failures)
     if source_structure_failed:
-        return {}, semver
+        return {}, semver, CoverageReport()
 
     definition = build_definition(source, failures)
     shape_failure_count = len(failures.messages)
     validate_schema_value(definition, DEFINITION_SCHEMA, "", DEFINITION_REL.as_posix(), failures)
     if len(failures.messages) == shape_failure_count:
         validate_definition_invariants(definition, failures)
+    corpus = load_vector_source(root, failures)
+    coverage = CoverageReport()
+    if corpus is not None:
+        coverage = validate_vectors(
+            root, corpus, definition, failures, bless=bless_vectors
+        )
+        corpus = {
+            "covers": corpus.get("covers", []),
+            "vectors": sorted(
+                corpus.get("vectors", []),
+                key=lambda vector: vector.get("id", "") if isinstance(vector, dict) else "",
+            ),
+        }
+    else:
+        corpus = {"covers": [], "vectors": []}
     definition_text = render_json(definition)
     schema_text = render_json(DEFINITION_SCHEMA)
-    payload_texts = {DEFINITION_REL: definition_text, SCHEMA_REL: schema_text}
+    vectors_text = render_json(corpus)
+    vectors_schema_text = render_json(VECTORS_SCHEMA)
+    payload_texts = dict(
+        zip(
+            PAYLOAD_RELS,
+            (definition_text, schema_text, vectors_text, vectors_schema_text),
+            strict=True,
+        )
+    )
     manifest = {
         "bundle_schema_identity": BUNDLE_SCHEMA_IDENTITY,
         "bundle_semver": semver,
@@ -1290,7 +1806,7 @@ def build_bundle(root: Path, failures: Failures) -> tuple[dict[Path, str], str |
         "generator_inputs": generator_inputs,
         "schema_dialect_uri": SCHEMA_DIALECT_URI,
     }
-    return {MANIFEST_REL: render_json(manifest), **payload_texts}, semver
+    return {MANIFEST_REL: render_json(manifest), **payload_texts}, semver, coverage
 
 
 def write_bundle(root: Path, files: dict[Path, str]) -> None:
@@ -1421,7 +1937,7 @@ def validate_committed_bundle(
             "restore missing manifest files and remove unexpected entries under proto/definition/bundle",
         )
 
-    for rel_path in (DEFINITION_REL, SCHEMA_REL):
+    for rel_path in PAYLOAD_RELS:
         path = root / rel_path
         try:
             text = read_text_exact(path)
@@ -1435,6 +1951,8 @@ def validate_committed_bundle(
             )
         if rel_path == DEFINITION_REL and payload is not None:
             validate_schema_value(payload, DEFINITION_SCHEMA, "", rel_path.as_posix(), failures)
+        if rel_path == VECTORS_REL and payload is not None:
+            validate_schema_value(payload, VECTORS_SCHEMA, "", rel_path.as_posix(), failures)
 
     for rel_path, expected in expected_files.items():
         path = root / rel_path
@@ -1582,7 +2100,7 @@ def validate_semver_history(
 
 def run_write(root: Path) -> int:
     failures = Failures()
-    files, _ = build_bundle(root, failures)
+    files, _, _ = build_bundle(root, failures)
     if failures.messages:
         return failures.report()
     write_bundle(root, files)
@@ -1591,10 +2109,22 @@ def run_write(root: Path) -> int:
 
 def run_check(root: Path) -> int:
     failures = Failures()
-    expected_files, semver = build_bundle(root, failures)
+    expected_files, semver, coverage = build_bundle(root, failures)
     validate_committed_bundle(root, expected_files, semver, failures)
     validate_semver_history(root, semver, failures)
+    print_coverage_report(coverage)
     return failures.report()
+
+
+def run_bless_vectors(root: Path) -> int:
+    failures = Failures()
+    files, _, _ = build_bundle(root, failures, bless_vectors=True)
+    if failures.messages:
+        return failures.report()
+    (root / VECTORS_SOURCE_REL).write_text(
+        files[VECTORS_REL], encoding="utf-8", newline=""
+    )
+    return 0
 
 
 def main() -> int:
@@ -1602,14 +2132,23 @@ def main() -> int:
     mode = parser.add_mutually_exclusive_group(required=True)
     mode.add_argument("--write", action="store_true", help="write canonical generated artifacts")
     mode.add_argument("--check", action="store_true", help="verify committed artifacts without writing")
+    mode.add_argument(
+        "--bless-vectors",
+        action="store_true",
+        help="rewrite authored conformance entry digests after a reviewed definition change",
+    )
     args = parser.parse_args()
     root = repo_root()
     try:
-        return run_write(root) if args.write else run_check(root)
+        if args.write:
+            return run_write(root)
+        if args.check:
+            return run_check(root)
+        return run_bless_vectors(root)
     except Exception as exc:  # fail closed with the required remediation style
         print(
             f"definition gate failed unexpectedly: {type(exc).__name__}: {exc} "
-            "Recovery: inspect proto/definition/definition.toml and proto/definition/generate.py, then rerun the gate.",
+            "Recovery: inspect proto/definition/definition.toml, proto/definition/vectors.json, and proto/definition/generate.py, then rerun the gate.",
             file=sys.stderr,
         )
         return 1

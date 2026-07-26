@@ -5,16 +5,14 @@ domains, and direct-address admission values. It follows the integrity and
 identity conventions of an existing sol pbc contract-bundle format while
 keeping HTTP API projection fields out of a wire-protocol definition.
 
-`definition.toml` is the authored source. Its comments preserve why a value or
-citation is represented a particular way. `bundle/definition.json` is the
-canonical machine-readable data document, including explicit source-claim
-records that anchor stale-cross-reference gaps, and
-`bundle/definition.schema.json` publishes a JSON Schema 2020-12 for consumers.
-`bundle/manifest.json` contains only format-level identity, SemVer, file
-digests, and generator-input digests; all protocol content belongs in
-`definition.json`.
+`definition.toml` and `vectors.json` are the authored sources. The TOML
+comments preserve why a definition value or citation is represented a
+particular way. The bundle contains canonical `definition.json` and
+`vectors.json` payloads plus one JSON Schema 2020-12 document for each.
+`bundle/manifest.json` contains the single format-level identity and SemVer,
+payload digests, and generator-input digests.
 
-The first bundle version is `1.0.0`. The stable identities are:
+The current bundle version is `1.1.0`. The stable identities are:
 
 - generator: `spl.proto.definition.generate.v1`
 - bundle schema: `spl.pair-link-definition-bundle.schema.v1`
@@ -28,6 +26,18 @@ Both commands require system `python3` version 3.11 or newer and use only the
 standard library. Root `make ci` therefore requires system `python3` in
 addition to its component runtimes.
 
+After a reviewed definition change intentionally changes resolved entry bytes,
+re-bless the authored vector bindings and then regenerate the bundle:
+
+```sh
+python3 proto/definition/generate.py --bless-vectors
+make definition-generate
+```
+
+`--bless-vectors` rewrites only `proto/definition/vectors.json` entry digests.
+It has no Makefile target, CI never invokes it, and normal generation fails on
+stale digests instead of silently repairing them.
+
 The gate enforces:
 
 - the declared record shapes and cross-record references, using the same shape
@@ -38,6 +48,13 @@ The gate enforces:
   behavior unspecified;
 - citation documents that are digest-pinned generator inputs, and markers of
   at least 12 characters that occur exactly once by exact substring count;
+- the exact conformance-vector id and declared/recorded sets, sorted unique
+  vector order, and operation-specific record shapes;
+- vector citations restricted to normative source documents, declared-vector
+  payload literals present in both their own payload fields and cited document,
+  and per-vector definition-entry digests;
+- an authored `covers` list that is sorted and unique, resolves completely,
+  includes every bound entry, and has at least one citing vector per claim;
 - canonical JSON rendered with sorted keys, two-space indentation, and one
   trailing newline;
 - SHA-256 digests over canonical rendered text for generated artifacts and
@@ -61,10 +78,11 @@ markers may contain embedded newlines.
 
 ## Source and vocabulary policy
 
-The digest-pinned input set is exactly `definition.toml`, `generate.py`,
-`proto/pairing.md`, and `proto/pair-window.md`. Only those two protocol
-documents ground this definition; digesting unrelated protocol documents would
-make their unrelated edits fail this gate.
+The digest-pinned input set is exactly `definition.toml`, `vectors.json`,
+`generate.py`, `proto/pairing.md`, and `proto/pair-window.md`. Only those two
+protocol documents ground this definition and its conformance corpus;
+digesting unrelated protocol documents would make their unrelated edits fail
+this gate.
 
 Each vocabulary retains an internal JSON `source_pointer`, following the
 contract-bundle convention, and also carries a real `{document, marker}`
@@ -98,6 +116,27 @@ intentionally has no `fields` or `layout` key. Because the source documents do
 not permanently reserve that byte, the assignment delta is recorded as a gap.
 Likewise, direct forms use the explicit `absent_in_layout` tag sentinel and a
 gap reference; a missing tag is never represented by a bare null.
+
+## Conformance corpus
+
+The corpus contains 5 `declared` vectors whose payload literals appear in the
+protocol documents and 64 `recorded` vectors promoted from the public
+`solpbc/spl-rust` conformance corpus. Because 64 of 69 vectors record one
+implementation's behavior, this corpus is not broad conformance proof.
+
+Vectors cite only `proto/pairing.md` and `proto/pair-window.md`.
+`framing.md`, `session.md`, `tokens.md`, and `blob-uplink.md` have zero citing
+vectors. The generator holds the assertion of which vector ids and kinds are
+expected; `vectors.json` holds their data. Those are different responsibilities,
+and this README intentionally copies neither id list.
+
+A consumer vendors the complete five-file `bundle/` directory, verifies the
+manifest and payload schemas, and executes the applicable vectors against its
+own implementation. The gate proves that this corpus is internally consistent
+and current with its cited documents. It proves no implementation conforms,
+and it does not prove this promoted copy matches the generating package's
+output. The generating package vendors this bundle and runs it against its own
+code to establish that connection.
 
 ## Scope
 

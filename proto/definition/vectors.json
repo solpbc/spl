@@ -1,0 +1,2384 @@
+{
+  "covers": [
+    "ca_fp_tag.spki_sha256_prefix16",
+    "direct_address.10_8",
+    "direct_address.172_16_12",
+    "direct_address.192_168_16",
+    "direct_address.ipv4_link_local",
+    "direct_address.loopback",
+    "direct_address.rfc6598_shared",
+    "direct_address_policy.allow_list",
+    "gap.addr_type.unknown_behavior",
+    "gap.address_policy.loopback_scope",
+    "gap.ca_fp_tag.unknown_behavior",
+    "gap.form_0x06.invalid_length_behavior",
+    "gap.form_0x06.invalid_utf8_behavior",
+    "gap.form_0x06.total_length",
+    "gap.relay_origin_selector.unknown_behavior",
+    "pair_link.0x05.candidate_count",
+    "pair_link.addr_type",
+    "pair_link.ca_fp_tag",
+    "pair_link.form.0x04",
+    "pair_link.form.0x04.field.addr_type",
+    "pair_link.form.0x04.field.ca_fp",
+    "pair_link.form.0x04.field.ipv4",
+    "pair_link.form.0x04.field.nonce",
+    "pair_link.form.0x04.field.port",
+    "pair_link.form.0x04.field.version",
+    "pair_link.form.0x05",
+    "pair_link.form.0x05.field.addr_type",
+    "pair_link.form.0x05.field.ca_fp",
+    "pair_link.form.0x05.field.count",
+    "pair_link.form.0x05.field.ipv4",
+    "pair_link.form.0x05.field.nonce",
+    "pair_link.form.0x05.field.port",
+    "pair_link.form.0x05.field.version",
+    "pair_link.form.0x06",
+    "pair_link.form.0x06.field.S",
+    "pair_link.form.0x06.field.ca_fp_spki",
+    "pair_link.form.0x06.field.ca_fp_tag",
+    "pair_link.form.0x06.field.relay_origin",
+    "pair_link.form.0x06.field.relay_origin_selector",
+    "pair_link.form.0x06.field.version",
+    "pair_link.relay_origin_selector",
+    "pair_link.version"
+  ],
+  "vectors": [
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Verifies every candidate address is in the explicit direct-pair allow-list"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "direct_address.ipv4_link_local": "fa2b77b37d99ba418b2a6b2e7801668c3d23195f9b4f7b3389fade051404b7c8",
+        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
+        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
+        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
+        "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
+        "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
+        "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "error": {
+          "address": "169.255.0.0",
+          "kind": "disallowed_direct_ipv4"
+        },
+        "result": "error"
+      },
+      "id": "direct.admission.link-local.above",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "0401a9ff00001b9ea1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Verifies every candidate address is in the explicit direct-pair allow-list"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "direct_address.ipv4_link_local": "fa2b77b37d99ba418b2a6b2e7801668c3d23195f9b4f7b3389fade051404b7c8",
+        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
+        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
+        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
+        "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
+        "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
+        "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "error": {
+          "address": "169.253.255.255",
+          "kind": "disallowed_direct_ipv4"
+        },
+        "result": "error"
+      },
+      "id": "direct.admission.link-local.below",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "0401a9fdffff1b9ea1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Address-admission conformance cases (normative policy vectors):"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "direct_address.ipv4_link_local": "fa2b77b37d99ba418b2a6b2e7801668c3d23195f9b4f7b3389fade051404b7c8",
+        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
+        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
+        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
+        "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
+        "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
+        "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
+        "candidates": [
+          {
+            "host": "169.254.0.1",
+            "port": 7070
+          }
+        ],
+        "nonce_hex": "a1b2c3d4e5f607181122334455667788",
+        "result": "direct"
+      },
+      "id": "direct.admission.link-local.example",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "0401a9fe00011b9ea1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Verifies every candidate address is in the explicit direct-pair allow-list"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "direct_address.ipv4_link_local": "fa2b77b37d99ba418b2a6b2e7801668c3d23195f9b4f7b3389fade051404b7c8",
+        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
+        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
+        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
+        "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
+        "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
+        "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
+        "candidates": [
+          {
+            "host": "169.254.0.0",
+            "port": 7070
+          }
+        ],
+        "nonce_hex": "a1b2c3d4e5f607181122334455667788",
+        "result": "direct"
+      },
+      "id": "direct.admission.link-local.lower",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "0401a9fe00001b9ea1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Verifies every candidate address is in the explicit direct-pair allow-list"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "direct_address.ipv4_link_local": "fa2b77b37d99ba418b2a6b2e7801668c3d23195f9b4f7b3389fade051404b7c8",
+        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
+        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
+        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
+        "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
+        "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
+        "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
+        "candidates": [
+          {
+            "host": "169.254.255.255",
+            "port": 7070
+          }
+        ],
+        "nonce_hex": "a1b2c3d4e5f607181122334455667788",
+        "result": "direct"
+      },
+      "id": "direct.admission.link-local.upper",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "0401a9feffff1b9ea1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Verifies every candidate address is in the explicit direct-pair allow-list"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "direct_address.loopback": "54fea13b4d5c794bfe7d37857c0e8182bbfa30db7d757e8fef41cc7905677996",
+        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "gap.address_policy.loopback_scope": "23820dd05cb0b24f864cc1df8066263d2d5bffb276df6edf9294eba124597ed3",
+        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
+        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
+        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
+        "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
+        "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
+        "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "error": {
+          "address": "128.0.0.0",
+          "kind": "disallowed_direct_ipv4"
+        },
+        "result": "error"
+      },
+      "id": "direct.admission.loopback.above",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "0401800000001b9ea1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Verifies every candidate address is in the explicit direct-pair allow-list"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "direct_address.loopback": "54fea13b4d5c794bfe7d37857c0e8182bbfa30db7d757e8fef41cc7905677996",
+        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "gap.address_policy.loopback_scope": "23820dd05cb0b24f864cc1df8066263d2d5bffb276df6edf9294eba124597ed3",
+        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
+        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
+        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
+        "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
+        "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
+        "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "error": {
+          "address": "126.255.255.255",
+          "kind": "disallowed_direct_ipv4"
+        },
+        "result": "error"
+      },
+      "id": "direct.admission.loopback.below",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "04017effffff1b9ea1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Verifies every candidate address is in the explicit direct-pair allow-list"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "direct_address.loopback": "54fea13b4d5c794bfe7d37857c0e8182bbfa30db7d757e8fef41cc7905677996",
+        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "gap.address_policy.loopback_scope": "23820dd05cb0b24f864cc1df8066263d2d5bffb276df6edf9294eba124597ed3",
+        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
+        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
+        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
+        "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
+        "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
+        "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
+        "candidates": [
+          {
+            "host": "127.0.0.0",
+            "port": 7070
+          }
+        ],
+        "nonce_hex": "a1b2c3d4e5f607181122334455667788",
+        "result": "direct"
+      },
+      "id": "direct.admission.loopback.lower",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "04017f0000001b9ea1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Verifies every candidate address is in the explicit direct-pair allow-list"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "direct_address.loopback": "54fea13b4d5c794bfe7d37857c0e8182bbfa30db7d757e8fef41cc7905677996",
+        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "gap.address_policy.loopback_scope": "23820dd05cb0b24f864cc1df8066263d2d5bffb276df6edf9294eba124597ed3",
+        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
+        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
+        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
+        "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
+        "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
+        "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
+        "candidates": [
+          {
+            "host": "127.255.255.255",
+            "port": 7070
+          }
+        ],
+        "nonce_hex": "a1b2c3d4e5f607181122334455667788",
+        "result": "direct"
+      },
+      "id": "direct.admission.loopback.upper",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "04017fffffff1b9ea1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Verifies every candidate address is in the explicit direct-pair allow-list"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "direct_address.10_8": "f6f046dfa3f60deacc45b30553e8de6e54312b36369fe65e74df16df7bc0125d",
+        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
+        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
+        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
+        "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
+        "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
+        "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "error": {
+          "address": "11.0.0.0",
+          "kind": "disallowed_direct_ipv4"
+        },
+        "result": "error"
+      },
+      "id": "direct.admission.rfc1918-10.above",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "04010b0000001b9ea1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Verifies every candidate address is in the explicit direct-pair allow-list"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "direct_address.10_8": "f6f046dfa3f60deacc45b30553e8de6e54312b36369fe65e74df16df7bc0125d",
+        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
+        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
+        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
+        "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
+        "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
+        "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "error": {
+          "address": "9.255.255.255",
+          "kind": "disallowed_direct_ipv4"
+        },
+        "result": "error"
+      },
+      "id": "direct.admission.rfc1918-10.below",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "040109ffffff1b9ea1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Verifies every candidate address is in the explicit direct-pair allow-list"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "direct_address.10_8": "f6f046dfa3f60deacc45b30553e8de6e54312b36369fe65e74df16df7bc0125d",
+        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
+        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
+        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
+        "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
+        "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
+        "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
+        "candidates": [
+          {
+            "host": "10.0.0.0",
+            "port": 7070
+          }
+        ],
+        "nonce_hex": "a1b2c3d4e5f607181122334455667788",
+        "result": "direct"
+      },
+      "id": "direct.admission.rfc1918-10.lower",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "04010a0000001b9ea1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Verifies every candidate address is in the explicit direct-pair allow-list"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "direct_address.10_8": "f6f046dfa3f60deacc45b30553e8de6e54312b36369fe65e74df16df7bc0125d",
+        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
+        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
+        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
+        "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
+        "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
+        "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
+        "candidates": [
+          {
+            "host": "10.255.255.255",
+            "port": 7070
+          }
+        ],
+        "nonce_hex": "a1b2c3d4e5f607181122334455667788",
+        "result": "direct"
+      },
+      "id": "direct.admission.rfc1918-10.upper",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "04010affffff1b9ea1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Verifies every candidate address is in the explicit direct-pair allow-list"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "direct_address.172_16_12": "7369e2b54752fce000439f36b96754bcdec069dec161bcebb3b01a30e5161405",
+        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
+        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
+        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
+        "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
+        "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
+        "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "error": {
+          "address": "172.32.0.0",
+          "kind": "disallowed_direct_ipv4"
+        },
+        "result": "error"
+      },
+      "id": "direct.admission.rfc1918-172.above",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "0401ac2000001b9ea1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Verifies every candidate address is in the explicit direct-pair allow-list"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "direct_address.172_16_12": "7369e2b54752fce000439f36b96754bcdec069dec161bcebb3b01a30e5161405",
+        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
+        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
+        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
+        "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
+        "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
+        "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "error": {
+          "address": "172.15.255.255",
+          "kind": "disallowed_direct_ipv4"
+        },
+        "result": "error"
+      },
+      "id": "direct.admission.rfc1918-172.below",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "0401ac0fffff1b9ea1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Verifies every candidate address is in the explicit direct-pair allow-list"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "direct_address.172_16_12": "7369e2b54752fce000439f36b96754bcdec069dec161bcebb3b01a30e5161405",
+        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
+        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
+        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
+        "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
+        "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
+        "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
+        "candidates": [
+          {
+            "host": "172.16.0.0",
+            "port": 7070
+          }
+        ],
+        "nonce_hex": "a1b2c3d4e5f607181122334455667788",
+        "result": "direct"
+      },
+      "id": "direct.admission.rfc1918-172.lower",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "0401ac1000001b9ea1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Verifies every candidate address is in the explicit direct-pair allow-list"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "direct_address.172_16_12": "7369e2b54752fce000439f36b96754bcdec069dec161bcebb3b01a30e5161405",
+        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
+        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
+        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
+        "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
+        "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
+        "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
+        "candidates": [
+          {
+            "host": "172.31.255.255",
+            "port": 7070
+          }
+        ],
+        "nonce_hex": "a1b2c3d4e5f607181122334455667788",
+        "result": "direct"
+      },
+      "id": "direct.admission.rfc1918-172.upper",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "0401ac1fffff1b9ea1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Verifies every candidate address is in the explicit direct-pair allow-list"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "direct_address.192_168_16": "3948e2a70405486ea02dcf6d9f8125bdcdbc2f1acc0da15f4dbaf86804a78b07",
+        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
+        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
+        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
+        "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
+        "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
+        "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "error": {
+          "address": "192.169.0.0",
+          "kind": "disallowed_direct_ipv4"
+        },
+        "result": "error"
+      },
+      "id": "direct.admission.rfc1918-192.above",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "0401c0a900001b9ea1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Verifies every candidate address is in the explicit direct-pair allow-list"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "direct_address.192_168_16": "3948e2a70405486ea02dcf6d9f8125bdcdbc2f1acc0da15f4dbaf86804a78b07",
+        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
+        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
+        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
+        "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
+        "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
+        "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "error": {
+          "address": "192.167.255.255",
+          "kind": "disallowed_direct_ipv4"
+        },
+        "result": "error"
+      },
+      "id": "direct.admission.rfc1918-192.below",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "0401c0a7ffff1b9ea1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Verifies every candidate address is in the explicit direct-pair allow-list"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "direct_address.192_168_16": "3948e2a70405486ea02dcf6d9f8125bdcdbc2f1acc0da15f4dbaf86804a78b07",
+        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
+        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
+        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
+        "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
+        "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
+        "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
+        "candidates": [
+          {
+            "host": "192.168.0.0",
+            "port": 7070
+          }
+        ],
+        "nonce_hex": "a1b2c3d4e5f607181122334455667788",
+        "result": "direct"
+      },
+      "id": "direct.admission.rfc1918-192.lower",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "0401c0a800001b9ea1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Verifies every candidate address is in the explicit direct-pair allow-list"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "direct_address.192_168_16": "3948e2a70405486ea02dcf6d9f8125bdcdbc2f1acc0da15f4dbaf86804a78b07",
+        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
+        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
+        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
+        "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
+        "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
+        "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
+        "candidates": [
+          {
+            "host": "192.168.255.255",
+            "port": 7070
+          }
+        ],
+        "nonce_hex": "a1b2c3d4e5f607181122334455667788",
+        "result": "direct"
+      },
+      "id": "direct.admission.rfc1918-192.upper",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "0401c0a8ffff1b9ea1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Verifies every candidate address is in the explicit direct-pair allow-list"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "direct_address.rfc6598_shared": "31d7df17472728bfafb19ea3f41c2f7a9f9218e338467386334d43fcfc8882f3",
+        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
+        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
+        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
+        "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
+        "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
+        "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "error": {
+          "address": "100.128.0.0",
+          "kind": "disallowed_direct_ipv4"
+        },
+        "result": "error"
+      },
+      "id": "direct.admission.rfc6598.above",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "0401648000001b9ea1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Verifies every candidate address is in the explicit direct-pair allow-list"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "direct_address.rfc6598_shared": "31d7df17472728bfafb19ea3f41c2f7a9f9218e338467386334d43fcfc8882f3",
+        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
+        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
+        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
+        "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
+        "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
+        "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "error": {
+          "address": "100.63.255.255",
+          "kind": "disallowed_direct_ipv4"
+        },
+        "result": "error"
+      },
+      "id": "direct.admission.rfc6598.below",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "0401643fffff1b9ea1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Verifies every candidate address is in the explicit direct-pair allow-list"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "direct_address.rfc6598_shared": "31d7df17472728bfafb19ea3f41c2f7a9f9218e338467386334d43fcfc8882f3",
+        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
+        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
+        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
+        "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
+        "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
+        "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
+        "candidates": [
+          {
+            "host": "100.64.0.0",
+            "port": 7070
+          }
+        ],
+        "nonce_hex": "a1b2c3d4e5f607181122334455667788",
+        "result": "direct"
+      },
+      "id": "direct.admission.rfc6598.lower",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "0401644000001b9ea1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Verifies every candidate address is in the explicit direct-pair allow-list"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "direct_address.rfc6598_shared": "31d7df17472728bfafb19ea3f41c2f7a9f9218e338467386334d43fcfc8882f3",
+        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
+        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
+        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
+        "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
+        "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
+        "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
+        "candidates": [
+          {
+            "host": "100.127.255.255",
+            "port": 7070
+          }
+        ],
+        "nonce_hex": "a1b2c3d4e5f607181122334455667788",
+        "result": "direct"
+      },
+      "id": "direct.admission.rfc6598.upper",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "0401647fffff1b9ea1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "canonical direct vector `192.0.2.42`"
+      },
+      "document_literals": [
+        "https://go.solstone.app/p#0G0W000258DSX8DJRFAEBXG7308J4CT4ANK7F26YNPZEZJQYQAZ028T5CY4TQKFF",
+        "0G0W000258DSX8DJRFAEBXG7308J4CT4ANK7F26YNPZEZJQYQAZ028T5CY4TQKFF"
+      ],
+      "entry_digests": {
+        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
+        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
+        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
+        "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
+        "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
+        "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "error": {
+          "address": "192.0.2.42",
+          "kind": "disallowed_direct_ipv4"
+        },
+        "result": "error"
+      },
+      "id": "pair.v04.canonical.admission",
+      "input": {
+        "encoding": "link",
+        "value": "https://go.solstone.app/p#0G0W000258DSX8DJRFAEBXG7308J4CT4ANK7F26YNPZEZJQYQAZ028T5CY4TQKFF"
+      },
+      "kind": "declared",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Direct form conformance vector uses fixed inputs"
+      },
+      "document_literals": [
+        "0G0W000258DSX8DJRFAEBXG7308J4CT4ANK7F26YNPZEZJQYQAZ028T5CY4TQKFF",
+        "a1b2c3d4e5f607181122334455667788",
+        "deadbeefcafebabe0123456789abcdef"
+      ],
+      "entry_digests": {},
+      "expected_hex": "0401c000022a1b9ea1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef",
+      "id": "pair.v04.canonical.decode",
+      "input": "0G0W000258DSX8DJRFAEBXG7308J4CT4ANK7F26YNPZEZJQYQAZ028T5CY4TQKFF",
+      "kind": "declared",
+      "operation": "decode_crockford",
+      "unbound_reason": "Exercises Crockford base32 decoding, but the definition defines no base32 alphabet or decoder."
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Direct form, version `0x04` (40 bytes):"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105"
+      },
+      "expected": {
+        "error": {
+          "expected": 1,
+          "got": 0,
+          "kind": "truncated"
+        },
+        "result": "error"
+      },
+      "id": "pair.v04.truncated.0",
+      "input": {
+        "encoding": "blob_hex",
+        "value": ""
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Direct form, version `0x04` (40 bytes):"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105"
+      },
+      "expected": {
+        "error": {
+          "expected": 40,
+          "got": 1,
+          "kind": "truncated"
+        },
+        "result": "error"
+      },
+      "id": "pair.v04.truncated.1",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "04"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Direct form, version `0x04` (40 bytes):"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105"
+      },
+      "expected": {
+        "error": {
+          "expected": 40,
+          "got": 2,
+          "kind": "truncated"
+        },
+        "result": "error"
+      },
+      "id": "pair.v04.truncated.2",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "0401"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Direct form, version `0x04` (40 bytes):"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105"
+      },
+      "expected": {
+        "error": {
+          "expected": 40,
+          "got": 24,
+          "kind": "truncated"
+        },
+        "result": "error"
+      },
+      "id": "pair.v04.truncated.24",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "0401c000022a1b9ea1b2c3d4e5f607181122334455667788"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Direct form, version `0x04` (40 bytes):"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105"
+      },
+      "expected": {
+        "error": {
+          "expected": 40,
+          "got": 39,
+          "kind": "truncated"
+        },
+        "result": "error"
+      },
+      "id": "pair.v04.truncated.39",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "0401c000022a1b9ea1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcd"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Direct form, version `0x04` (40 bytes):"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105"
+      },
+      "expected": {
+        "error": {
+          "expected": 40,
+          "got": 6,
+          "kind": "truncated"
+        },
+        "result": "error"
+      },
+      "id": "pair.v04.truncated.6",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "0401c000022a"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Direct form, version `0x04` (40 bytes):"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105"
+      },
+      "expected": {
+        "error": {
+          "expected": 40,
+          "got": 8,
+          "kind": "truncated"
+        },
+        "result": "error"
+      },
+      "id": "pair.v04.truncated.8",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "0401c000022a1b9e"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "| 0 | 1 | version | `0x04` |\n| 1 | 1 | addr_type | `0x01` = IPv4 |"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "gap.addr_type.unknown_behavior": "ba48cf5a32c5a2e47389dc23f0215529ab0ef9169c6e04b9484b1f2e9f92bc10",
+        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
+        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
+        "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "error": {
+          "address_type": 2,
+          "kind": "unsupported_address_type"
+        },
+        "result": "error"
+      },
+      "id": "pair.v04.unsupported-address-tag",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "04020a0000011b9ea1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "`0x05`: `192.168.1.10`, `100.64.0.5`"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "direct_address.192_168_16": "3948e2a70405486ea02dcf6d9f8125bdcdbc2f1acc0da15f4dbaf86804a78b07",
+        "direct_address.rfc6598_shared": "31d7df17472728bfafb19ea3f41c2f7a9f9218e338467386334d43fcfc8882f3",
+        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "pair_link.0x05.candidate_count": "5731b2cade010b47098404a0cb1f22d06c03d897835a156fad9b9c6c654c5c16",
+        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
+        "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
+        "pair_link.form.0x05.field.addr_type": "4a4a99a1b87dad2cd54ce910b862c871a7854080bd1d88ac0e64ea848d243bf8",
+        "pair_link.form.0x05.field.ca_fp": "84076d324f48c736b8e6b7e64f37da860d4387e4cbff7b14605fb4d4fbef86e7",
+        "pair_link.form.0x05.field.count": "43dbffe295f1185067b998d729e8fae00e4be185cb51e13a329322049bba480d",
+        "pair_link.form.0x05.field.ipv4": "a9432604105df3fb7a5a32abf8d385a6519ba276308d7ef6bbb52511722afc2a",
+        "pair_link.form.0x05.field.nonce": "b265324d85f8365cde5753588e82922f48807074bf99a846d3ea3a95d8a16c16",
+        "pair_link.form.0x05.field.port": "c991277b6cf59fbe6390bad15416334a8c2461896a6376b6bb9e21f01ab35ee3",
+        "pair_link.form.0x05.field.version": "8fb296b83f686a40d7621dae4eb2e16cca1e3ee0f1de5e977b231635d9daffa4",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
+        "candidates": [
+          {
+            "host": "192.168.1.10",
+            "port": 7070
+          },
+          {
+            "host": "100.64.0.5",
+            "port": 7070
+          }
+        ],
+        "nonce_hex": "a1b2c3d4e5f607181122334455667788",
+        "result": "direct"
+      },
+      "id": "pair.v05.admission.all-allowed",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "0501021b9ec0a8010a64400005a1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "`0x05`: `192.168.1.10`, `192.0.2.42`"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "direct_address.192_168_16": "3948e2a70405486ea02dcf6d9f8125bdcdbc2f1acc0da15f4dbaf86804a78b07",
+        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "pair_link.0x05.candidate_count": "5731b2cade010b47098404a0cb1f22d06c03d897835a156fad9b9c6c654c5c16",
+        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
+        "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
+        "pair_link.form.0x05.field.addr_type": "4a4a99a1b87dad2cd54ce910b862c871a7854080bd1d88ac0e64ea848d243bf8",
+        "pair_link.form.0x05.field.count": "43dbffe295f1185067b998d729e8fae00e4be185cb51e13a329322049bba480d",
+        "pair_link.form.0x05.field.ipv4": "a9432604105df3fb7a5a32abf8d385a6519ba276308d7ef6bbb52511722afc2a",
+        "pair_link.form.0x05.field.port": "c991277b6cf59fbe6390bad15416334a8c2461896a6376b6bb9e21f01ab35ee3",
+        "pair_link.form.0x05.field.version": "8fb296b83f686a40d7621dae4eb2e16cca1e3ee0f1de5e977b231635d9daffa4",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "error": {
+          "address": "192.0.2.42",
+          "kind": "disallowed_direct_ipv4"
+        },
+        "result": "error"
+      },
+      "id": "pair.v05.admission.mixed-refused",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "0501021b9ec0a8010ac000022aa1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Candidate-count conformance cases:"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "pair_link.0x05.candidate_count": "5731b2cade010b47098404a0cb1f22d06c03d897835a156fad9b9c6c654c5c16",
+        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
+        "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
+        "pair_link.form.0x05.field.addr_type": "4a4a99a1b87dad2cd54ce910b862c871a7854080bd1d88ac0e64ea848d243bf8",
+        "pair_link.form.0x05.field.count": "43dbffe295f1185067b998d729e8fae00e4be185cb51e13a329322049bba480d",
+        "pair_link.form.0x05.field.version": "8fb296b83f686a40d7621dae4eb2e16cca1e3ee0f1de5e977b231635d9daffa4",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "error": {
+          "count": 0,
+          "kind": "invalid_candidate_count"
+        },
+        "result": "error"
+      },
+      "id": "pair.v05.count.0.refuse",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "050100"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Candidate-count conformance cases:"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "direct_address.192_168_16": "3948e2a70405486ea02dcf6d9f8125bdcdbc2f1acc0da15f4dbaf86804a78b07",
+        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "pair_link.0x05.candidate_count": "5731b2cade010b47098404a0cb1f22d06c03d897835a156fad9b9c6c654c5c16",
+        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
+        "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
+        "pair_link.form.0x05.field.addr_type": "4a4a99a1b87dad2cd54ce910b862c871a7854080bd1d88ac0e64ea848d243bf8",
+        "pair_link.form.0x05.field.ca_fp": "84076d324f48c736b8e6b7e64f37da860d4387e4cbff7b14605fb4d4fbef86e7",
+        "pair_link.form.0x05.field.count": "43dbffe295f1185067b998d729e8fae00e4be185cb51e13a329322049bba480d",
+        "pair_link.form.0x05.field.ipv4": "a9432604105df3fb7a5a32abf8d385a6519ba276308d7ef6bbb52511722afc2a",
+        "pair_link.form.0x05.field.nonce": "b265324d85f8365cde5753588e82922f48807074bf99a846d3ea3a95d8a16c16",
+        "pair_link.form.0x05.field.port": "c991277b6cf59fbe6390bad15416334a8c2461896a6376b6bb9e21f01ab35ee3",
+        "pair_link.form.0x05.field.version": "8fb296b83f686a40d7621dae4eb2e16cca1e3ee0f1de5e977b231635d9daffa4",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
+        "candidates": [
+          {
+            "host": "192.168.1.10",
+            "port": 7070
+          }
+        ],
+        "nonce_hex": "a1b2c3d4e5f607181122334455667788",
+        "result": "direct"
+      },
+      "id": "pair.v05.count.1",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "0501011b9ec0a8010aa1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Candidate-count conformance cases:"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "direct_address.192_168_16": "3948e2a70405486ea02dcf6d9f8125bdcdbc2f1acc0da15f4dbaf86804a78b07",
+        "direct_address.rfc6598_shared": "31d7df17472728bfafb19ea3f41c2f7a9f9218e338467386334d43fcfc8882f3",
+        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "pair_link.0x05.candidate_count": "5731b2cade010b47098404a0cb1f22d06c03d897835a156fad9b9c6c654c5c16",
+        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
+        "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
+        "pair_link.form.0x05.field.addr_type": "4a4a99a1b87dad2cd54ce910b862c871a7854080bd1d88ac0e64ea848d243bf8",
+        "pair_link.form.0x05.field.ca_fp": "84076d324f48c736b8e6b7e64f37da860d4387e4cbff7b14605fb4d4fbef86e7",
+        "pair_link.form.0x05.field.count": "43dbffe295f1185067b998d729e8fae00e4be185cb51e13a329322049bba480d",
+        "pair_link.form.0x05.field.ipv4": "a9432604105df3fb7a5a32abf8d385a6519ba276308d7ef6bbb52511722afc2a",
+        "pair_link.form.0x05.field.nonce": "b265324d85f8365cde5753588e82922f48807074bf99a846d3ea3a95d8a16c16",
+        "pair_link.form.0x05.field.port": "c991277b6cf59fbe6390bad15416334a8c2461896a6376b6bb9e21f01ab35ee3",
+        "pair_link.form.0x05.field.version": "8fb296b83f686a40d7621dae4eb2e16cca1e3ee0f1de5e977b231635d9daffa4",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
+        "candidates": [
+          {
+            "host": "192.168.1.10",
+            "port": 7070
+          },
+          {
+            "host": "100.64.0.5",
+            "port": 7070
+          }
+        ],
+        "nonce_hex": "a1b2c3d4e5f607181122334455667788",
+        "result": "direct"
+      },
+      "id": "pair.v05.count.2",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "0501021b9ec0a8010a64400005a1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Candidate-count conformance cases:"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "pair_link.0x05.candidate_count": "5731b2cade010b47098404a0cb1f22d06c03d897835a156fad9b9c6c654c5c16",
+        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
+        "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
+        "pair_link.form.0x05.field.addr_type": "4a4a99a1b87dad2cd54ce910b862c871a7854080bd1d88ac0e64ea848d243bf8",
+        "pair_link.form.0x05.field.count": "43dbffe295f1185067b998d729e8fae00e4be185cb51e13a329322049bba480d",
+        "pair_link.form.0x05.field.version": "8fb296b83f686a40d7621dae4eb2e16cca1e3ee0f1de5e977b231635d9daffa4",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "error": {
+          "count": 255,
+          "kind": "invalid_candidate_count"
+        },
+        "result": "error"
+      },
+      "id": "pair.v05.count.255.refuse",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "0501ff"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Candidate-count conformance cases:"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "direct_address.10_8": "f6f046dfa3f60deacc45b30553e8de6e54312b36369fe65e74df16df7bc0125d",
+        "direct_address.192_168_16": "3948e2a70405486ea02dcf6d9f8125bdcdbc2f1acc0da15f4dbaf86804a78b07",
+        "direct_address.rfc6598_shared": "31d7df17472728bfafb19ea3f41c2f7a9f9218e338467386334d43fcfc8882f3",
+        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "pair_link.0x05.candidate_count": "5731b2cade010b47098404a0cb1f22d06c03d897835a156fad9b9c6c654c5c16",
+        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
+        "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
+        "pair_link.form.0x05.field.addr_type": "4a4a99a1b87dad2cd54ce910b862c871a7854080bd1d88ac0e64ea848d243bf8",
+        "pair_link.form.0x05.field.ca_fp": "84076d324f48c736b8e6b7e64f37da860d4387e4cbff7b14605fb4d4fbef86e7",
+        "pair_link.form.0x05.field.count": "43dbffe295f1185067b998d729e8fae00e4be185cb51e13a329322049bba480d",
+        "pair_link.form.0x05.field.ipv4": "a9432604105df3fb7a5a32abf8d385a6519ba276308d7ef6bbb52511722afc2a",
+        "pair_link.form.0x05.field.nonce": "b265324d85f8365cde5753588e82922f48807074bf99a846d3ea3a95d8a16c16",
+        "pair_link.form.0x05.field.port": "c991277b6cf59fbe6390bad15416334a8c2461896a6376b6bb9e21f01ab35ee3",
+        "pair_link.form.0x05.field.version": "8fb296b83f686a40d7621dae4eb2e16cca1e3ee0f1de5e977b231635d9daffa4",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
+        "candidates": [
+          {
+            "host": "192.168.1.10",
+            "port": 7070
+          },
+          {
+            "host": "100.64.0.5",
+            "port": 7070
+          },
+          {
+            "host": "10.0.0.1",
+            "port": 7070
+          }
+        ],
+        "nonce_hex": "a1b2c3d4e5f607181122334455667788",
+        "result": "direct"
+      },
+      "id": "pair.v05.count.3",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "0501031b9ec0a8010a644000050a000001a1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Candidate-count conformance cases:"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "direct_address.10_8": "f6f046dfa3f60deacc45b30553e8de6e54312b36369fe65e74df16df7bc0125d",
+        "direct_address.192_168_16": "3948e2a70405486ea02dcf6d9f8125bdcdbc2f1acc0da15f4dbaf86804a78b07",
+        "direct_address.loopback": "54fea13b4d5c794bfe7d37857c0e8182bbfa30db7d757e8fef41cc7905677996",
+        "direct_address.rfc6598_shared": "31d7df17472728bfafb19ea3f41c2f7a9f9218e338467386334d43fcfc8882f3",
+        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "gap.address_policy.loopback_scope": "23820dd05cb0b24f864cc1df8066263d2d5bffb276df6edf9294eba124597ed3",
+        "pair_link.0x05.candidate_count": "5731b2cade010b47098404a0cb1f22d06c03d897835a156fad9b9c6c654c5c16",
+        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
+        "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
+        "pair_link.form.0x05.field.addr_type": "4a4a99a1b87dad2cd54ce910b862c871a7854080bd1d88ac0e64ea848d243bf8",
+        "pair_link.form.0x05.field.ca_fp": "84076d324f48c736b8e6b7e64f37da860d4387e4cbff7b14605fb4d4fbef86e7",
+        "pair_link.form.0x05.field.count": "43dbffe295f1185067b998d729e8fae00e4be185cb51e13a329322049bba480d",
+        "pair_link.form.0x05.field.ipv4": "a9432604105df3fb7a5a32abf8d385a6519ba276308d7ef6bbb52511722afc2a",
+        "pair_link.form.0x05.field.nonce": "b265324d85f8365cde5753588e82922f48807074bf99a846d3ea3a95d8a16c16",
+        "pair_link.form.0x05.field.port": "c991277b6cf59fbe6390bad15416334a8c2461896a6376b6bb9e21f01ab35ee3",
+        "pair_link.form.0x05.field.version": "8fb296b83f686a40d7621dae4eb2e16cca1e3ee0f1de5e977b231635d9daffa4",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
+        "candidates": [
+          {
+            "host": "192.168.1.10",
+            "port": 7070
+          },
+          {
+            "host": "100.64.0.5",
+            "port": 7070
+          },
+          {
+            "host": "10.0.0.1",
+            "port": 7070
+          },
+          {
+            "host": "127.0.0.1",
+            "port": 7070
+          }
+        ],
+        "nonce_hex": "a1b2c3d4e5f607181122334455667788",
+        "result": "direct"
+      },
+      "id": "pair.v05.count.4",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "0501041b9ec0a8010a644000050a0000017f000001a1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Candidate-count conformance cases:"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "pair_link.0x05.candidate_count": "5731b2cade010b47098404a0cb1f22d06c03d897835a156fad9b9c6c654c5c16",
+        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
+        "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
+        "pair_link.form.0x05.field.addr_type": "4a4a99a1b87dad2cd54ce910b862c871a7854080bd1d88ac0e64ea848d243bf8",
+        "pair_link.form.0x05.field.count": "43dbffe295f1185067b998d729e8fae00e4be185cb51e13a329322049bba480d",
+        "pair_link.form.0x05.field.version": "8fb296b83f686a40d7621dae4eb2e16cca1e3ee0f1de5e977b231635d9daffa4",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "error": {
+          "count": 5,
+          "kind": "invalid_candidate_count"
+        },
+        "result": "error"
+      },
+      "id": "pair.v05.count.5.refuse",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "050105"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "a link with any public-address candidate is refused as a whole"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "pair_link.0x05.candidate_count": "5731b2cade010b47098404a0cb1f22d06c03d897835a156fad9b9c6c654c5c16",
+        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
+        "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
+        "pair_link.form.0x05.field.addr_type": "4a4a99a1b87dad2cd54ce910b862c871a7854080bd1d88ac0e64ea848d243bf8",
+        "pair_link.form.0x05.field.count": "43dbffe295f1185067b998d729e8fae00e4be185cb51e13a329322049bba480d",
+        "pair_link.form.0x05.field.ipv4": "a9432604105df3fb7a5a32abf8d385a6519ba276308d7ef6bbb52511722afc2a",
+        "pair_link.form.0x05.field.port": "c991277b6cf59fbe6390bad15416334a8c2461896a6376b6bb9e21f01ab35ee3",
+        "pair_link.form.0x05.field.version": "8fb296b83f686a40d7621dae4eb2e16cca1e3ee0f1de5e977b231635d9daffa4",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "error": {
+          "address": "192.0.2.42",
+          "kind": "disallowed_direct_ipv4"
+        },
+        "result": "error"
+      },
+      "id": "pair.v05.disallowed-member.first",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "0501031b9ec000022a0a0000017f000001a1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "a link with any public-address candidate is refused as a whole"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "pair_link.0x05.candidate_count": "5731b2cade010b47098404a0cb1f22d06c03d897835a156fad9b9c6c654c5c16",
+        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
+        "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
+        "pair_link.form.0x05.field.addr_type": "4a4a99a1b87dad2cd54ce910b862c871a7854080bd1d88ac0e64ea848d243bf8",
+        "pair_link.form.0x05.field.count": "43dbffe295f1185067b998d729e8fae00e4be185cb51e13a329322049bba480d",
+        "pair_link.form.0x05.field.ipv4": "a9432604105df3fb7a5a32abf8d385a6519ba276308d7ef6bbb52511722afc2a",
+        "pair_link.form.0x05.field.port": "c991277b6cf59fbe6390bad15416334a8c2461896a6376b6bb9e21f01ab35ee3",
+        "pair_link.form.0x05.field.version": "8fb296b83f686a40d7621dae4eb2e16cca1e3ee0f1de5e977b231635d9daffa4",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "error": {
+          "address": "192.0.2.42",
+          "kind": "disallowed_direct_ipv4"
+        },
+        "result": "error"
+      },
+      "id": "pair.v05.disallowed-member.last",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "0501031b9e0a0000017f000001c000022aa1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "a link with any public-address candidate is refused as a whole"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "pair_link.0x05.candidate_count": "5731b2cade010b47098404a0cb1f22d06c03d897835a156fad9b9c6c654c5c16",
+        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
+        "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
+        "pair_link.form.0x05.field.addr_type": "4a4a99a1b87dad2cd54ce910b862c871a7854080bd1d88ac0e64ea848d243bf8",
+        "pair_link.form.0x05.field.count": "43dbffe295f1185067b998d729e8fae00e4be185cb51e13a329322049bba480d",
+        "pair_link.form.0x05.field.ipv4": "a9432604105df3fb7a5a32abf8d385a6519ba276308d7ef6bbb52511722afc2a",
+        "pair_link.form.0x05.field.port": "c991277b6cf59fbe6390bad15416334a8c2461896a6376b6bb9e21f01ab35ee3",
+        "pair_link.form.0x05.field.version": "8fb296b83f686a40d7621dae4eb2e16cca1e3ee0f1de5e977b231635d9daffa4",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "error": {
+          "address": "192.0.2.42",
+          "kind": "disallowed_direct_ipv4"
+        },
+        "result": "error"
+      },
+      "id": "pair.v05.disallowed-member.middle",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "0501031b9e0a000001c000022a7f000001a1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "coalescing exact duplicate host/port endpoints"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "direct_address.10_8": "f6f046dfa3f60deacc45b30553e8de6e54312b36369fe65e74df16df7bc0125d",
+        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "pair_link.0x05.candidate_count": "5731b2cade010b47098404a0cb1f22d06c03d897835a156fad9b9c6c654c5c16",
+        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
+        "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
+        "pair_link.form.0x05.field.addr_type": "4a4a99a1b87dad2cd54ce910b862c871a7854080bd1d88ac0e64ea848d243bf8",
+        "pair_link.form.0x05.field.ca_fp": "84076d324f48c736b8e6b7e64f37da860d4387e4cbff7b14605fb4d4fbef86e7",
+        "pair_link.form.0x05.field.count": "43dbffe295f1185067b998d729e8fae00e4be185cb51e13a329322049bba480d",
+        "pair_link.form.0x05.field.ipv4": "a9432604105df3fb7a5a32abf8d385a6519ba276308d7ef6bbb52511722afc2a",
+        "pair_link.form.0x05.field.nonce": "b265324d85f8365cde5753588e82922f48807074bf99a846d3ea3a95d8a16c16",
+        "pair_link.form.0x05.field.port": "c991277b6cf59fbe6390bad15416334a8c2461896a6376b6bb9e21f01ab35ee3",
+        "pair_link.form.0x05.field.version": "8fb296b83f686a40d7621dae4eb2e16cca1e3ee0f1de5e977b231635d9daffa4",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
+        "candidates": [
+          {
+            "host": "10.0.0.1",
+            "port": 7070
+          }
+        ],
+        "nonce_hex": "a1b2c3d4e5f607181122334455667788",
+        "result": "direct"
+      },
+      "id": "pair.v05.duplicate.coalesced",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "0501021b9e0a0000010a000001a1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "count is outside `1...4` is malformed"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "pair_link.0x05.candidate_count": "5731b2cade010b47098404a0cb1f22d06c03d897835a156fad9b9c6c654c5c16",
+        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
+        "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
+        "pair_link.form.0x05.field.addr_type": "4a4a99a1b87dad2cd54ce910b862c871a7854080bd1d88ac0e64ea848d243bf8",
+        "pair_link.form.0x05.field.count": "43dbffe295f1185067b998d729e8fae00e4be185cb51e13a329322049bba480d",
+        "pair_link.form.0x05.field.version": "8fb296b83f686a40d7621dae4eb2e16cca1e3ee0f1de5e977b231635d9daffa4",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "error": {
+          "count": 5,
+          "kind": "invalid_candidate_count"
+        },
+        "result": "error"
+      },
+      "id": "pair.v05.duplicate.count-five-refused",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "050105"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "a link with any public-address candidate is refused as a whole"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "pair_link.0x05.candidate_count": "5731b2cade010b47098404a0cb1f22d06c03d897835a156fad9b9c6c654c5c16",
+        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
+        "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
+        "pair_link.form.0x05.field.addr_type": "4a4a99a1b87dad2cd54ce910b862c871a7854080bd1d88ac0e64ea848d243bf8",
+        "pair_link.form.0x05.field.count": "43dbffe295f1185067b998d729e8fae00e4be185cb51e13a329322049bba480d",
+        "pair_link.form.0x05.field.ipv4": "a9432604105df3fb7a5a32abf8d385a6519ba276308d7ef6bbb52511722afc2a",
+        "pair_link.form.0x05.field.port": "c991277b6cf59fbe6390bad15416334a8c2461896a6376b6bb9e21f01ab35ee3",
+        "pair_link.form.0x05.field.version": "8fb296b83f686a40d7621dae4eb2e16cca1e3ee0f1de5e977b231635d9daffa4",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "error": {
+          "address": "192.0.2.42",
+          "kind": "disallowed_direct_ipv4"
+        },
+        "result": "error"
+      },
+      "id": "pair.v05.duplicate.disallowed",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "0501021b9ec000022ac000022aa1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Total length is `5 + 4\u00b7count + 32`"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "error": {
+          "expected": 3,
+          "got": 1,
+          "kind": "truncated"
+        },
+        "result": "error"
+      },
+      "id": "pair.v05.truncated.1",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "05"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Total length is `5 + 4\u00b7count + 32`"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "error": {
+          "expected": 45,
+          "got": 12,
+          "kind": "truncated"
+        },
+        "result": "error"
+      },
+      "id": "pair.v05.truncated.12",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "0501021b9ec0a8010a644000"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Total length is `5 + 4\u00b7count + 32`"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "error": {
+          "expected": 3,
+          "got": 2,
+          "kind": "truncated"
+        },
+        "result": "error"
+      },
+      "id": "pair.v05.truncated.2",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "0501"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Total length is `5 + 4\u00b7count + 32`"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "error": {
+          "expected": 5,
+          "got": 3,
+          "kind": "truncated"
+        },
+        "result": "error"
+      },
+      "id": "pair.v05.truncated.3",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "050102"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Total length is `5 + 4\u00b7count + 32`"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "error": {
+          "expected": 5,
+          "got": 4,
+          "kind": "truncated"
+        },
+        "result": "error"
+      },
+      "id": "pair.v05.truncated.4",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "0501021b"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Total length is `5 + 4\u00b7count + 32`"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "error": {
+          "expected": 45,
+          "got": 44,
+          "kind": "truncated"
+        },
+        "result": "error"
+      },
+      "id": "pair.v05.truncated.44",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "0501021b9ec0a8010a64400005a1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcd"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Total length is `5 + 4\u00b7count + 32`"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "error": {
+          "expected": 45,
+          "got": 5,
+          "kind": "truncated"
+        },
+        "result": "error"
+      },
+      "id": "pair.v05.truncated.5",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "0501021b9e"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Total length is `5 + 4\u00b7count + 32`"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "error": {
+          "expected": 45,
+          "got": 8,
+          "kind": "truncated"
+        },
+        "result": "error"
+      },
+      "id": "pair.v05.truncated.8",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "0501021b9ec0a801"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "| 0 | 1 | version | `0x05` |\n| 1 | 1 | addr_type | `0x01` = IPv4 |"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "gap.addr_type.unknown_behavior": "ba48cf5a32c5a2e47389dc23f0215529ab0ef9169c6e04b9484b1f2e9f92bc10",
+        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
+        "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
+        "pair_link.form.0x05.field.addr_type": "4a4a99a1b87dad2cd54ce910b862c871a7854080bd1d88ac0e64ea848d243bf8",
+        "pair_link.form.0x05.field.version": "8fb296b83f686a40d7621dae4eb2e16cca1e3ee0f1de5e977b231635d9daffa4",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "error": {
+          "address_type": 2,
+          "kind": "unsupported_address_type"
+        },
+        "result": "error"
+      },
+      "id": "pair.v05.unsupported-address-tag",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "0502021b9ec0a8010a64400005a1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pair-window.md",
+        "marker": "relay_origin | UTF-8 bytes of the custom origin"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "ca_fp_tag.spki_sha256_prefix16": "7493d6119b0d84c875eead6b20758f40d17336e346720f468376ebdac43cf0c5",
+        "gap.form_0x06.invalid_utf8_behavior": "62677960b7f382d3f952ed0df2c1446d3d7d02fc5da8c85b1b398a8bf61654ea",
+        "pair_link.ca_fp_tag": "3b8ff6056d652cce104dfa5ed67d170e72d6e5f2b89c9415f51e2ad4f2e48380",
+        "pair_link.form.0x06": "8893abb13d3df41541003de4521047826ccf9e6298194516829367946cb3ed65",
+        "pair_link.form.0x06.field.ca_fp_tag": "8669efbc2e465bfd1f8a696cb76116e69d31b2e77d0a45e84b404bbf3810bc13",
+        "pair_link.form.0x06.field.relay_origin": "c66a795fafe8ee8008bc0ed8646a5ad045ad19e859af85f8e830e38433bf126d",
+        "pair_link.form.0x06.field.relay_origin_selector": "a13cc78d579397a6298eec0f5d0ed33363d7eee38ec77548f73b6c8821599767",
+        "pair_link.form.0x06.field.version": "98c745ed0702190e0d74da100bf09167f17a692da9f1106a2f6c257f6cb7a2cf",
+        "pair_link.relay_origin_selector": "52368b31a9e137b28d3fedca9e27f885c2334c44ce6fb54ca4542f43911f5a2c",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "error": {
+          "kind": "bad_relay_origin"
+        },
+        "result": "error"
+      },
+      "id": "pair.v06.custom-origin-invalid-utf8",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "060123456789abcdef01deadbeefcafebabe0123456789abcdef01ff"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pair-window.md",
+        "marker": "`N` (`1..255`) = custom origin byte length"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "ca_fp_tag.spki_sha256_prefix16": "7493d6119b0d84c875eead6b20758f40d17336e346720f468376ebdac43cf0c5",
+        "gap.form_0x06.invalid_length_behavior": "19ce672e9b1dae1f7444364a95e4e0c67195f4071792a798e80b098a7f837cae",
+        "gap.form_0x06.total_length": "e3dabf800620804408e25ce5edb437bfcb619c8c70290f65e86b5cb95a3e2d76",
+        "gap.relay_origin_selector.unknown_behavior": "c49b56d1fa7b60686532ff2ee53d31803bfe2a3b64827c17b1d7bddc086cb424",
+        "pair_link.ca_fp_tag": "3b8ff6056d652cce104dfa5ed67d170e72d6e5f2b89c9415f51e2ad4f2e48380",
+        "pair_link.form.0x06": "8893abb13d3df41541003de4521047826ccf9e6298194516829367946cb3ed65",
+        "pair_link.form.0x06.field.ca_fp_tag": "8669efbc2e465bfd1f8a696cb76116e69d31b2e77d0a45e84b404bbf3810bc13",
+        "pair_link.form.0x06.field.relay_origin": "c66a795fafe8ee8008bc0ed8646a5ad045ad19e859af85f8e830e38433bf126d",
+        "pair_link.form.0x06.field.relay_origin_selector": "a13cc78d579397a6298eec0f5d0ed33363d7eee38ec77548f73b6c8821599767",
+        "pair_link.form.0x06.field.version": "98c745ed0702190e0d74da100bf09167f17a692da9f1106a2f6c257f6cb7a2cf",
+        "pair_link.relay_origin_selector": "52368b31a9e137b28d3fedca9e27f885c2334c44ce6fb54ca4542f43911f5a2c",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "error": {
+          "expected": 48,
+          "got": 47,
+          "kind": "truncated"
+        },
+        "result": "error"
+      },
+      "id": "pair.v06.custom-origin-truncated",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "060123456789abcdef01deadbeefcafebabe0123456789abcdef1568747470733a2f2f72656c61792e6578616d706c"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pair-window.md",
+        "marker": "Custom relay (`relay_origin = https://relay.example`):"
+      },
+      "document_literals": [
+        "https://go.solstone.app/p#0R0J6HB7H6NWVVR1VTPVXVYAZTXBW0938NKRKAYDXWAPGX3ME1SKMBSFE9JPRRBS5SJQGRBDE1P6A",
+        "0123456789abcdef",
+        "deadbeefcafebabe0123456789abcdef",
+        "https://relay.example"
+      ],
+      "entry_digests": {
+        "ca_fp_tag.spki_sha256_prefix16": "7493d6119b0d84c875eead6b20758f40d17336e346720f468376ebdac43cf0c5",
+        "pair_link.ca_fp_tag": "3b8ff6056d652cce104dfa5ed67d170e72d6e5f2b89c9415f51e2ad4f2e48380",
+        "pair_link.form.0x06": "8893abb13d3df41541003de4521047826ccf9e6298194516829367946cb3ed65",
+        "pair_link.form.0x06.field.S": "e9ad8595174b37f556783bcc7886253622de840d8b4d48e99449aea9a22fbccc",
+        "pair_link.form.0x06.field.ca_fp_spki": "c54edadb37ba214badb29666b796b6192633c175f9f30ba2a9909ad98caf699a",
+        "pair_link.form.0x06.field.ca_fp_tag": "8669efbc2e465bfd1f8a696cb76116e69d31b2e77d0a45e84b404bbf3810bc13",
+        "pair_link.form.0x06.field.relay_origin": "c66a795fafe8ee8008bc0ed8646a5ad045ad19e859af85f8e830e38433bf126d",
+        "pair_link.form.0x06.field.relay_origin_selector": "a13cc78d579397a6298eec0f5d0ed33363d7eee38ec77548f73b6c8821599767",
+        "pair_link.form.0x06.field.version": "98c745ed0702190e0d74da100bf09167f17a692da9f1106a2f6c257f6cb7a2cf",
+        "pair_link.relay_origin_selector": "52368b31a9e137b28d3fedca9e27f885c2334c44ce6fb54ca4542f43911f5a2c",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "ca_fp_spki_hex": "deadbeefcafebabe0123456789abcdef",
+        "relay_origin": "https://relay.example",
+        "result": "relay",
+        "secret_hex": "0123456789abcdef"
+      },
+      "id": "pair.v06.custom.published",
+      "input": {
+        "encoding": "link",
+        "value": "https://go.solstone.app/p#0R0J6HB7H6NWVVR1VTPVXVYAZTXBW0938NKRKAYDXWAPGX3ME1SKMBSFE9JPRRBS5SJQGRBDE1P6A"
+      },
+      "kind": "declared",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pair-window.md",
+        "marker": "Default relay (`relay_origin = None`, selector `0x00`):"
+      },
+      "document_literals": [
+        "https://go.solstone.app/p#0R0J6HB7H6NWVVR1VTPVXVYAZTXBW0938NKRKAYDXW00",
+        "0123456789abcdef",
+        "deadbeefcafebabe0123456789abcdef",
+        "https://link.solstone.app"
+      ],
+      "entry_digests": {
+        "ca_fp_tag.spki_sha256_prefix16": "7493d6119b0d84c875eead6b20758f40d17336e346720f468376ebdac43cf0c5",
+        "pair_link.ca_fp_tag": "3b8ff6056d652cce104dfa5ed67d170e72d6e5f2b89c9415f51e2ad4f2e48380",
+        "pair_link.form.0x06": "8893abb13d3df41541003de4521047826ccf9e6298194516829367946cb3ed65",
+        "pair_link.form.0x06.field.S": "e9ad8595174b37f556783bcc7886253622de840d8b4d48e99449aea9a22fbccc",
+        "pair_link.form.0x06.field.ca_fp_spki": "c54edadb37ba214badb29666b796b6192633c175f9f30ba2a9909ad98caf699a",
+        "pair_link.form.0x06.field.ca_fp_tag": "8669efbc2e465bfd1f8a696cb76116e69d31b2e77d0a45e84b404bbf3810bc13",
+        "pair_link.form.0x06.field.relay_origin_selector": "a13cc78d579397a6298eec0f5d0ed33363d7eee38ec77548f73b6c8821599767",
+        "pair_link.form.0x06.field.version": "98c745ed0702190e0d74da100bf09167f17a692da9f1106a2f6c257f6cb7a2cf",
+        "pair_link.relay_origin_selector": "52368b31a9e137b28d3fedca9e27f885c2334c44ce6fb54ca4542f43911f5a2c",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "ca_fp_spki_hex": "deadbeefcafebabe0123456789abcdef",
+        "relay_origin": "https://link.solstone.app",
+        "result": "relay",
+        "secret_hex": "0123456789abcdef"
+      },
+      "id": "pair.v06.default.published",
+      "input": {
+        "encoding": "link",
+        "value": "https://go.solstone.app/p#0R0J6HB7H6NWVVR1VTPVXVYAZTXBW0938NKRKAYDXW00"
+      },
+      "kind": "declared",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pair-window.md",
+        "marker": "Base size **27 bytes**"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "gap.form_0x06.invalid_length_behavior": "19ce672e9b1dae1f7444364a95e4e0c67195f4071792a798e80b098a7f837cae",
+        "gap.form_0x06.total_length": "e3dabf800620804408e25ce5edb437bfcb619c8c70290f65e86b5cb95a3e2d76",
+        "pair_link.form.0x06": "8893abb13d3df41541003de4521047826ccf9e6298194516829367946cb3ed65",
+        "pair_link.form.0x06.field.version": "98c745ed0702190e0d74da100bf09167f17a692da9f1106a2f6c257f6cb7a2cf",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "error": {
+          "expected": 27,
+          "got": 1,
+          "kind": "truncated"
+        },
+        "result": "error"
+      },
+      "id": "pair.v06.truncated.1",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "06"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pair-window.md",
+        "marker": "Base size **27 bytes**"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "gap.form_0x06.invalid_length_behavior": "19ce672e9b1dae1f7444364a95e4e0c67195f4071792a798e80b098a7f837cae",
+        "gap.form_0x06.total_length": "e3dabf800620804408e25ce5edb437bfcb619c8c70290f65e86b5cb95a3e2d76",
+        "pair_link.form.0x06": "8893abb13d3df41541003de4521047826ccf9e6298194516829367946cb3ed65",
+        "pair_link.form.0x06.field.version": "98c745ed0702190e0d74da100bf09167f17a692da9f1106a2f6c257f6cb7a2cf",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "error": {
+          "expected": 27,
+          "got": 10,
+          "kind": "truncated"
+        },
+        "result": "error"
+      },
+      "id": "pair.v06.truncated.10",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "060123456789abcdef01"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pair-window.md",
+        "marker": "Base size **27 bytes**"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "gap.form_0x06.invalid_length_behavior": "19ce672e9b1dae1f7444364a95e4e0c67195f4071792a798e80b098a7f837cae",
+        "gap.form_0x06.total_length": "e3dabf800620804408e25ce5edb437bfcb619c8c70290f65e86b5cb95a3e2d76",
+        "pair_link.form.0x06": "8893abb13d3df41541003de4521047826ccf9e6298194516829367946cb3ed65",
+        "pair_link.form.0x06.field.version": "98c745ed0702190e0d74da100bf09167f17a692da9f1106a2f6c257f6cb7a2cf",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "error": {
+          "expected": 27,
+          "got": 26,
+          "kind": "truncated"
+        },
+        "result": "error"
+      },
+      "id": "pair.v06.truncated.26",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "060123456789abcdef01deadbeefcafebabe0123456789abcdef"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pair-window.md",
+        "marker": "Base size **27 bytes**"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "gap.form_0x06.invalid_length_behavior": "19ce672e9b1dae1f7444364a95e4e0c67195f4071792a798e80b098a7f837cae",
+        "gap.form_0x06.total_length": "e3dabf800620804408e25ce5edb437bfcb619c8c70290f65e86b5cb95a3e2d76",
+        "pair_link.form.0x06": "8893abb13d3df41541003de4521047826ccf9e6298194516829367946cb3ed65",
+        "pair_link.form.0x06.field.version": "98c745ed0702190e0d74da100bf09167f17a692da9f1106a2f6c257f6cb7a2cf",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "error": {
+          "expected": 27,
+          "got": 9,
+          "kind": "truncated"
+        },
+        "result": "error"
+      },
+      "id": "pair.v06.truncated.9",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "060123456789abcdef"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pair-window.md",
+        "marker": "ca_fp_tag | `0x01` = SHA-256 over CA DER SPKI"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "ca_fp_tag.spki_sha256_prefix16": "7493d6119b0d84c875eead6b20758f40d17336e346720f468376ebdac43cf0c5",
+        "gap.ca_fp_tag.unknown_behavior": "ea17eb86c7cc03c2db4e2473dd4a0a03b91ed3c02b0016882e7253833a9c7268",
+        "pair_link.ca_fp_tag": "3b8ff6056d652cce104dfa5ed67d170e72d6e5f2b89c9415f51e2ad4f2e48380",
+        "pair_link.form.0x06": "8893abb13d3df41541003de4521047826ccf9e6298194516829367946cb3ed65",
+        "pair_link.form.0x06.field.ca_fp_tag": "8669efbc2e465bfd1f8a696cb76116e69d31b2e77d0a45e84b404bbf3810bc13",
+        "pair_link.form.0x06.field.version": "98c745ed0702190e0d74da100bf09167f17a692da9f1106a2f6c257f6cb7a2cf",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "error": {
+          "kind": "unknown_ca_fp_tag",
+          "tag": 2
+        },
+        "result": "error"
+      },
+      "id": "pair.v06.unknown-ca-tag",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "060123456789abcdef02deadbeefcafebabe0123456789abcdef00"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pair-window.md",
+        "marker": "RK (L=16)    = e34481a4cde647ba9c9fb29a59e18271"
+      },
+      "document_literals": [
+        "0123456789abcdef",
+        "e34481a4cde647ba9c9fb29a59e18271"
+      ],
+      "entry_digests": {},
+      "expected_hex": "e34481a4cde647ba9c9fb29a59e18271",
+      "id": "relay.rk.published",
+      "kind": "declared",
+      "operation": "derive_relay_key",
+      "secret_hex": "0123456789abcdef",
+      "unbound_reason": "Exercises HKDF relay-key derivation, but the definition defines no KDF."
+    }
+  ]
+}

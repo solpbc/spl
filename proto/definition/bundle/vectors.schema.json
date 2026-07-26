@@ -1,0 +1,352 @@
+{
+  "$defs": {
+    "citation": {
+      "additionalProperties": false,
+      "properties": {
+        "document": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "marker": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "document",
+        "marker"
+      ],
+      "type": "object"
+    }
+  },
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "covers": {
+      "items": {
+        "minLength": 1,
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "vectors": {
+      "items": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "properties": {
+              "citation": {
+                "$ref": "#/$defs/citation"
+              },
+              "document_literals": {
+                "items": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "entry_digests": {
+                "additionalProperties": {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              "expected": {
+                "additionalProperties": false,
+                "properties": {
+                  "ca_fp_hex": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "ca_fp_spki_hex": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "candidates": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "host": {
+                          "minLength": 1,
+                          "type": "string"
+                        },
+                        "port": {
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "host",
+                        "port"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "error": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "address": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "address_type": {
+                        "maximum": 255,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "count": {
+                        "maximum": 255,
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "expected": {
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "got": {
+                        "minimum": 0,
+                        "type": "integer"
+                      },
+                      "kind": {
+                        "minLength": 1,
+                        "type": "string"
+                      },
+                      "tag": {
+                        "maximum": 255,
+                        "minimum": 0,
+                        "type": "integer"
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ],
+                    "type": "object"
+                  },
+                  "nonce_hex": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "relay_origin": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "result": {
+                    "enum": [
+                      "direct",
+                      "error",
+                      "relay"
+                    ]
+                  },
+                  "secret_hex": {
+                    "minLength": 1,
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "result"
+                ],
+                "type": "object"
+              },
+              "id": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "input": {
+                "additionalProperties": false,
+                "properties": {
+                  "encoding": {
+                    "enum": [
+                      "blob_hex",
+                      "link"
+                    ]
+                  },
+                  "value": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "encoding",
+                  "value"
+                ],
+                "type": "object"
+              },
+              "kind": {
+                "enum": [
+                  "declared",
+                  "recorded"
+                ]
+              },
+              "operation": {
+                "const": "parse_pair_link"
+              },
+              "unbound_reason": {
+                "anyOf": [
+                  {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "kind",
+              "operation",
+              "citation",
+              "entry_digests",
+              "unbound_reason",
+              "document_literals",
+              "input",
+              "expected"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "citation": {
+                "$ref": "#/$defs/citation"
+              },
+              "document_literals": {
+                "items": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "entry_digests": {
+                "additionalProperties": {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              "expected_hex": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "id": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "input": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "declared",
+                  "recorded"
+                ]
+              },
+              "operation": {
+                "const": "decode_crockford"
+              },
+              "unbound_reason": {
+                "anyOf": [
+                  {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "kind",
+              "operation",
+              "citation",
+              "entry_digests",
+              "unbound_reason",
+              "document_literals",
+              "input",
+              "expected_hex"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "citation": {
+                "$ref": "#/$defs/citation"
+              },
+              "document_literals": {
+                "items": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "entry_digests": {
+                "additionalProperties": {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              "expected_hex": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "id": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "declared",
+                  "recorded"
+                ]
+              },
+              "operation": {
+                "const": "derive_relay_key"
+              },
+              "secret_hex": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "unbound_reason": {
+                "anyOf": [
+                  {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "kind",
+              "operation",
+              "citation",
+              "entry_digests",
+              "unbound_reason",
+              "document_literals",
+              "secret_hex",
+              "expected_hex"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "covers",
+    "vectors"
+  ],
+  "title": "SPL pair-link conformance vectors",
+  "type": "object"
+}
