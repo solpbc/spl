@@ -5,8 +5,9 @@
 // from AGENTS.md §3 and proto/session.md §"what spl-relay logs about a session".
 //
 // Logged fields are an explicit allow-list. Never a payload byte. Never a
-// token claim. Never a TLS handshake message. Never an Authorization header.
-// Never the bytes inside a relayed frame.
+// token value. A token jti is deliberately allowed as the non-credential
+// correlation handle. Never a TLS handshake message. Never an Authorization
+// header. Never the bytes inside a relayed frame.
 //
 // Callers emit events through `log({...})`. The helper refuses unknown fields
 // at type-check time so it is impossible to accidentally widen the surface.
