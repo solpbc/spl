@@ -143,5 +143,15 @@
       "language": "python",
       "note": "A second, independent home-side implementation exists outside this repository and is not the same code as this repository's home component. Not audited here; no revision recorded."
     }
-  ]
+  ],
+  "scope_and_impact": {
+    "these_are_reference_implementations": "The relay is production. The home and mobile components in this repository are reference/example implementations, not shipped software. mobile/README.md describes itself as an example CLI that exercises the protocol end-to-end.",
+    "owner_impact": "None. Every client that ships to a person implements the current pair-window form (0x06) and the HKDF relay-key derivation: the Swift shared package, the Android client, the Windows client, the browser extension, and the Rust shared package. The shipping home side also accepts the specification-conformant query-parameter nonce. The divergences below are confined to this repository's reference components.",
+    "what_it_does_cost": [
+      "The example client is advertised as the wire-format reference for a downstream build, so a reader following it gets a retired mechanism.",
+      "The end-to-end harness drives the example client and therefore cannot pass, and it is not part of the local gate. The result is that this repository has no working end-to-end protocol test.",
+      "The relay's pair-window path has no in-repo client counterpart that derives the relay key from the pairing nonce the way a real client does; relay coverage uses synthesized keys."
+    ],
+    "partial_mitigation": "The conformance corpus in proto/definition/ now pins the 0x06 pair-link forms and the relay-key derivation as vectors, including a published-fixture vector carrying a known nonce and its derived key. A new implementation therefore has machine-checkable truth in this repository even though the reference code here is stale."
+  }
 }
