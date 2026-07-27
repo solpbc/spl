@@ -63,7 +63,7 @@ fragment   = 0R0J6HB7H6NWVVR1VTPVXVYAZTXBW0938NKRKAYDXWAPGX3ME1SKMBSFE9JPRRBS5SJ
 link       = https://go.solstone.app/p#0R0J6HB7H6NWVVR1VTPVXVYAZTXBW0938NKRKAYDXWAPGX3ME1SKMBSFE9JPRRBS5SJQGRBDE1P6A
 ```
 
-Every client parser + the journal encoder MUST reproduce these bytes exactly. Inline these vectors verbatim into each implementing lode's tests; gate on byte-identity post-ship.
+Every client parser + the journal encoder MUST reproduce these bytes exactly. Inline these vectors verbatim into each implementation's tests; gate on byte-identity post-ship.
 
 ## relay endpoints
 

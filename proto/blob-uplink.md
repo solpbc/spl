@@ -217,7 +217,7 @@ the relay holds no key and runs no HPKE code.
 
 ## interop fixture
 
-The HPKE-running lodes use the following fixture as an interop gate: create the
+HPKE-running implementations use the following fixture as an interop gate: create the
 auth-mode recipient context from `(enc, skRm, info, pkSm)`, open
 `encryption[0].ct` with its `aad`, and assert it equals `pt`; then assert the
 empty-context `L=32` export equals the value below. This repo does not run that
