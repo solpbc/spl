@@ -5,9 +5,8 @@
 // from AGENTS.md §3 and proto/session.md §"what spl-relay logs about a session".
 //
 // Logged fields are an explicit allow-list. Never a payload byte. Never a
-// token value. A token jti is deliberately allowed as the non-credential
-// correlation handle. Never a TLS handshake message. Never an Authorization
-// header. Never the bytes inside a relayed frame.
+// token claim. Never a TLS handshake message. Never an Authorization header.
+// Never the bytes inside a relayed frame.
 //
 // Callers emit events through `log({...})`. The helper refuses unknown fields
 // at type-check time so it is impossible to accidentally widen the surface.
@@ -49,8 +48,6 @@ export type LogEvent =
 	| "pending_grant_claimed"
 	| "admin_instances_list"
 	| "admin_instance_show"
-	| "instance_retire"
-	| "instance_retire_failed"
 	| "not_entitled"
 	| "internal_error";
 
@@ -59,17 +56,7 @@ export type Direction = "home_to_mobile" | "mobile_to_home" | "meta";
 // Relay-authored close classifications. Distinct from — and a strict subset
 // of — the general authored-reason set below. webSocketClose/webSocketError
 // emit a FIXED member here; peer close text is never a source.
-export type CloseReason = "peer_closed" | "ws_error" | "instance_retired";
-
-export type RetirementComponent =
-	| "retired_state"
-	| "instance_do_cleanup"
-	| "rk_do_cleanup"
-	| "device_revocation"
-	| "entitlement_clear"
-	| "pending_grant_clear"
-	| "rk_registry_clear"
-	| "verification";
+export type CloseReason = "peer_closed" | "ws_error";
 
 type AuthorizedReason =
 	// token verification (forwarded via unauthorizedWithLog)
@@ -78,8 +65,6 @@ type AuthorizedReason =
 	| `attestation_${AttestationFailReason}`
 	// relay-authored close/error classifications
 	| CloseReason
-	// instance-retirement response/log component vocabulary
-	| RetirementComponent
 	// route-local auth / routing
 	| "missing_token"
 	| "instance_mismatch"

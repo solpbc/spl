@@ -227,8 +227,6 @@ No attestation, client cert, or QR code is involved. Prior enrollment is proven 
 
 A token expired beyond the 30-day grace is rejected with 401 and `reason: "expired"`; that is the mobile's signal to fall back to re-pair. An unknown `instance_id` is rejected with 404, and a revoked instance is rejected with 403.
 
-Instance retirement does not rewrite or cryptographically invalidate previously issued service or device JWTs: their signatures remain valid until their normal `exp`. The retired instance state is nevertheless terminal. Every relay enrollment, refresh, listen, dial, normal tunnel, pair-window, pair-dial, and pairing-tunnel entry path refuses old or racing material for that instance, and retirement closes already accepted sockets with 4403 / `instance_retired`. A valid signature is therefore not evidence that a retired instance remains usable.
-
 Response (on success):
 
 ```json

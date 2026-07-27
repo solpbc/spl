@@ -3,7 +3,6 @@
 
 import { defineWorkersConfig } from "@cloudflare/vitest-pool-workers/config";
 import { configDefaults } from "vitest/config";
-import { genSigningKeypair } from "./vitest.keys";
 
 // Integration-style tests that run under Miniflare with the real InstanceDO
 // + D1 bindings. Used for WS-pairing, cardinality, and pending-buffer
@@ -45,3 +44,35 @@ export default defineWorkersConfig({
 		},
 	},
 });
+
+async function genSigningKeypair(): Promise<{
+	privateJwkRaw: string;
+	jwksPublicRaw: string;
+}> {
+	const pair = (await crypto.subtle.generateKey({ name: "Ed25519" }, true, [
+		"sign",
+		"verify",
+	])) as CryptoKeyPair;
+	const pub = (await crypto.subtle.exportKey("jwk", pair.publicKey)) as unknown as Record<
+		string,
+		string
+	>;
+	const priv = (await crypto.subtle.exportKey("jwk", pair.privateKey)) as unknown as Record<
+		string,
+		string
+	>;
+	const kid = "test-kid-1";
+	const publicJwk = {
+		kty: "OKP",
+		crv: "Ed25519",
+		kid,
+		x: pub.x,
+		alg: "EdDSA",
+		use: "sig",
+	};
+	const privateJwk = { ...publicJwk, d: priv.d };
+	return {
+		privateJwkRaw: JSON.stringify(privateJwk),
+		jwksPublicRaw: JSON.stringify({ keys: [publicJwk] }),
+	};
+}

@@ -56,21 +56,11 @@ export async function handleSetEntitlement(request: Request, env: Env): Promise<
 	if (!resolved.ok) return json({ error: "bad entitled_until" }, 400);
 
 	const result = await env.DB.prepare(
-		"UPDATE instances SET entitled_until = ? WHERE instance_id = ? AND revoked_at IS NULL",
+		"UPDATE instances SET entitled_until = ? WHERE instance_id = ?",
 	)
 		.bind(resolved.entitledUntil, body.instance_id)
 		.run();
 	if (result.meta.changes === 0) {
-		const existing = await env.DB.prepare("SELECT revoked_at FROM instances WHERE instance_id = ?")
-			.bind(body.instance_id)
-			.first<{ revoked_at: number | null }>();
-		if (existing && existing.revoked_at !== null) {
-			await env.DB.prepare("DELETE FROM pending_grants WHERE instance_id = ?")
-				.bind(body.instance_id)
-				.run();
-			return json({ error: "instance retired" }, 409);
-		}
-
 		// Grant-before-enroll race: no instances row exists yet (the account
 		// worker can grant before the home enrolls; the comp/scout path never
 		// re-pushes). Hold the grant in pending_grants and claim it on enroll
@@ -155,26 +145,9 @@ export function hasValidBearer(request: Request, secret: string): boolean {
 }
 
 function toInstanceView(row: InstanceRow, now: number) {
-	if (row.revoked_at !== null) {
-		return {
-			instance_id: row.instance_id,
-			created_at: row.created_at,
-			revoked_at: row.revoked_at,
-			entitled_until: null,
-			entitled: false,
-		};
-	}
-
-	return {
-		instance_id: row.instance_id,
-		ca_fp: row.ca_fp,
-		home_label: row.home_label,
-		created_at: row.created_at,
-		rotated_at: row.rotated_at,
-		revoked_at: row.revoked_at,
-		entitled_until: row.entitled_until,
-		entitled: row.entitled_until !== null && row.entitled_until > now,
-	};
+	const entitled =
+		row.revoked_at === null && row.entitled_until !== null && row.entitled_until > now;
+	return { ...row, entitled };
 }
 
 function resolveEntitlement(value: unknown): ResolvedEntitlement {

@@ -10,7 +10,6 @@
 // See proto/tokens.md §issuance for the on-the-wire payloads and TTL rules.
 
 import { fingerprintDer, importCaPublicKey, pemToDer, verifyAttestation } from "./attestation";
-import { INSTANCE_ID_RE } from "./entitlement";
 import type { Env } from "./env";
 import { json, readJson } from "./http";
 import { log } from "./logging";
@@ -53,7 +52,7 @@ export async function handleEnrollHome(request: Request, env: Env): Promise<Resp
 	}
 
 	// Reject obviously bad instance_id shapes to keep D1 primary-key safe.
-	if (!INSTANCE_ID_RE.test(body.instance_id)) {
+	if (!/^[0-9a-fA-F-]{10,64}$/.test(body.instance_id)) {
 		log({ event: "enroll_rejected", route: "/enroll/home", reason: "bad_instance_id" });
 		return json({ error: "bad instance_id" }, 400);
 	}
@@ -74,26 +73,22 @@ export async function handleEnrollHome(request: Request, env: Env): Promise<Resp
 	}
 	const caFp = await fingerprintDer(caDer);
 
+	const minted = await mintServiceToken(env.SIGNING_JWK, {
+		instance_id: body.instance_id,
+		ca_fp: caFp,
+		issuer: env.ISSUER,
+		ttlSeconds: SERVICE_TOKEN_TTL_SECONDS,
+	});
+
 	// Idempotent: same instance_id rotates the token. Preserves ca_pubkey
 	// only if it matches what we already have — otherwise the call is a
 	// takeover attempt and we reject. Home-side CA rotation is a separate
 	// (post-MVP) flow.
-	const existing = await env.DB.prepare(
-		"SELECT ca_pubkey_pem, revoked_at FROM instances WHERE instance_id = ?",
-	)
+	const existing = await env.DB.prepare("SELECT ca_pubkey_pem FROM instances WHERE instance_id = ?")
 		.bind(body.instance_id)
-		.first<{ ca_pubkey_pem: string; revoked_at: number | null }>();
+		.first<{ ca_pubkey_pem: string }>();
 
 	if (existing) {
-		if (existing.revoked_at !== null) {
-			log({
-				event: "enroll_rejected",
-				route: "/enroll/home",
-				reason: "instance_revoked",
-				instance_id: body.instance_id,
-			});
-			return json({ error: "instance retired" }, 403);
-		}
 		if (existing.ca_pubkey_pem.trim() !== body.ca_pubkey.trim()) {
 			log({
 				event: "enroll_rejected",
@@ -103,30 +98,11 @@ export async function handleEnrollHome(request: Request, env: Env): Promise<Resp
 			});
 			return json({ error: "ca_pubkey mismatch — rotation not supported in v1" }, 409);
 		}
-	}
-
-	const minted = await mintServiceToken(env.SIGNING_JWK, {
-		instance_id: body.instance_id,
-		ca_fp: caFp,
-		issuer: env.ISSUER,
-		ttlSeconds: SERVICE_TOKEN_TTL_SECONDS,
-	});
-
-	if (existing) {
-		const rotation = await env.DB.prepare(
-			"UPDATE instances SET ca_fp = ?, home_label = ?, service_token_jti = ?, rotated_at = ? WHERE instance_id = ? AND revoked_at IS NULL",
+		await env.DB.prepare(
+			"UPDATE instances SET ca_fp = ?, home_label = ?, service_token_jti = ?, rotated_at = ? WHERE instance_id = ?",
 		)
 			.bind(caFp, body.home_label ?? null, minted.jti, minted.iat, body.instance_id)
 			.run();
-		if (rotation.meta.changes === 0) {
-			log({
-				event: "enroll_rejected",
-				route: "/enroll/home",
-				reason: "instance_revoked",
-				instance_id: body.instance_id,
-			});
-			return json({ error: "instance retired" }, 403);
-		}
 		log({ event: "enroll_home_rotate", instance_id: body.instance_id, jti: minted.jti });
 	} else {
 		try {
@@ -170,23 +146,9 @@ export async function handleEnrollHome(request: Request, env: Env): Promise<Resp
 		.bind(body.instance_id)
 		.first<{ entitled_until: number }>();
 	if (pending) {
-		const claim = await env.DB.prepare(
-			"UPDATE instances SET entitled_until = ? WHERE instance_id = ? AND revoked_at IS NULL",
-		)
+		await env.DB.prepare("UPDATE instances SET entitled_until = ? WHERE instance_id = ?")
 			.bind(pending.entitled_until, body.instance_id)
 			.run();
-		if (claim.meta.changes === 0) {
-			await env.DB.prepare("DELETE FROM pending_grants WHERE instance_id = ?")
-				.bind(body.instance_id)
-				.run();
-			log({
-				event: "enroll_rejected",
-				route: "/enroll/home",
-				reason: "instance_revoked",
-				instance_id: body.instance_id,
-			});
-			return json({ error: "instance retired" }, 403);
-		}
 		await env.DB.prepare("DELETE FROM pending_grants WHERE instance_id = ?")
 			.bind(body.instance_id)
 			.run();
