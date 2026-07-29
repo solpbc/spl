@@ -126,3 +126,15 @@ The v1 build is a future phase. This repo is scaffolded, not implemented. When M
 If a proposed change feels like it drifts from *blind by construction*, stop. Write the concern out in the PR description. The author may have caught a real architectural tension — better to resolve it in review than ship it.
 
 Prototype findings folded into the spec are where the concrete lessons live. Re-read them before architecting anything new. Don't re-derive what's already been measured.
+
+### the definition gate's prose pin — a known cost
+
+If `make definition-ci` goes red on a change that has nothing to do with wire values, that is a known cost rather than a mystery. `proto/pairing.md` and `proto/pair-window.md` are digest-pinned generator inputs, and a strict SemVer increase is required whenever **any** byte under `proto/definition/` differs from `HEAD`. So an edit to any of those stales the bundle until it is regenerated, re-versioned, and re-vendored into every consuming package with that consumer's pinned constants updated.
+
+What the pin buys is real: when a cited document changes, generation fails until someone regenerates, so the citation markers are re-verified against the text they cite instead of drifting away from it silently. What it costs is that a change with no observable effect on any implementation is handled as a contract change.
+
+Two measurements so far, each small in isolation and each disproportionate. On 2026-07-27 a single word changed in one sentence of `proto/pair-window.md`; no citation marker was affected and the regenerated payloads came out byte-identical, but the gate went red and stayed red until 2026-07-29, because it is operator-run and nobody ran it in between. Clearing it took a SemVer increase, a regenerated manifest, and a re-vendor with four pinned constants updated. Then this very subsection could not be added to `proto/definition/README.md` at all without a further SemVer increase and another re-vendor — which is why it lives here, for the same reason [`docs/client-implementation-audit.json`](docs/client-implementation-audit.json) is deliberately not under that tree either.
+
+The narrowest fix, should this keep recurring: require the SemVer increase only when a regenerated **payload** actually differs, and let an input-digest refresh whose payloads are byte-identical land as an ordinary commit. That keeps marker re-verification and the digest record while stopping prose corrections and documentation from becoming version events every consumer has to follow. **Do not simply drop the prose documents from the input set** — the digest is what forces markers to be re-checked when the text moves; without it a marker rots in place and the gate stays green while the citation quietly stops being true.
+
+If you pay this cost again, add the measurement here.
