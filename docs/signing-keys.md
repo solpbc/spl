@@ -178,7 +178,7 @@ If you operate multiple environments, rotate on the same 12-month cadence but **
 
 ## self-host vs. sol pbc internal
 
-This document is the public-facing playbook for any deployment of `spl-relay`. sol pbc additionally has an internal operational playbook (`cso/playbooks/spl-signing-key-lifecycle.md`) covering vault paths, internal commands, and sol pbc's specific provisioning flow. That playbook is sol pbc's; **self-hosters follow the public-facing version you're reading**.
+This document is the public-facing playbook for any deployment of `spl-relay`. sol pbc additionally maintains an internal operational playbook covering vault paths, internal commands, and sol pbc's specific provisioning flow. That playbook is sol pbc's; **self-hosters follow the public-facing version you're reading**.
 
 If you find this document insufficient for your deployment, open an issue on `github.com/solpbc/spl` — the public version should be sufficient for any reasonable self-host.
 

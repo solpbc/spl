@@ -264,7 +264,7 @@ The discipline:
 - Opaque ciphertext payload of inner-TLS records, framed as binary WS messages.
 - WebSocket transport keepalive (library-level ping/pong; see *no app heartbeat* below).
 
-Pair-dial deliberately reuses the existing `incoming` control message and adds no new WS-layer message type. The founder gate for this surface was cleared 2026-05-29.
+Pair-dial deliberately reuses the existing `incoming` control message and adds no new WS-layer message type. The operator gate for this surface was cleared 2026-05-29.
 
 **Not acceptable at the WS layer:**
 
@@ -283,9 +283,9 @@ This is the same shape of move as *blindness is structural* (above): we make the
 
 The discipline also rules out a class of leak by construction: a coding-agent or contributor extending the wire protocol cannot accidentally add an endpoint-to-endpoint feature at the WS layer, because the rule against doing so is at the design layer, not buried in privacy-review checklists.
 
-**Gate.** A new control-message type at the WS layer requires explicit founder review — the same gate as adding a listening port to the home's `link` service.
+**Gate.** A new control-message type at the WS layer requires explicit operator review — the same gate as adding a listening port to the home's `link` service.
 
-**Origin.** The first design pass for the LAN-direct path proposed an `endpoint_advertisement` JSON message at the WS layer ("opaque to relay code"). Founder caught the leak: even with the relay code declining to parse the field, CF terminates the outer TLS and could log, store, or be subpoenaed for the contents. The corrected design moves the advertisement into a convey API call inside the inner TLS. This invariant generalizes the lesson so future spl features don't re-tread the same path. Established 2026-05-10.
+**Origin.** The first design pass for the LAN-direct path proposed an `endpoint_advertisement` JSON message at the WS layer ("opaque to relay code"). The operator caught the leak: even with the relay code declining to parse the field, CF terminates the outer TLS and could log, store, or be subpoenaed for the contents. The corrected design moves the advertisement into a convey API call inside the inner TLS. This invariant generalizes the lesson so future spl features don't re-tread the same path. Established 2026-05-10.
 
 ## hibernation
 

@@ -46,7 +46,7 @@ The discipline:
 
 > The WebSocket protocol surface between endpoints and `spl-relay` exists **solely** to broker inner-TLS tunnel establishment. Endpoint-to-endpoint data — LAN advertisements, capability hints, presence signals, anything describing runtime state — must ride inside the inner TLS, never as a new WS-layer message type.
 
-This turns blindness about non-payload metadata into a property of *what bytes can structurally exist at the WS layer at all*, rather than a property of how the relay's worker code is written. New WS-layer message types require explicit founder review on the same gate as listening-port additions to the home's `link` service.
+This turns blindness about non-payload metadata into a property of *what bytes can structurally exist at the WS layer at all*, rather than a property of how the relay's worker code is written. New WS-layer message types require explicit operator review on the same gate as listening-port additions to the home's `link` service.
 
 Full statement, rationale, and examples in [`../proto/session.md`](../proto/session.md#ws-layer-minimality). Established 2026-05-10.
 

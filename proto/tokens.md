@@ -2,7 +2,7 @@
 
 The two long-lived JWTs that authorize a side to establish a WebSocket with `spl-relay` are the service token and device token. Both are issued by `spl-relay`'s control plane and signed by an Ed25519 key held only by sol pbc (or by the self-host operator, for self-hosted deployments). Both authorize **rendezvous only** — neither confers data access. Data access is gated by the TLS handshake inside the tunnel, against `authorized_clients.json` on the home.
 
-This document specifies the token shape, claims, validation, and the JWKS-based rotation model. The signing-key lifecycle (generation, vault storage, provisioning, rotation cadence, compromise response) is out of scope here — see [`../docs/signing-keys.md`](../docs/signing-keys.md) for the public-facing playbook, and (for sol pbc internal operators only) `cso/playbooks/spl-signing-key-lifecycle.md`.
+This document specifies the token shape, claims, validation, and the JWKS-based rotation model. The signing-key lifecycle (generation, vault storage, provisioning, rotation cadence, compromise response) is out of scope here — see [`../docs/signing-keys.md`](../docs/signing-keys.md) for the public-facing playbook. sol pbc internal operators additionally follow their own operational playbook.
 
 ## algorithm
 

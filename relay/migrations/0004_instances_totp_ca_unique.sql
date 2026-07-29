@@ -2,7 +2,7 @@
 -- Copyright (c) 2026 sol pbc
 
 -- Optional base32 secret stored at rest for off-LAN pairing (L5);
--- inert — nothing validates a TOTP code this lode.
+-- inert — nothing validates a TOTP code yet.
 ALTER TABLE instances ADD COLUMN totp_secret TEXT;
 
 -- A CA fingerprint backs at most one instance; cross-instance collisions
