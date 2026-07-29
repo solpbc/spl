@@ -317,7 +317,7 @@ The listen WS may disconnect for any reason — network flap on the home machine
 - Initial delay: 1 s.
 - Multiplier: 2× each failed attempt.
 - Cap: 60 s.
-- Reset to 1 s on a successful reconnect.
+- Reset to 1 s only after the reconnected listen WS remains established without transport failure for 60 s. Connection establishment alone does not reset backoff; a connection that fails before the stability interval advances to the next delay.
 - Jitter: ±25% on each delay to avoid synchronized reconnect storms after a CF deploy.
 
 While the listen WS is down, the home cannot receive `incoming` signals. By default (`PRESENCE_HOLD_ENABLED` off), new dials from a paired mobile fail at the relay (the DO marks the home as not-ready and the dial returns 503). With `PRESENCE_HOLD_ENABLED` enabled, the relay holds the dial WS open and brokers it when the home's listen WS reconnects. The mobile's reconnect logic handles this; the user sees `LITERAL: "Reconnecting…"` for the brief outage and `LITERAL: "Offline — check your connection."` if it persists past a small grace window.
@@ -331,7 +331,7 @@ The mobile dial-turned-tunnel WS disconnects on:
 - TLS-handshake failure (revocation).
 - `spl-relay` deploy.
 
-For non-revocation disconnects, the mobile reconnects on next user-visible activity (foreground, scroll, tap). Backoff is: 1 s, then 5 s, then 10 s, capped at 30 s, with the same ±25% jitter. The mobile's UX handles "Reconnecting…" / "Offline" banners.
+For non-revocation disconnects, the mobile reconnects on next user-visible activity (foreground, scroll, tap). Backoff is: 1 s, then 5 s, then 10 s, capped at 30 s, with the same ±25% jitter. Connection establishment alone does not reset backoff. The dialer retains its current attempt until a tunnel generation remains connected without transport or keepalive failure for 60 s; only then does the next automatic reconnect start again at 1 s. An explicit user-initiated start or stop begins a fresh backoff sequence. The home and mobile use different delay schedules, but the same demonstrated-stability reset condition. The mobile's UX handles "Reconnecting…" / "Offline" banners.
 
 For TLS-handshake failure (revocation), the mobile does **not** retry automatically — it presents the unpaired error and requires the user to re-pair through convey.
 
