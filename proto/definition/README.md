@@ -125,8 +125,8 @@ protocol documents and 64 `recorded` vectors promoted from the public
 implementation's behavior, this corpus is not broad conformance proof.
 
 Vectors cite only `proto/pairing.md` and `proto/pair-window.md`.
-`framing.md`, `session.md`, `tokens.md`, and `blob-uplink.md` have zero citing
-vectors. The generator holds the assertion of which vector ids and kinds are
+`framing.md`, `session.md`, and `tokens.md` have zero citing vectors. The
+generator holds the assertion of which vector ids and kinds are
 expected; `vectors.json` holds their data. Those are different responsibilities,
 and this README intentionally copies neither id list.
 
@@ -140,6 +140,6 @@ code to establish that connection.
 
 ## Scope
 
-This bundle does not define framing, session lifecycle, token claims, or
-blob-uplink behavior. It carries no release tag, consumer adoption state, or
-rollout state. Silence here grants no permission to change those areas.
+This bundle does not define framing, session lifecycle, or token claims. It
+carries no release tag, consumer adoption state, or rollout state. Silence
+here grants no permission to change those areas.

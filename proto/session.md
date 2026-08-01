@@ -16,19 +16,6 @@ Five WebSocket endpoints on `spl-relay`:
 
 Pair-window admission is specified in [`pair-window.md`](pair-window.md).
 
-### browser clients set no headers — subprotocol carriers
-
-Native clients (home, iOS) authenticate WebSocket upgrades with request headers
-(`Authorization: Bearer`, `Sec-Pair-Key`). A **browser** `WebSocket` cannot set
-request headers; its only per-connection channel is the subprotocol list. Because
-the WHATWG standard fails any browser WS whose offered subprotocol the server does
-not echo, the rule is: **a browser offers a subprotocol on a route only if the
-relay echoes one there.** Today the relay echoes `spl-v1` on `/session/pair-dial`
-(the RK carrier) and **nowhere else** — so the browser DATA dial (`/session/dial`)
-offers no subprotocol and authenticates via `?token=`. Full per-route matrix, the
-pairing framing, and the failure mode:
-[`blob-uplink.md`](blob-uplink.md) § subprotocol carriers.
-
 The asymmetry is deliberate. The mobile opens **one** WebSocket per dial (the dial WS becomes the tunnel WS — single-WS-per-side, prototype finding §11.1, saves ~40-80 ms per cold request). The home opens **one** persistent listen WS plus **one** transient tunnel WS per active tunnel.
 
 ## endpoint shapes
@@ -96,19 +83,6 @@ Connection: Upgrade
 Sec-Pair-Key: <RK hex>
 Sec-WebSocket-Key: ...
 ```
-
-Header-less browser clients that cannot set `Sec-Pair-Key` offer the RK in the WebSocket subprotocol list instead:
-
-```
-GET /session/pair-dial HTTP/1.1
-Host: link.solstone.app
-Upgrade: websocket
-Connection: Upgrade
-Sec-WebSocket-Protocol: spl-v1, spl-pair.<RK hex>
-Sec-WebSocket-Key: ...
-```
-
-When the subprotocol carrier is used, the 101 response selects exactly `Sec-WebSocket-Protocol: spl-v1`. The relay never echoes the `spl-pair.<RK>` token.
 
 After upgrade, this **same WebSocket** becomes the mobile-side tunnel WS once the relay has paired it with a home tunnel WS. It is byte-for-byte the same relay tunnel shape as `/session/dial`; only the admission surface differs.
 
@@ -259,7 +233,7 @@ The discipline:
 
 **Acceptable at the WS layer:**
 
-- Dial signaling — the HTTP+upgrade exchanges on `/session/listen`, `/session/dial`, `/session/pair-window`, `/session/pair-dial`, `/tunnel/<id>` and their required rendezvous headers (`Authorization` where token-authenticated, `Sec-Pair-Key` where RK-addressed). For header-less browser pair-dial clients, the `Sec-WebSocket-Protocol: spl-v1, spl-pair.<RK hex>` offer is the same class of request-scoped rendezvous credential: consumed at upgrade, carrying only RK.
+- Dial signaling — the HTTP+upgrade exchanges on `/session/listen`, `/session/dial`, `/session/pair-window`, `/session/pair-dial`, `/tunnel/<id>` and their required rendezvous headers (`Authorization` where token-authenticated, `Sec-Pair-Key` where RK-addressed).
 - The `incoming` / `tunnel_id` control message from relay to home (above, §3).
 - Opaque ciphertext payload of inner-TLS records, framed as binary WS messages.
 - WebSocket transport keepalive (library-level ping/pong; see *no app heartbeat* below).

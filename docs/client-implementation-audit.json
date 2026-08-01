@@ -5,7 +5,7 @@
   "evidence_convention": "Every claim carries status (confirmed | refuted | undetermined) and a repo-relative evidence pointer. A claim without both is not a finding.",
   "scope_and_impact": {
     "this_repository_ships_no_client_or_home": "The relay is production. This repository deliberately contains no client or home implementation; they live in their own public repositories, listed under implementations below and in the root README.",
-    "owner_impact_of_the_removed_divergences": "None. Every client that ships to a person implements the current pair-window form (0x06) and the HKDF relay-key derivation: the Swift and Rust shared packages, the Android client, the Windows client, and the browser extension. The shipping home side accepts the specification-conformant query-parameter nonce. The divergences recorded below were confined to the reference components that have now been removed.",
+    "owner_impact_of_the_removed_divergences": "None. Every client that ships to a person implements the current pair-window form (0x06) and the HKDF relay-key derivation: the Swift and Rust shared packages, the Android client, and the Windows client. The shipping home side accepts the specification-conformant query-parameter nonce. The divergences recorded below were confined to the reference components that have now been removed.",
     "why_removal_rather_than_repair": "A reference that lies is worse than no reference. Both components were advertised as demonstrating the protocol while one implemented a retired pairing form and the other could not complete a pairing against its own server. Repairing them would have created a fourth and fifth implementation to keep in lockstep; pointing at the production implementations removes the drift surface instead of maintaining it.",
     "what_was_lost": "The end-to-end harness drove the removed example client and went with it. This repository therefore has no end-to-end protocol test. That was already true before the removal \u2014 the harness could not pass, because the home component 404'd the pairing URL it minted itself, and it was not part of the local gate. Re-establishing an end-to-end test against a production implementation is tracked separately."
   },
@@ -165,11 +165,6 @@
       "role": "client \u2014 Windows",
       "language": "rust",
       "repository": "https://github.com/solpbc/solstone-windows"
-    },
-    {
-      "role": "client \u2014 browser extension",
-      "language": "javascript",
-      "repository": "https://github.com/solpbc/solstone-browser"
     }
   ]
 }

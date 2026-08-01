@@ -70,7 +70,6 @@ Every implementation below is open source and in production use. Read these inst
 | Client — iOS, watchOS, macOS | Swift | [`solpbc/solstone-swift`](https://github.com/solpbc/solstone-swift) · [`solpbc/solstone-macos`](https://github.com/solpbc/solstone-macos) |
 | Client — Android | Kotlin | [`solpbc/solstone-android`](https://github.com/solpbc/solstone-android) |
 | Client — Windows | Rust | [`solpbc/solstone-windows`](https://github.com/solpbc/solstone-windows) |
-| Client — browser extension | JavaScript | [`solpbc/solstone-browser`](https://github.com/solpbc/solstone-browser) |
 
 If you are writing a new implementation, start with the documents in [`proto/`](proto/) and check yourself against [`proto/definition/`](proto/definition/); then read the closest existing client above. [`docs/client-implementation-audit.json`](docs/client-implementation-audit.json) records what each in-repo component actually implements, with evidence.
 
