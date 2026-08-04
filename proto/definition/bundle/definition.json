@@ -619,7 +619,7 @@
       "gap_ref": null,
       "id": "journal_identity.stamp.variant",
       "kind": "stamp",
-      "value": "byte 8 of the 16-byte output becomes (byte8 AND 0x3F) OR 0x80, the RFC 4122 variant bits"
+      "value": "byte 8 of the 16-byte output becomes (byte8 AND 0x3F) OR 0x80, the RFC 9562 variant bits"
     },
     {
       "citation": {

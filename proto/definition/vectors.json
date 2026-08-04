@@ -18,6 +18,7 @@
     "journal_identity.kdf",
     "journal_identity.key_domain",
     "journal_identity.refusal.invalid_point",
+    "journal_identity.refusal.malformed_spki",
     "journal_identity.refusal.not_p256",
     "journal_identity.stamp.variant",
     "journal_identity.stamp.version",
@@ -993,7 +994,7 @@
       "entry_digests": {
         "journal_identity.kdf": "de3020b04ca46b6547cb0e0b7314c6c7c27e57ac1fbdd501a3e9b5efedcd18d9",
         "journal_identity.key_domain": "b5fe9566423337d96cae56c118b892fa0c43f65562e4d0c7079fcc42e0f20e9b",
-        "journal_identity.stamp.variant": "fbad151d7cca114a476fd68c776ea2ff01eadcdd24b5f96691f04f113bf6bda8",
+        "journal_identity.stamp.variant": "b0b63592b068205604133748d3eaabd0e07de8ded5ff1fef178b6867b4b48030",
         "journal_identity.stamp.version": "4d567e873b27bc721d8807e7f744dfef16eacae0b1ce28197cbf31783a93816f"
       },
       "expected": {
@@ -1018,7 +1019,7 @@
       "entry_digests": {
         "journal_identity.kdf": "de3020b04ca46b6547cb0e0b7314c6c7c27e57ac1fbdd501a3e9b5efedcd18d9",
         "journal_identity.key_domain": "b5fe9566423337d96cae56c118b892fa0c43f65562e4d0c7079fcc42e0f20e9b",
-        "journal_identity.stamp.variant": "fbad151d7cca114a476fd68c776ea2ff01eadcdd24b5f96691f04f113bf6bda8",
+        "journal_identity.stamp.variant": "b0b63592b068205604133748d3eaabd0e07de8ded5ff1fef178b6867b4b48030",
         "journal_identity.stamp.version": "4d567e873b27bc721d8807e7f744dfef16eacae0b1ce28197cbf31783a93816f"
       },
       "expected": {
@@ -1029,6 +1030,29 @@
       "kind": "declared",
       "operation": "derive_jid",
       "spki_der_hex": "3039301306072a8648ce3d020106082a8648ce3d030107032200036b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c296",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/identity.md",
+        "marker": "The outer SEQUENCE claims more content than the input holds, so nothing parses."
+      },
+      "document_literals": [
+        "3059301306072a8648ce3d020106082a8648ce3d030107034200046b17d1f2e12c4247f8bce6e563"
+      ],
+      "entry_digests": {
+        "journal_identity.refusal.malformed_spki": "e73cf035edcb46cd6010187b06d6ef42d34689ac62c21f14720a0c2c3b96dd66"
+      },
+      "expected": {
+        "error": {
+          "kind": "malformed_spki"
+        },
+        "result": "error"
+      },
+      "id": "identity.jid.malformed",
+      "kind": "declared",
+      "operation": "derive_jid",
+      "spki_der_hex": "3059301306072a8648ce3d020106082a8648ce3d030107034200046b17d1f2e12c4247f8bce6e563",
       "unbound_reason": null
     },
     {

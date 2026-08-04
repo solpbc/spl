@@ -12,7 +12,7 @@ particular way. The bundle contains canonical `definition.json` and
 `bundle/manifest.json` contains the single format-level identity and SemVer,
 payload digests, and generator-input digests.
 
-The current bundle version is `2.0.0`. The stable identities are:
+The current bundle version is `2.1.0`. The stable identities are:
 
 - generator: `spl.proto.definition.generate.v1`
 - bundle schema: `spl.pair-link-definition-bundle.schema.v1`
@@ -121,15 +121,16 @@ gap reference; a missing tag is never represented by a bare null.
 
 ## Conformance corpus
 
-The corpus contains 10 `declared` vectors whose payload literals appear in the
+The corpus contains 11 `declared` vectors whose payload literals appear in the
 protocol documents and 64 `recorded` vectors promoted from the public
-`solpbc/spl-rust` conformance corpus. Because 64 of 74 vectors record one
+`solpbc/spl-rust` conformance corpus. Because 64 of 75 vectors record one
 implementation's behavior, this corpus is not broad conformance proof.
 
-The five journal-identity vectors are the exception to that caveat: they are
+The six journal-identity vectors are the exception to that caveat: they are
 authored from published constants rather than promoted from an implementation.
 Two of them carry the same expected jid for the same key under two encodings,
-which is a case no implementation can produce from its own output.
+which is a case no implementation can produce from its own output. The other
+four cover all three refusal kinds.
 
 Vectors cite only `proto/identity.md`, `proto/pairing.md`, and
 `proto/pair-window.md`. `framing.md`, `session.md`, and `tokens.md` have zero

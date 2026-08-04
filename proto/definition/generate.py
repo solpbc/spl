@@ -73,6 +73,7 @@ EXPECTED_VECTOR_IDS = (
     "direct.admission.rfc6598.upper",
     "identity.jid.canonical",
     "identity.jid.compressed-point",
+    "identity.jid.malformed",
     "identity.jid.off-curve-point",
     "identity.jid.wrong-algorithm",
     "identity.jid.wrong-curve",
@@ -124,6 +125,7 @@ EXPECTED_VECTOR_IDS = (
 EXPECTED_DECLARED_VECTOR_IDS = (
     "identity.jid.canonical",
     "identity.jid.compressed-point",
+    "identity.jid.malformed",
     "identity.jid.off-curve-point",
     "identity.jid.wrong-algorithm",
     "identity.jid.wrong-curve",
@@ -136,9 +138,9 @@ EXPECTED_DECLARED_VECTOR_IDS = (
 EXPECTED_RECORDED_VECTOR_IDS = tuple(
     vector_id for vector_id in EXPECTED_VECTOR_IDS if vector_id not in EXPECTED_DECLARED_VECTOR_IDS
 )
-assert len(EXPECTED_VECTOR_IDS) == 74
+assert len(EXPECTED_VECTOR_IDS) == 75
 assert EXPECTED_VECTOR_IDS == tuple(sorted(set(EXPECTED_VECTOR_IDS)))
-assert len(EXPECTED_DECLARED_VECTOR_IDS) == 10
+assert len(EXPECTED_DECLARED_VECTOR_IDS) == 11
 assert EXPECTED_DECLARED_VECTOR_IDS == tuple(sorted(set(EXPECTED_DECLARED_VECTOR_IDS)))
 assert set(EXPECTED_DECLARED_VECTOR_IDS) < set(EXPECTED_VECTOR_IDS)
 assert len(EXPECTED_RECORDED_VECTOR_IDS) == 64

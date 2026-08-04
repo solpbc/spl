@@ -1,15 +1,15 @@
 # journal identity
 
-The journal's own identity, and the device identity that sits beside it. Two values, two mechanisms, deliberately not one.
+The journal's own identity, and the device identity that sits beside it. Two values, computed two different ways.
 
-- The **jid** identifies a journal. It is derived from the journal CA's public key.
-- The **did** identifies a paired device. It is the fingerprint of that device's certificate. There is no derivation.
+- The **jid** identifies a journal. It is derived from the journal CA's public key, and it is the value that addresses a home at the relay, carried as `instance_id`.
+- The **did** identifies a paired device. It is the fingerprint of that device's certificate, taken directly rather than derived.
 
 This document is the normative source for both. Machine-readable form and conformance vectors are in [`definition/`](definition/README.md).
 
 ## why this is in the protocol
 
-A client renders the jid for its owner during pairing and refuses a mismatch. So every implementation that pairs has to derive the same value from the same key, and a divergence does not degrade gracefully. It presents to the owner as evidence that something is wrong with their journal. Independent implementations agreed only because the literals were copied by hand.
+A client pairing off-LAN compares the jid it derives against the `instance_id` it was given, as an integrity check on the CA it pinned ([`pair-window.md`](pair-window.md)). So every implementation that pairs derives this value, and every one of them has to derive it identically from the same key. A divergence does not fail loudly: it fails as a mismatch between two parties who each believe they are correct. Independent implementations agreed only because the literals were copied by hand.
 
 ## the jid
 
@@ -19,18 +19,20 @@ The jid is derived from a **`SubjectPublicKeyInfo` structure, DER-encoded, carry
 
 The derivation is **over the key, not over the bytes it arrived in**. An implementation MUST parse the `SubjectPublicKeyInfo`, MUST confirm the algorithm is `id-ecPublicKey` on P-256, MUST confirm the public point lies on the curve, and MUST re-serialize the key to its canonical `SubjectPublicKeyInfo` DER form before deriving. The canonical form carries the point uncompressed.
 
-Two encodings of one key therefore produce one jid. An implementation that hashes the bytes it was handed will agree with a conforming one on every input a current producer emits, and disagree on a compressed point.
+Two encodings of one key therefore produce one jid. An implementation that hashes the bytes it was handed will agree with a conforming one on any uncompressed encoding, and disagree on a compressed point.
 
 ### derivation
 
-Over the canonical DER, in order:
+Byte offsets below are 0-indexed. Over the canonical DER, in order:
 
 1. HKDF-SHA256, salt `solstone/journal/v1`, info `solstone/jid/uuidv8/v1`, output length 16 bytes. Both labels are ASCII with no terminator.
+The HKDF is per RFC 5869. The salt is 19 bytes and the info is 22 bytes, both ASCII.
+
 2. Set the version nibble: byte 6 becomes `(byte6 & 0x0F) | 0x80`, making this a UUID version 8 as defined by RFC 9562.
 3. Set the variant bits: byte 8 becomes `(byte8 & 0x3F) | 0x80`, the RFC 9562 variant.
 4. Render as a lowercase hyphenated UUID.
 
-The 16 raw bytes, before rendering, are the jid's byte form. They are the input to the journal mark, which is not specified in this repository.
+The 16 raw bytes, before rendering, are the jid's byte form. They are the input to the journal mark, which this repository does not specify.
 
 ### refusals
 
@@ -42,29 +44,29 @@ An implementation MUST refuse, and MUST distinguish, these three:
 | `invalid_point` | the structure parses and names P-256, but the public point is not on the curve |
 | `malformed_spki` | the input is not a well-formed `SubjectPublicKeyInfo` |
 
-Refusing is not optional and MUST NOT be a value. An implementation that returns a jid for a key it could not validate has produced an identifier for something that is not a journal identity.
+An implementation MUST NOT signal a refusal in-band as a returned jid. A jid returned for a key that was never validated identifies nothing.
 
 ## the did
 
 A paired device is identified by the **SHA-256 digest of its client certificate, over the certificate's DER encoding**, rendered lowercase hexadecimal with a `sha256:` prefix. That is the same value the home records for the device when it signs the certificate.
 
-> **Three fingerprints, three digest inputs.** They are computed over different bytes, and crossing them breaks pairing in ways that are hard to see:
+> **Three fingerprints, three digest inputs.** They are computed over different bytes, and crossing them breaks pairing in ways that are hard to see.
+>
+> | value | digest input | length used |
+> |---|---|---|
+> | `did` | the **certificate** DER | the full 32 bytes |
+> | the direct-form `ca_fp` | the CA **certificate** DER | the leading 16 bytes |
+> | the relay-form `ca_fp_spki` | the CA **`SubjectPublicKeyInfo`** DER | the leading 16 bytes |
 
-| value | digest input | length used |
-|---|---|---|
-| `did` | the **certificate** DER | the full 32 bytes |
-| the direct-form `ca_fp` | the CA **certificate** DER | the leading 16 bytes |
-| the relay-form `ca_fp_spki` | the CA **`SubjectPublicKeyInfo`** DER | the leading 16 bytes |
+A device gets neither a jid nor a mark, because both are derived from a journal CA key and a device has no such key.
 
-A device does not get a jid, and does not get a mark. A mark is derived from a jid; a certificate fingerprint is not one.
-
-Because the did is taken over the certificate, re-issuing a device's certificate changes its did. Nothing in this protocol re-issues one.
+Because the did is taken over the certificate, a device that is issued a new certificate gets a new did. Re-pairing does exactly that: [`pairing.md`](pairing.md) specifies it as revoke-then-pair-again, which mints a fresh certificate for the same physical device. Nothing renews a certificate in place.
 
 ## conformance vectors
 
-Five vectors, all reproducible from published constants rather than from any implementation's output. The first two carry the same expected jid, which is the point of them.
+Six vectors, all reproducible from published constants rather than from any implementation's output. Two expect a jid and four expect a refusal, covering all three refusal kinds. The first two carry the same expected jid for the same key under two encodings.
 
-Every implementation that derives a jid MUST reproduce all five of these results exactly, including the two refusals. Inline these vectors verbatim, or consume them from the machine-readable corpus.
+Every implementation that derives a jid MUST reproduce all six of these results exactly, refusals included. Inline these vectors verbatim, or consume them from the machine-readable corpus.
 
 ### `identity.jid.canonical`
 
@@ -108,6 +110,15 @@ An Ed25519 public key, from an all-zero seed. Not an elliptic-curve key in the `
 spki_der_hex: 302a300506032b65700321003b6a27bcceb6a42d62a3a8d02a6f0d73653215771de243a63ac048a18b59da29
 ```
 
+### `identity.jid.malformed`
+
+The canonical vector truncated to its first 40 bytes. The outer SEQUENCE claims more content than the input holds, so nothing parses. Expects `malformed_spki`.
+
+```
+spki_der_hex: 3059301306072a8648ce3d020106082a8648ce3d030107034200046b17d1f2e12c4247f8bce6e563
+```
+
+
 ## scope
 
-This document defines the jid derivation, its refusals, and what the did is. It does not define the journal mark, the pairing ceremony, session lifecycle, framing, or token claims. The mark is not specified in this repository. Silence here grants no permission to change those.
+This document defines the jid derivation, its refusals, and what the did is. It does not define the journal mark, the pairing ceremony, session lifecycle, framing, or token claims, and silence here grants no permission to change any of them.
