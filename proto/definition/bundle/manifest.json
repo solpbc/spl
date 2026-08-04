@@ -1,10 +1,10 @@
 {
   "bundle_schema_identity": "spl.pair-link-definition-bundle.schema.v1",
-  "bundle_semver": "2.1.1",
+  "bundle_semver": "3.0.0",
   "files": [
     {
       "path": "definition.json",
-      "sha256": "4d98b3b74012d02c9725ec926be286e61fb0a7095f7ce371d6c1a1208c42470e"
+      "sha256": "21d65023a10709d280315b807452885308953d3d7ef0b5e7d6f7e0b1556b291b"
     },
     {
       "path": "definition.schema.json",
@@ -25,7 +25,7 @@
       "id": "definition.authored_source",
       "path": "proto/definition/definition.toml",
       "role": "authored_source",
-      "sha256": "e8af04418e4ecc231ed34198bd2c16acce00a315bccb9db0513f444e342853f5"
+      "sha256": "37e32c05cf500722d52207870d7ad464d242521089eeb621caef3901b5d04122"
     },
     {
       "id": "definition.conformance_corpus",
@@ -43,7 +43,7 @@
       "id": "source.identity",
       "path": "proto/identity.md",
       "role": "normative_source_document",
-      "sha256": "e5cc7eddbf6c6caca03e3d68ff6b93151b2991802da5f64c99069596673d4cee"
+      "sha256": "de1a8981d43c9f9ea2cbb3f21755aac1c14922abdfd5bde04fabe6f34a9b0ca1"
     },
     {
       "id": "source.pair_window",
