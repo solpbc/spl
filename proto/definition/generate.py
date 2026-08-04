@@ -39,9 +39,11 @@ GENERATOR_INPUTS: tuple[tuple[str, Path, str], ...] = (
     ("definition.authored_source", SOURCE_REL, "authored_source"),
     ("definition.conformance_corpus", VECTORS_SOURCE_REL, "conformance_corpus"),
     ("definition.generator", GENERATOR_REL, "generator"),
+    ("source.identity", Path("proto/identity.md"), "normative_source_document"),
     ("source.pair_window", Path("proto/pair-window.md"), "normative_source_document"),
     ("source.pairing", Path("proto/pairing.md"), "normative_source_document"),
 )
+README_REL = Path("proto/definition/README.md")
 
 EXPECTED_VECTOR_IDS = (
     "direct.admission.link-local.above",
@@ -69,6 +71,11 @@ EXPECTED_VECTOR_IDS = (
     "direct.admission.rfc6598.below",
     "direct.admission.rfc6598.lower",
     "direct.admission.rfc6598.upper",
+    "identity.jid.canonical",
+    "identity.jid.compressed-point",
+    "identity.jid.off-curve-point",
+    "identity.jid.wrong-algorithm",
+    "identity.jid.wrong-curve",
     "pair.v04.canonical.admission",
     "pair.v04.canonical.decode",
     "pair.v04.truncated.0",
@@ -115,6 +122,11 @@ EXPECTED_VECTOR_IDS = (
     "relay.rk.published",
 )
 EXPECTED_DECLARED_VECTOR_IDS = (
+    "identity.jid.canonical",
+    "identity.jid.compressed-point",
+    "identity.jid.off-curve-point",
+    "identity.jid.wrong-algorithm",
+    "identity.jid.wrong-curve",
     "pair.v04.canonical.admission",
     "pair.v04.canonical.decode",
     "pair.v06.custom.published",
@@ -124,9 +136,9 @@ EXPECTED_DECLARED_VECTOR_IDS = (
 EXPECTED_RECORDED_VECTOR_IDS = tuple(
     vector_id for vector_id in EXPECTED_VECTOR_IDS if vector_id not in EXPECTED_DECLARED_VECTOR_IDS
 )
-assert len(EXPECTED_VECTOR_IDS) == 69
+assert len(EXPECTED_VECTOR_IDS) == 74
 assert EXPECTED_VECTOR_IDS == tuple(sorted(set(EXPECTED_VECTOR_IDS)))
-assert len(EXPECTED_DECLARED_VECTOR_IDS) == 5
+assert len(EXPECTED_DECLARED_VECTOR_IDS) == 10
 assert EXPECTED_DECLARED_VECTOR_IDS == tuple(sorted(set(EXPECTED_DECLARED_VECTOR_IDS)))
 assert set(EXPECTED_DECLARED_VECTOR_IDS) < set(EXPECTED_VECTOR_IDS)
 assert len(EXPECTED_RECORDED_VECTOR_IDS) == 64
@@ -277,6 +289,19 @@ RECORD_SCHEMAS: dict[str, dict[str, Any]] = {
             "description": STRING,
         }
     ),
+    # Journal identity: the jid derivation, its refusal vocabulary, and the
+    # statement of what a device id is. One uniform shape across all of them,
+    # because every record here answers the same question — what is normatively
+    # fixed about this value — and a per-kind shape would only add ways to fail.
+    "journal_identity": object_schema(
+        {
+            "id": STRING,
+            "kind": {"enum": ["key_domain", "kdf", "stamp", "refusal", "device_id"]},
+            "value": STRING,
+            "citation": CITATION_REF,
+            "gap_ref": GAP_REF,
+        }
+    ),
     "default_origin": object_schema({"value": STRING, "citation": CITATION_REF}),
     "selector_registry": object_schema(
         {
@@ -340,6 +365,7 @@ DEFINITION_SCHEMA: dict[str, Any] = {
             },
         },
         "gaps": {"type": "array", "items": {"$ref": "#/$defs/gap"}},
+        "journal_identity": {"type": "array", "items": {"$ref": "#/$defs/journal_identity"}},
         "pin_domains": {"type": "array", "items": {"$ref": "#/$defs/pin_domain"}},
         "source_claims": {"type": "array", "items": {"$ref": "#/$defs/source_claim"}},
         "vocabularies": {
@@ -359,6 +385,7 @@ DEFINITION_SCHEMA: dict[str, Any] = {
         "ca_pin_tags",
         "forms",
         "gaps",
+        "journal_identity",
         "pin_domains",
         "source_claims",
         "vocabularies",
@@ -464,6 +491,29 @@ VECTOR_DERIVE_SCHEMA = object_schema(
     },
     required=[*VECTOR_COMMON_REQUIRED, "secret_hex", "expected_hex"],
 )
+# The jid operation needs an expectation that can carry a refusal. The relay-key
+# shape cannot: it is secret_hex plus expected_hex with no error branch, and the
+# refusals are the half of this contract worth pinning.
+VECTOR_JID_ERROR_SCHEMA = object_schema(
+    {"kind": {"enum": ["not_p256", "invalid_point", "malformed_spki"]}}
+)
+VECTOR_JID_EXPECTED_SCHEMA = object_schema(
+    {
+        "result": {"enum": ["jid", "error"]},
+        "jid": STRING,
+        "error": VECTOR_JID_ERROR_SCHEMA,
+    },
+    required=["result"],
+)
+VECTOR_DERIVE_JID_SCHEMA = object_schema(
+    {
+        **VECTOR_COMMON_PROPERTIES,
+        "operation": {"const": "derive_jid"},
+        "spki_der_hex": STRING,
+        "expected": VECTOR_JID_EXPECTED_SCHEMA,
+    },
+    required=[*VECTOR_COMMON_REQUIRED, "spki_der_hex", "expected"],
+)
 VECTORS_SCHEMA: dict[str, Any] = {
     "$schema": SCHEMA_DIALECT_URI,
     "title": "SPL pair-link conformance vectors",
@@ -473,7 +523,12 @@ VECTORS_SCHEMA: dict[str, Any] = {
         "vectors": {
             "type": "array",
             "items": {
-                "oneOf": [VECTOR_PARSE_SCHEMA, VECTOR_DECODE_SCHEMA, VECTOR_DERIVE_SCHEMA]
+                "oneOf": [
+                    VECTOR_PARSE_SCHEMA,
+                    VECTOR_DECODE_SCHEMA,
+                    VECTOR_DERIVE_SCHEMA,
+                    VECTOR_DERIVE_JID_SCHEMA,
+                ]
             },
         },
     },
@@ -933,11 +988,23 @@ def build_definition(source: dict[str, Any], failures: Failures) -> dict[str, An
         for item in source.get("gaps", [])
         if isinstance(item, dict)
     ]
+    journal_identity = [
+        {
+            "id": item.get("id"),
+            "kind": item.get("kind"),
+            "value": item.get("value"),
+            "citation": cite(item),
+            "gap_ref": item.get("gap_ref"),
+        }
+        for item in source.get("journal_identity", [])
+        if isinstance(item, dict)
+    ]
     return {
         "address_allow_list": address_allow_list,
         "ca_pin_tags": ca_pin_tags,
         "forms": forms,
         "gaps": gaps,
+        "journal_identity": journal_identity,
         "pin_domains": pin_domains,
         "source_claims": source_claims,
         "vocabularies": vocabularies,
@@ -952,6 +1019,7 @@ def validate_source_top_level(source: dict[str, Any], failures: Failures) -> Non
         "citations",
         "forms",
         "gaps",
+        "journal_identity",
         "pin_domains",
         "source_claims",
         "vocabularies",
@@ -1005,6 +1073,7 @@ def validate_source_records(source: dict[str, Any], failures: Failures) -> None:
         "address_allow_list": ("allow_entry", {"gap_ref"}),
         "ca_pin_tags": ("ca_pin_tag", {"gap_ref"}),
         "gaps": ("gap", set()),
+        "journal_identity": ("journal_identity", {"gap_ref"}),
         "pin_domains": ("pin_domain", {"gap_refs"}),
         "source_claims": ("source_claim", set()),
     }
@@ -1134,6 +1203,7 @@ def definition_entry_map(
         definition.get("ca_pin_tags", []),
         definition.get("forms", []),
         definition.get("gaps", []),
+        definition.get("journal_identity", []),
         definition.get("pin_domains", []),
         definition.get("source_claims", []),
         definition.get("vocabularies", []),
@@ -1527,13 +1597,31 @@ def validate_vector_ids(vectors: list[Any], failures: Failures) -> None:
 
 
 def validate_vector_operation(vector: dict[str, Any], failures: Failures) -> None:
+    """Check that a vector's declared operation agrees with its payload shape.
+
+    The mapping is a table, and an unrecognised shape is a failure rather than a
+    default. It used to fall through to `derive_relay_key`, so a payload shape
+    nobody had declared was silently asserted to be the relay-key operation --
+    and adding an operation whose payload carries `expected` would have been
+    asserted to be `parse_pair_link` instead. Both are the same bug: an
+    inference with a default answer cannot report that it does not know.
+    """
     vector_id = vector.get("id")
-    if "expected" in vector:
-        expected_operation = "parse_pair_link"
-    elif "input" in vector:
-        expected_operation = "decode_crockford"
-    else:
-        expected_operation = "derive_relay_key"
+    keys = set(vector)
+    shapes: tuple[tuple[frozenset[str], str], ...] = (
+        (frozenset({"spki_der_hex", "expected"}), "derive_jid"),
+        (frozenset({"input", "expected"}), "parse_pair_link"),
+        (frozenset({"input", "expected_hex"}), "decode_crockford"),
+        (frozenset({"secret_hex", "expected_hex"}), "derive_relay_key"),
+    )
+    matched = [operation for payload, operation in shapes if payload <= keys]
+    if len(matched) != 1:
+        failures.add(
+            f"conformance vector operation failed: {VECTORS_SOURCE_REL.as_posix()} vectors[{vector_id}] payload keys match {len(matched)} known operation shapes, expected exactly 1",
+            f"give vectors[{vector_id}] the payload fields of exactly one declared operation in {VECTORS_SOURCE_REL.as_posix()}",
+        )
+        return
+    expected_operation = matched[0]
     if vector.get("operation") != expected_operation:
         failures.add(
             f"conformance vector operation failed: {VECTORS_SOURCE_REL.as_posix()} vectors[{vector_id}].operation {vector.get('operation')!r} disagrees with its payload shape",
@@ -1583,7 +1671,7 @@ def validate_vector_citation_and_literals(
         )
     payload = {
         key: vector[key]
-        for key in ("input", "expected", "expected_hex", "secret_hex")
+        for key in ("input", "expected", "expected_hex", "secret_hex", "spki_der_hex")
         if key in vector
     }
     payload_text = render_json(payload)
@@ -2148,9 +2236,36 @@ def validate_semver_history(
         )
 
 
+def validate_readme_semver(root: Path, semver: str, failures: Failures) -> None:
+    """Check the README's hand-written version line against the real semver.
+
+    The README states the current bundle version in prose. Nothing used to read
+    it, so it drifted: it said 1.1.1 while the manifest said 1.1.3, two bumps
+    behind, in the one file a consumer reads before vendoring anything. A version
+    a human maintains by hand is a version that goes stale; this makes it fail
+    the gate instead.
+    """
+    path = root / README_REL
+    try:
+        text = read_text_exact(path)
+    except (OSError, UnicodeDecodeError) as exc:
+        failures.add(
+            f"definition readme failed: {README_REL.as_posix()} is unreadable: {exc}",
+            f"restore {README_REL.as_posix()} as UTF-8 text",
+        )
+        return
+    expected = f"The current bundle version is `{semver}`."
+    if text.count(expected) != 1:
+        failures.add(
+            f"definition readme failed: {README_REL.as_posix()} does not state the current bundle version exactly once as {expected!r}",
+            f"set the version sentence in {README_REL.as_posix()} to {expected!r}",
+        )
+
+
 def run_write(root: Path) -> int:
     failures = Failures()
-    files, _, _ = build_bundle(root, failures)
+    files, semver, _ = build_bundle(root, failures)
+    validate_readme_semver(root, semver, failures)
     if failures.messages:
         return failures.report()
     write_bundle(root, files)
@@ -2162,6 +2277,7 @@ def run_check(root: Path) -> int:
     expected_files, semver, coverage = build_bundle(root, failures)
     validate_committed_bundle(root, expected_files, semver, failures)
     validate_semver_history(root, semver, failures)
+    validate_readme_semver(root, semver, failures)
     print_coverage_report(coverage)
     return failures.report()
 

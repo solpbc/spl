@@ -1,7 +1,7 @@
 # SPL pair-link definition bundle
 
 This directory is the defined source for SPL pair-link wire values, CA-pin
-domains, and direct-address admission values. It follows the integrity and
+domains, direct-address admission values, and the journal identity derivation. It follows the integrity and
 identity conventions of an existing sol pbc contract-bundle format while
 keeping HTTP API projection fields out of a wire-protocol definition.
 
@@ -12,7 +12,7 @@ particular way. The bundle contains canonical `definition.json` and
 `bundle/manifest.json` contains the single format-level identity and SemVer,
 payload digests, and generator-input digests.
 
-The current bundle version is `1.1.1`. The stable identities are:
+The current bundle version is `2.0.0`. The stable identities are:
 
 - generator: `spl.proto.definition.generate.v1`
 - bundle schema: `spl.pair-link-definition-bundle.schema.v1`
@@ -62,7 +62,9 @@ The gate enforces:
   and the exact bundle file set `{manifest.json} ∪ files[]`;
 - generated artifacts that are byte-identical to a fresh generation;
 - initial version `1.0.0`, followed by a strict SemVer increase whenever any
-  byte under `proto/definition/` differs from `HEAD`.
+  byte under `proto/definition/` differs from `HEAD`;
+- the version sentence in this README, so a hand-maintained version cannot
+  drift from the manifest the way it did between `1.1.1` and `1.1.3`.
 
 The schema is published for consumers to validate with their own tooling. The
 stdlib-only gate enforces the shared record shapes directly; it does not claim
@@ -79,10 +81,10 @@ markers may contain embedded newlines.
 ## Source and vocabulary policy
 
 The digest-pinned input set is exactly `definition.toml`, `vectors.json`,
-`generate.py`, `proto/pairing.md`, and `proto/pair-window.md`. Only those two
-protocol documents ground this definition and its conformance corpus;
-digesting unrelated protocol documents would make their unrelated edits fail
-this gate.
+`generate.py`, `proto/identity.md`, `proto/pairing.md`, and
+`proto/pair-window.md`. Only those three protocol documents ground this
+definition and its conformance corpus; digesting unrelated protocol documents
+would make their unrelated edits fail this gate.
 
 Each vocabulary retains an internal JSON `source_pointer`, following the
 contract-bundle convention, and also carries a real `{document, marker}`
@@ -119,13 +121,19 @@ gap reference; a missing tag is never represented by a bare null.
 
 ## Conformance corpus
 
-The corpus contains 5 `declared` vectors whose payload literals appear in the
+The corpus contains 10 `declared` vectors whose payload literals appear in the
 protocol documents and 64 `recorded` vectors promoted from the public
-`solpbc/spl-rust` conformance corpus. Because 64 of 69 vectors record one
+`solpbc/spl-rust` conformance corpus. Because 64 of 74 vectors record one
 implementation's behavior, this corpus is not broad conformance proof.
 
-Vectors cite only `proto/pairing.md` and `proto/pair-window.md`.
-`framing.md`, `session.md`, and `tokens.md` have zero citing vectors. The
+The five journal-identity vectors are the exception to that caveat: they are
+authored from published constants rather than promoted from an implementation.
+Two of them carry the same expected jid for the same key under two encodings,
+which is a case no implementation can produce from its own output.
+
+Vectors cite only `proto/identity.md`, `proto/pairing.md`, and
+`proto/pair-window.md`. `framing.md`, `session.md`, and `tokens.md` have zero
+citing vectors. The
 generator holds the assertion of which vector ids and kinds are
 expected; `vectors.json` holds their data. Those are different responsibilities,
 and this README intentionally copies neither id list.
@@ -141,5 +149,6 @@ code to establish that connection.
 ## Scope
 
 This bundle does not define framing, session lifecycle, or token claims. It
-carries no release tag, consumer adoption state, or rollout state. Silence
+defines the journal identity derivation, but not the journal mark built on top
+of it. It carries no release tag, consumer adoption state, or rollout state. Silence
 here grants no permission to change those areas.

@@ -580,6 +580,88 @@
       "subject": "source_claim.pair_window.supersedes_tokens_pair_ticket"
     }
   ],
+  "journal_identity": [
+    {
+      "citation": {
+        "document": "proto/identity.md",
+        "marker": "derivation is **over the key, not over the bytes it arrived in**"
+      },
+      "gap_ref": null,
+      "id": "journal_identity.key_domain",
+      "kind": "key_domain",
+      "value": "DER SubjectPublicKeyInfo carrying an EC public key on P-256 (secp256r1, OID 1.2.840.10045.3.1.7), parsed and re-serialized to canonical form before derivation"
+    },
+    {
+      "citation": {
+        "document": "proto/identity.md",
+        "marker": "HKDF-SHA256, salt `solstone/journal/v1`, info `solstone/jid/uuidv8/v1`, output length 16 bytes"
+      },
+      "gap_ref": null,
+      "id": "journal_identity.kdf",
+      "kind": "kdf",
+      "value": "HKDF-SHA256 over the canonical SubjectPublicKeyInfo DER, salt solstone/journal/v1, info solstone/jid/uuidv8/v1, output length 16 bytes"
+    },
+    {
+      "citation": {
+        "document": "proto/identity.md",
+        "marker": "byte 6 becomes `(byte6 & 0x0F) | 0x80`, making this a UUID version 8"
+      },
+      "gap_ref": null,
+      "id": "journal_identity.stamp.version",
+      "kind": "stamp",
+      "value": "byte 6 of the 16-byte output becomes (byte6 AND 0x0F) OR 0x80, the UUID version 8 nibble"
+    },
+    {
+      "citation": {
+        "document": "proto/identity.md",
+        "marker": "byte 8 becomes `(byte8 & 0x3F) | 0x80`, the RFC 9562 variant"
+      },
+      "gap_ref": null,
+      "id": "journal_identity.stamp.variant",
+      "kind": "stamp",
+      "value": "byte 8 of the 16-byte output becomes (byte8 AND 0x3F) OR 0x80, the RFC 4122 variant bits"
+    },
+    {
+      "citation": {
+        "document": "proto/identity.md",
+        "marker": "| `not_p256` | the algorithm is not `id-ecPublicKey`, or the curve is not P-256 |"
+      },
+      "gap_ref": null,
+      "id": "journal_identity.refusal.not_p256",
+      "kind": "refusal",
+      "value": "the algorithm is not id-ecPublicKey, or the named curve is not P-256"
+    },
+    {
+      "citation": {
+        "document": "proto/identity.md",
+        "marker": "| `invalid_point` | the structure parses and names P-256, but the public point is not on the curve |"
+      },
+      "gap_ref": null,
+      "id": "journal_identity.refusal.invalid_point",
+      "kind": "refusal",
+      "value": "the structure parses and names P-256, but the public point does not lie on the curve"
+    },
+    {
+      "citation": {
+        "document": "proto/identity.md",
+        "marker": "| `malformed_spki` | the input is not a well-formed `SubjectPublicKeyInfo` |"
+      },
+      "gap_ref": null,
+      "id": "journal_identity.refusal.malformed_spki",
+      "kind": "refusal",
+      "value": "the input is not a well-formed SubjectPublicKeyInfo"
+    },
+    {
+      "citation": {
+        "document": "proto/identity.md",
+        "marker": "**SHA-256 digest of its client certificate, over the certificate's DER encoding**"
+      },
+      "gap_ref": null,
+      "id": "journal_identity.device_id",
+      "kind": "device_id",
+      "value": "the device id is SHA-256 over the client certificate DER, lowercase hex with a sha256: prefix; it is not derived and carries no mark"
+    }
+  ],
   "pin_domains": [
     {
       "citation": {

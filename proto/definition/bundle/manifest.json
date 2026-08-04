@@ -1,22 +1,22 @@
 {
   "bundle_schema_identity": "spl.pair-link-definition-bundle.schema.v1",
-  "bundle_semver": "1.1.3",
+  "bundle_semver": "2.0.0",
   "files": [
     {
       "path": "definition.json",
-      "sha256": "dcc47aade990c33bfc629a392657685e3c285fb5fd25126a15d9b2f0a591d063"
+      "sha256": "b4a2cc7a107005fcecb47543ded5e8fba8116d085f94c86ebb094311d6dc00ad"
     },
     {
       "path": "definition.schema.json",
-      "sha256": "5ed476e9966f681ab6dfa5fb6bdc69142fed976d3bdd32216254fd61cce99f5d"
+      "sha256": "afac8ab91085e0feafde7dbf4cc61d56e156a152ed43e433722e6ce1fc31d0d9"
     },
     {
       "path": "vectors.json",
-      "sha256": "24d21777ee45e77fef7669965a875d0db60f700650c3d8e19065c2a4f77dcb22"
+      "sha256": "d19e0da384a114ce2c1cc770f82a60f2c05ef722c1a0f2f1dca00cbb20c6e512"
     },
     {
       "path": "vectors.schema.json",
-      "sha256": "3293f26b5d36f3a70d7178e230186bfae619e6d9e817157e1680fad7a51d6a66"
+      "sha256": "fb2a25d01682b3d099333bbcf1728358d8b2d45e8a6c284e0021d79a7e19258f"
     }
   ],
   "generator_identity": "spl.proto.definition.generate.v1",
@@ -25,19 +25,25 @@
       "id": "definition.authored_source",
       "path": "proto/definition/definition.toml",
       "role": "authored_source",
-      "sha256": "0227f32b2c664fc740e4f2273130fce656840b4ec5b15ec6fa4cb2b4a200c49d"
+      "sha256": "13e75d93a58583d4aa217bd9ae65e7dde07fb234a5a3018294d0fbfc2df8736c"
     },
     {
       "id": "definition.conformance_corpus",
       "path": "proto/definition/vectors.json",
       "role": "conformance_corpus",
-      "sha256": "24d21777ee45e77fef7669965a875d0db60f700650c3d8e19065c2a4f77dcb22"
+      "sha256": "d19e0da384a114ce2c1cc770f82a60f2c05ef722c1a0f2f1dca00cbb20c6e512"
     },
     {
       "id": "definition.generator",
       "path": "proto/definition/generate.py",
       "role": "generator",
-      "sha256": "531f031cb04d991fa9c5d09e11564441517532ca109a15a686e1ffe810ec1639"
+      "sha256": "2414d0ca10d5d9bf1086ffd2e532949021aa95fe108adb25d390d74a216b4f95"
+    },
+    {
+      "id": "source.identity",
+      "path": "proto/identity.md",
+      "role": "normative_source_document",
+      "sha256": "b5c777414499ce7d90d8985a82d6faf91a24dab90e575b8024782bbad84855af"
     },
     {
       "id": "source.pair_window",

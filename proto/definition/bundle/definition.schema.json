@@ -347,6 +347,50 @@
       ],
       "type": "object"
     },
+    "journal_identity": {
+      "additionalProperties": false,
+      "properties": {
+        "citation": {
+          "$ref": "#/$defs/citation"
+        },
+        "gap_ref": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "id": {
+          "minLength": 1,
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "key_domain",
+            "kdf",
+            "stamp",
+            "refusal",
+            "device_id"
+          ]
+        },
+        "value": {
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "value",
+        "citation",
+        "gap_ref"
+      ],
+      "type": "object"
+    },
     "pin_domain": {
       "additionalProperties": false,
       "properties": {
@@ -812,6 +856,12 @@
       },
       "type": "array"
     },
+    "journal_identity": {
+      "items": {
+        "$ref": "#/$defs/journal_identity"
+      },
+      "type": "array"
+    },
     "pin_domains": {
       "items": {
         "$ref": "#/$defs/pin_domain"
@@ -849,6 +899,7 @@
     "ca_pin_tags",
     "forms",
     "gaps",
+    "journal_identity",
     "pin_domains",
     "source_claims",
     "vocabularies"

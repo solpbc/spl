@@ -15,6 +15,12 @@
     "gap.form_0x06.invalid_utf8_behavior",
     "gap.form_0x06.total_length",
     "gap.relay_origin_selector.unknown_behavior",
+    "journal_identity.kdf",
+    "journal_identity.key_domain",
+    "journal_identity.refusal.invalid_point",
+    "journal_identity.refusal.not_p256",
+    "journal_identity.stamp.variant",
+    "journal_identity.stamp.version",
     "pair_link.0x05.candidate_count",
     "pair_link.addr_type",
     "pair_link.ca_fp_tag",
@@ -973,6 +979,126 @@
       },
       "kind": "recorded",
       "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/identity.md",
+        "marker": "The P-256 generator point as a public key, canonically encoded."
+      },
+      "document_literals": [
+        "3059301306072a8648ce3d020106082a8648ce3d030107034200046b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c2964fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f5",
+        "5620bab1-476a-88df-93d4-f4f525b991dd"
+      ],
+      "entry_digests": {
+        "journal_identity.kdf": "de3020b04ca46b6547cb0e0b7314c6c7c27e57ac1fbdd501a3e9b5efedcd18d9",
+        "journal_identity.key_domain": "b5fe9566423337d96cae56c118b892fa0c43f65562e4d0c7079fcc42e0f20e9b",
+        "journal_identity.stamp.variant": "fbad151d7cca114a476fd68c776ea2ff01eadcdd24b5f96691f04f113bf6bda8",
+        "journal_identity.stamp.version": "4d567e873b27bc721d8807e7f744dfef16eacae0b1ce28197cbf31783a93816f"
+      },
+      "expected": {
+        "jid": "5620bab1-476a-88df-93d4-f4f525b991dd",
+        "result": "jid"
+      },
+      "id": "identity.jid.canonical",
+      "kind": "declared",
+      "operation": "derive_jid",
+      "spki_der_hex": "3059301306072a8648ce3d020106082a8648ce3d030107034200046b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c2964fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f5",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/identity.md",
+        "marker": "The same key, point compressed. **Expects the same jid.**"
+      },
+      "document_literals": [
+        "3039301306072a8648ce3d020106082a8648ce3d030107032200036b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c296",
+        "5620bab1-476a-88df-93d4-f4f525b991dd"
+      ],
+      "entry_digests": {
+        "journal_identity.kdf": "de3020b04ca46b6547cb0e0b7314c6c7c27e57ac1fbdd501a3e9b5efedcd18d9",
+        "journal_identity.key_domain": "b5fe9566423337d96cae56c118b892fa0c43f65562e4d0c7079fcc42e0f20e9b",
+        "journal_identity.stamp.variant": "fbad151d7cca114a476fd68c776ea2ff01eadcdd24b5f96691f04f113bf6bda8",
+        "journal_identity.stamp.version": "4d567e873b27bc721d8807e7f744dfef16eacae0b1ce28197cbf31783a93816f"
+      },
+      "expected": {
+        "jid": "5620bab1-476a-88df-93d4-f4f525b991dd",
+        "result": "jid"
+      },
+      "id": "identity.jid.compressed-point",
+      "kind": "declared",
+      "operation": "derive_jid",
+      "spki_der_hex": "3039301306072a8648ce3d020106082a8648ce3d030107032200036b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c296",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/identity.md",
+        "marker": "point not on the curve. Expects `invalid_point`."
+      },
+      "document_literals": [
+        "3059301306072a8648ce3d020106082a8648ce3d030107034200046b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c2964fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f4"
+      ],
+      "entry_digests": {
+        "journal_identity.refusal.invalid_point": "8433679af10b91b46b01f36b254fa69d7ac0a51ab0f11152d6b4907441c62f72"
+      },
+      "expected": {
+        "error": {
+          "kind": "invalid_point"
+        },
+        "result": "error"
+      },
+      "id": "identity.jid.off-curve-point",
+      "kind": "declared",
+      "operation": "derive_jid",
+      "spki_der_hex": "3059301306072a8648ce3d020106082a8648ce3d030107034200046b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c2964fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f4",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/identity.md",
+        "marker": "An Ed25519 public key, from an all-zero seed."
+      },
+      "document_literals": [
+        "302a300506032b65700321003b6a27bcceb6a42d62a3a8d02a6f0d73653215771de243a63ac048a18b59da29"
+      ],
+      "entry_digests": {
+        "journal_identity.refusal.not_p256": "cd79926c01c7bc2d5735a0e1014d4929bac4ab4eb2fef7fb3b545e97bbaed254"
+      },
+      "expected": {
+        "error": {
+          "kind": "not_p256"
+        },
+        "result": "error"
+      },
+      "id": "identity.jid.wrong-algorithm",
+      "kind": "declared",
+      "operation": "derive_jid",
+      "spki_der_hex": "302a300506032b65700321003b6a27bcceb6a42d62a3a8d02a6f0d73653215771de243a63ac048a18b59da29",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/identity.md",
+        "marker": "Correct algorithm OID, wrong curve OID. Expects `not_p256`."
+      },
+      "document_literals": [
+        "3076301006072a8648ce3d020106052b8104002203620004aa87ca22be8b05378eb1c71ef320ad746e1d3b628ba79b9859f741e082542a385502f25dbf55296c3a545e3872760ab73617de4a96262c6f5d9e98bf9292dc29f8f41dbd289a147ce9da3113b5f0b8c00a60b1ce1d7e819d7a431d7c90ea0e5f"
+      ],
+      "entry_digests": {
+        "journal_identity.key_domain": "b5fe9566423337d96cae56c118b892fa0c43f65562e4d0c7079fcc42e0f20e9b",
+        "journal_identity.refusal.not_p256": "cd79926c01c7bc2d5735a0e1014d4929bac4ab4eb2fef7fb3b545e97bbaed254"
+      },
+      "expected": {
+        "error": {
+          "kind": "not_p256"
+        },
+        "result": "error"
+      },
+      "id": "identity.jid.wrong-curve",
+      "kind": "declared",
+      "operation": "derive_jid",
+      "spki_der_hex": "3076301006072a8648ce3d020106052b8104002203620004aa87ca22be8b05378eb1c71ef320ad746e1d3b628ba79b9859f741e082542a385502f25dbf55296c3a545e3872760ab73617de4a96262c6f5d9e98bf9292dc29f8f41dbd289a147ce9da3113b5f0b8c00a60b1ce1d7e819d7a431d7c90ea0e5f",
       "unbound_reason": null
     },
     {

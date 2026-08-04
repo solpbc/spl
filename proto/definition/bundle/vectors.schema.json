@@ -337,6 +337,103 @@
               "expected_hex"
             ],
             "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "citation": {
+                "$ref": "#/$defs/citation"
+              },
+              "document_literals": {
+                "items": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "entry_digests": {
+                "additionalProperties": {
+                  "pattern": "^[0-9a-f]{64}$",
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              "expected": {
+                "additionalProperties": false,
+                "properties": {
+                  "error": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "kind": {
+                        "enum": [
+                          "not_p256",
+                          "invalid_point",
+                          "malformed_spki"
+                        ]
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ],
+                    "type": "object"
+                  },
+                  "jid": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "result": {
+                    "enum": [
+                      "jid",
+                      "error"
+                    ]
+                  }
+                },
+                "required": [
+                  "result"
+                ],
+                "type": "object"
+              },
+              "id": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "kind": {
+                "enum": [
+                  "declared",
+                  "recorded"
+                ]
+              },
+              "operation": {
+                "const": "derive_jid"
+              },
+              "spki_der_hex": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "unbound_reason": {
+                "anyOf": [
+                  {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "kind",
+              "operation",
+              "citation",
+              "entry_digests",
+              "unbound_reason",
+              "document_literals",
+              "spki_der_hex",
+              "expected"
+            ],
+            "type": "object"
           }
         ]
       },
