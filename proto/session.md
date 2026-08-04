@@ -190,7 +190,15 @@ A client MUST discriminate on the alert code. Two codes carry the meanings above
 
 - `access_denied` (49) — unpaired. Present `LITERAL: "This device was unpaired from your solstone."`, require a re-pair, and stop retrying.
 - `certificate_unknown` (46) — retry on the schedule under *mobile reconnect* and keep the credential. Present no unpaired message; the reconnect banners there still apply. ⚠ This branch is deliberately unbounded, unlike the one below: the credential is still valid and the home is expected to recover, so there is nothing for the owner to do and nothing to warn them about.
-- **every other code** — retry on that same schedule, and if refusals continue with no handshake completing in between, present the unpaired message and stop retrying. ⛔ Do not key that on the code repeating: a home that alternates its refusal code with an occasional transport error would reset a per-code counter forever, leaving an unpaired owner retrying with no re-pair ever offered. ⚠ How many refusals, or how long, is owned by the client, like the waiting-phase timeout below.
+- **every other code** — retry on that same schedule, and once refusals under this branch have continued long enough, present the unpaired message and stop retrying.
+
+Three things about that last branch decide whether two clients agree, so they are stated rather than left to be inferred:
+
+- **Only a completed handshake clears the state.** A refusal never clears it, whatever code it carries.
+- **A `certificate_unknown` (46) neither advances nor clears it.** It belongs to the unbounded branch, so counting it in would eventually tell an owner they were unpaired because their home's file was briefly unreadable — the harm this whole section exists to prevent. Letting it clear the state would let a home alternating 46 with another code retry forever, which is the same defect from the other side.
+- ⛔ **Do not key it on one code repeating.** A home alternating its refusal code with an occasional transport error would reset a per-code counter forever, leaving an unpaired owner retrying with no re-pair ever offered.
+
+⚠ **How long, or how many refusals, is owned by the client — but the measure only advances while attempts are actually being refused.** A client that is simply offline is not being refused: a phone that took one refusal and then spent two days without a network must not come back to an unpaired message and a discarded credential.
 
 The catch-all is deliberately one rule rather than a table, because it has to be right without knowing which home it is talking to. `internal_error` (80) lands here, so a device unpaired by a home predating this section is still told, eventually. A transient chain or transport error also lands here and resolves before it can persist. And a *persistent* certificate problem — a home that regenerated its CA, a corrupted keychain entry — lands here too, where a re-pair is the remedy anyway. ⛔ **Do not narrow this to a set of recognized codes.** A client that treats unrecognized codes as transient forever leaves an unpaired owner with no re-pair affordance, which is worse than not implementing the split at all.
 
