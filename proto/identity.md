@@ -52,7 +52,7 @@ A paired device is identified by the **SHA-256 digest of its client certificate,
 
 > **`ca_fp` names more than one value in this protocol, and they are not interchangeable.** The direct pair-link's `ca_fp` is the leading 16 bytes of SHA-256 over the CA certificate DER ([`pairing.md`](pairing.md)). The relay pair-link's `ca_fp_spki` is the leading 16 bytes over the CA `SubjectPublicKeyInfo` DER ([`pair-window.md`](pair-window.md)). A service token's `ca_fp` claim is a full 32-byte digest over the home's CA public key ([`tokens.md`](tokens.md)). The `pair-start` response's `ca_fingerprint` is the full 32 bytes over the CA certificate DER ([`pairing.md`](pairing.md)).
 >
-> Each is specified where it is used, and this document deliberately does not restate them: an enumeration maintained by hand in a fifth place is one that goes stale. What matters here is that the `did` is none of them.
+> Each is specified where it is used. What matters here is that the `did` is none of them.
 
 A device gets neither a jid nor a mark, because both are derived from a journal CA key and a device has no such key.
 

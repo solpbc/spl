@@ -12,7 +12,7 @@ particular way. The bundle contains canonical `definition.json` and
 `bundle/manifest.json` contains the single format-level identity and SemVer,
 payload digests, and generator-input digests.
 
-The current bundle version is `4.0.0`. The stable identities are:
+The current bundle version is `4.0.1`. The stable identities are:
 
 - generator: `spl.proto.definition.generate.v1`
 - bundle schema: `spl.pair-link-definition-bundle.schema.v1`
