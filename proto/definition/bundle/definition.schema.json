@@ -374,7 +374,7 @@
             "kdf",
             "stamp",
             "refusal",
-            "device_id"
+            "device_fingerprint"
           ]
         },
         "value": {

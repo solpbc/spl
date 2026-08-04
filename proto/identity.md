@@ -2,14 +2,14 @@
 
 The journal's own identity, and the device identity that sits beside it. Two values, computed two different ways.
 
-- The **jid** identifies a journal. The home derives it from its own CA's public key. It is the value a client dials, carried as `instance_id`.
-- The **did**, the device id, identifies a paired device. It is the fingerprint of that device's certificate, taken directly rather than derived. It is carried as `device_fp` in the token claims and as `fingerprint` in the home's authorized-client ledger. ⛔ It is **not** the `device_id` that appears in a `session.dial` token's `sub`; that is a different value.
+- The **jid** identifies a journal. The home derives it from its own CA's public key, and a client compares it against the `instance_id` it dials.
+- The **did** identifies a paired device. It is the fingerprint of that device's certificate, taken directly rather than derived, and it is carried as `device_fp` in the token claims and as `fingerprint` in the home's authorized-client ledger. It is **not** the `device_id` that appears in a `session.dial` token's subject; that is a different value.
 
 This document is the normative source for both. Machine-readable form for both, and conformance vectors for the jid, are in [`definition/`](definition/README.md).
 
 ## why this is in the protocol
 
-The home derives this value, and any implementation that checks it MUST derive it identically from the same key. A client pairing off-LAN is expected to compare the jid it derives against the `instance_id` it was given, as an integrity check on the CA it pinned ([`pair-window.md`](pair-window.md)). A divergence does not fail loudly: it fails as a mismatch between two parties who each believe they are correct.
+The home derives the jid, and any implementation that checks it MUST derive it identically from the same key. A client pairing off-LAN is expected to compare the jid it derives against the `instance_id` it was given, as an integrity check on the CA it pinned ([`pair-window.md`](pair-window.md)). A divergence does not fail loudly: it fails as a mismatch between two parties who each believe they are correct.
 
 ## the jid
 
@@ -50,16 +50,9 @@ An implementation MUST NOT signal a refusal in-band as a returned jid. A jid ret
 
 A paired device is identified by the **SHA-256 digest of its client certificate, over the certificate's DER encoding**, rendered lowercase hexadecimal with a `sha256:` prefix. That is the same value the home records for the device when it signs the certificate.
 
-> **Four fingerprints, three digest inputs.** They are computed over different bytes, and crossing them breaks pairing in ways that are hard to see.
+> **`ca_fp` names more than one value in this protocol, and they are not interchangeable.** The direct pair-link's `ca_fp` is the leading 16 bytes of SHA-256 over the CA certificate DER ([`pairing.md`](pairing.md)). The relay pair-link's `ca_fp_spki` is the leading 16 bytes over the CA `SubjectPublicKeyInfo` DER ([`pair-window.md`](pair-window.md)). A service token's `ca_fp` claim is a full 32-byte digest over the home's CA public key ([`tokens.md`](tokens.md)). The `pair-start` response's `ca_fingerprint` is the full 32 bytes over the CA certificate DER ([`pairing.md`](pairing.md)).
 >
-> | value | digest input | length used |
-> |---|---|---|
-> | `did` | the **certificate** DER | the full 32 bytes |
-> | the direct-form `ca_fp` | the CA **certificate** DER | the leading 16 bytes |
-> | the relay-form `ca_fp_spki` | the CA **`SubjectPublicKeyInfo`** DER | the leading 16 bytes |
-> | the `pair-start` response's `ca_fingerprint` | the CA **certificate** DER | the full 32 bytes, human display only ([`pairing.md`](pairing.md)) |
->
-> The direct-form `ca_fp` and the `pair-start` response's `ca_fingerprint` share a digest input and differ only in length. That is the crossing most worth guarding against.
+> Each is specified where it is used, and this document deliberately does not restate them: an enumeration maintained by hand in a fifth place is one that goes stale. What matters here is that the `did` is none of them.
 
 A device gets neither a jid nor a mark, because both are derived from a journal CA key and a device has no such key.
 
@@ -82,7 +75,7 @@ jid:          5620bab1-476a-88df-93d4-f4f525b991dd
 
 ### `identity.jid.compressed-point`
 
-The same key, point compressed. **Expects the same jid.** An implementation that hashes its input rather than the key it names will fail this one and pass every other vector here.
+The same key, point compressed. **Expects the same jid.** An implementation that validates the key but digests the bytes it was handed rather than the canonical re-serialization fails this vector alone.
 
 ```
 spki_der_hex: 3039301306072a8648ce3d020106082a8648ce3d030107032200036b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c296

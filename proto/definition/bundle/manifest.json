@@ -1,14 +1,14 @@
 {
   "bundle_schema_identity": "spl.pair-link-definition-bundle.schema.v1",
-  "bundle_semver": "3.0.0",
+  "bundle_semver": "4.0.0",
   "files": [
     {
       "path": "definition.json",
-      "sha256": "21d65023a10709d280315b807452885308953d3d7ef0b5e7d6f7e0b1556b291b"
+      "sha256": "32c25f3066bcb0f8676dedba6d9797248284fce8617b67c3a3f5e97623eecffe"
     },
     {
       "path": "definition.schema.json",
-      "sha256": "afac8ab91085e0feafde7dbf4cc61d56e156a152ed43e433722e6ce1fc31d0d9"
+      "sha256": "8f20c198d40c3bc299c24bb601dc7ea245fe08f17063ae765248d7f1aaf88c21"
     },
     {
       "path": "vectors.json",
@@ -25,7 +25,7 @@
       "id": "definition.authored_source",
       "path": "proto/definition/definition.toml",
       "role": "authored_source",
-      "sha256": "37e32c05cf500722d52207870d7ad464d242521089eeb621caef3901b5d04122"
+      "sha256": "1d7267489118cf607236e26bd0446447babf1056adc5707c31769a34a7382bd5"
     },
     {
       "id": "definition.conformance_corpus",
@@ -37,13 +37,13 @@
       "id": "definition.generator",
       "path": "proto/definition/generate.py",
       "role": "generator",
-      "sha256": "1bdf0c6cf0aee7444883dd57a2395fd043ead9f731c2e56860bd75d6d24c395b"
+      "sha256": "4461ac0ab5d60a9beb3c35eebe05bc2406b4d44822196a7a7aa2d1286cc346aa"
     },
     {
       "id": "source.identity",
       "path": "proto/identity.md",
       "role": "normative_source_document",
-      "sha256": "de1a8981d43c9f9ea2cbb3f21755aac1c14922abdfd5bde04fabe6f34a9b0ca1"
+      "sha256": "aac8ddf70026b580453e29b5e6317c5a305cfe6eef3295c7c41051915455f9d1"
     },
     {
       "id": "source.pair_window",

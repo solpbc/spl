@@ -298,7 +298,7 @@ RECORD_SCHEMAS: dict[str, dict[str, Any]] = {
     "journal_identity": object_schema(
         {
             "id": STRING,
-            "kind": {"enum": ["key_domain", "kdf", "stamp", "refusal", "device_id"]},
+            "kind": {"enum": ["key_domain", "kdf", "stamp", "refusal", "device_fingerprint"]},
             "value": STRING,
             "citation": CITATION_REF,
             "gap_ref": GAP_REF,
