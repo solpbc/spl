@@ -5,11 +5,11 @@ The journal's own identity, and the device identity that sits beside it. Two val
 - The **jid** identifies a journal. It is derived from the journal CA's public key, and it is the value that addresses a home at the relay, carried as `instance_id`.
 - The **did** identifies a paired device. It is the fingerprint of that device's certificate, taken directly rather than derived.
 
-This document is the normative source for both. Machine-readable form and conformance vectors are in [`definition/`](definition/README.md).
+This document is the normative source for both. Machine-readable form for both, and conformance vectors for the jid, are in [`definition/`](definition/README.md).
 
 ## why this is in the protocol
 
-A client pairing off-LAN compares the jid it derives against the `instance_id` it was given, as an integrity check on the CA it pinned ([`pair-window.md`](pair-window.md)). So every implementation that pairs derives this value, and every one of them has to derive it identically from the same key. A divergence does not fail loudly: it fails as a mismatch between two parties who each believe they are correct. Independent implementations agreed only because the literals were copied by hand.
+A client pairing off-LAN is expected to compare the jid it derives against the `instance_id` it was given, as an integrity check on the CA it pinned ([`pair-window.md`](pair-window.md)). So every implementation that pairs off-LAN derives this value, and every one of them has to derive it identically from the same key. A divergence does not fail loudly: it fails as a mismatch between two parties who each believe they are correct. Before this document, agreement rested on literals copied by hand.
 
 ## the jid
 
@@ -26,13 +26,13 @@ Two encodings of one key therefore produce one jid. An implementation that hashe
 Byte offsets below are 0-indexed. Over the canonical DER, in order:
 
 1. HKDF-SHA256, salt `solstone/journal/v1`, info `solstone/jid/uuidv8/v1`, output length 16 bytes. Both labels are ASCII with no terminator.
-The HKDF is per RFC 5869. The salt is 19 bytes and the info is 22 bytes, both ASCII.
+   The HKDF is per RFC 5869, and the IKM is the canonical `SubjectPublicKeyInfo` DER. The salt is 19 bytes and the info is 22 bytes, both ASCII.
 
 2. Set the version nibble: byte 6 becomes `(byte6 & 0x0F) | 0x80`, making this a UUID version 8 as defined by RFC 9562.
 3. Set the variant bits: byte 8 becomes `(byte8 & 0x3F) | 0x80`, the RFC 9562 variant.
 4. Render as a lowercase hyphenated UUID.
 
-The 16 raw bytes, before rendering, are the jid's byte form. They are the input to the journal mark, which this repository does not specify.
+The 16 stamped bytes, before rendering, are the jid's byte form. They are the input to the journal mark, which this repository does not specify.
 
 ### refusals
 
@@ -57,6 +57,9 @@ A paired device is identified by the **SHA-256 digest of its client certificate,
 > | `did` | the **certificate** DER | the full 32 bytes |
 > | the direct-form `ca_fp` | the CA **certificate** DER | the leading 16 bytes |
 > | the relay-form `ca_fp_spki` | the CA **`SubjectPublicKeyInfo`** DER | the leading 16 bytes |
+> | the `pair-start` response's `ca_fingerprint` | the CA **certificate** DER | the full 32 bytes, human display only ([`pairing.md`](pairing.md)) |
+>
+> The last two rows of that table share a digest input and differ only in length, which is the crossing most worth guarding against.
 
 A device gets neither a jid nor a mark, because both are derived from a journal CA key and a device has no such key.
 
@@ -117,7 +120,6 @@ The canonical vector truncated to its first 40 bytes. The outer SEQUENCE claims 
 ```
 spki_der_hex: 3059301306072a8648ce3d020106082a8648ce3d030107034200046b17d1f2e12c4247f8bce6e563
 ```
-
 
 ## scope
 
