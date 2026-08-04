@@ -67,7 +67,7 @@ An OPEN frame's initial payload (with or without `DATA`) counts against the open
 | `0x02` | `FLOW_CONTROL_ERROR` | peer sent more data than the window allowed |
 | `0x03` | `STREAM_LIMIT_EXCEEDED` | peer opened more concurrent streams than the agreed cap |
 | `0x04` | `INTERNAL_ERROR` | endpoint-local failure unrelated to the peer |
-| `0x05` | `CANCEL` | application-initiated abort (e.g., user navigated away) |
+| `0x05` | `CANCEL` | application-initiated abort (e.g., owner navigated away) |
 | `0xff` | `UNSPECIFIED` | reserved fallback; senders SHOULD prefer a specific code |
 
 Receivers MUST tolerate unknown reason codes (treat as `UNSPECIFIED`) — this lets the codes evolve without coordinated upgrades.
@@ -170,7 +170,7 @@ These cadences are mobile-side policy; the framing layer does not encode them. A
 
 ### why streamID==0 ping/pong, not HTTP HEAD
 
-A direct-mode TLS path can go dark with no FIN, no RST, and no TLS alert — e.g., NAT rebinding on a backgrounded mobile foregrounding into Wi-Fi, or a flaky router silently dropping ESTABLISHED state. The TLS state machine has no application-layer liveness signal of its own, so we need one inside the tunnel. `PING/PONG` on `stream_id = 0` rides inside the inner TLS record stream, so it exercises the exact same wire that user requests will: a `PONG` round-trip is positive proof the direct TLS path is alive end-to-end.
+A direct-mode TLS path can go dark with no FIN, no RST, and no TLS alert — e.g., NAT rebinding on a backgrounded mobile foregrounding into Wi-Fi, or a flaky router silently dropping ESTABLISHED state. The TLS state machine has no application-layer liveness signal of its own, so we need one inside the tunnel. `PING/PONG` on `stream_id = 0` rides inside the inner TLS record stream, so it exercises the exact same wire that application requests will: a `PONG` round-trip is positive proof the direct TLS path is alive end-to-end.
 
 The alternative — an HTTP `HEAD` to a sentinel route — also works, but it allocates a fresh mux stream every 500ms, churns server-side request logs, and conflates application-layer health with transport-layer liveness. A framing-layer ping has neither cost.
 

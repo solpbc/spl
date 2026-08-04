@@ -22,8 +22,8 @@ See the diagram in [`../README.md`](../README.md#architecture). This document wi
 
 - **Algorithm:** ECDSA-P256, for both the home CA and the mobile client cert.
 - **What it authorizes:** the actual byte exchange between mobile and home, *inside* the tunnel that JWT layer set up.
-- **Who signs:** the home's local CA, generated on the home machine at first run, never transmitted, never escrowed. The CA private key is encrypted at rest under the user's solstone unlock secret.
-- **Who verifies:** the home itself, via pyOpenSSL's `verify_callback` inside the TLS handshake — the mobile presents its paired client cert; the home checks the SHA-256 fingerprint against `authorized_clients.json` and rejects unauthorized fingerprints with a clean TLS alert.
+- **Who signs:** the home's local CA, generated on the home machine at first run, never transmitted, never escrowed. The CA private key is encrypted at rest under the owner's solstone unlock secret.
+- **Who verifies:** the home itself, inside the TLS handshake — the mobile presents its paired client cert; the home checks the SHA-256 fingerprint against `authorized_clients.json` and refuses an unauthorized fingerprint with `access_denied` (49). A home that cannot read the file refuses with `certificate_unknown` (46) instead, because nobody was unpaired; see [`../proto/session.md`](../proto/session.md) § 7.
 - **Where the keys live:** the CA private key on the home, encrypted; the mobile client private key in iOS Keychain (`kSecAttrAccessibleWhenUnlockedThisDeviceOnly`). Neither ever traverses `spl-relay`.
 - **Why ECDSA, not Ed25519:** the JOSE side gets Ed25519 for the reasons above; the TLS side has to use ECDSA-P256 because Node and Bun TLS stacks don't advertise Ed25519 in signature schemes by default. Ed25519 in TLS would fail with `NO_SUITABLE_SIGNATURE_ALGORITHM` (prototype finding §11.7).
 - **Wire format:** [`../proto/pairing.md`](../proto/pairing.md) for cert issuance; [`../proto/session.md`](../proto/session.md) for handshake placement.
@@ -62,7 +62,7 @@ Full statement, rationale, and examples in [`../proto/session.md`](../proto/sess
 ## what the operator cannot see
 
 - The contents of any relayed frame (TLS 1.3 end-to-end inside the tunnel).
-- Any user-generated data flowing through solstone.
+- Any owner-generated data flowing through solstone.
 - Any key that would let the operator decrypt a past or present session (no key escrow).
 - Any authentication material that would let the operator impersonate either endpoint (no mTLS material at the relay).
 

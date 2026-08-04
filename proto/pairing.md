@@ -32,7 +32,7 @@ On first run, solstone generates a self-signed CA on the home machine:
 
 - **Algorithm:** ECDSA-P256 (per spec decision log 2026-04-18 — Node/Bun TLS defaults don't advertise Ed25519 in signature schemes; ECDSA-P256 is the cross-stack baseline).
 - **Validity:** 10 years.
-- **Key storage:** the CA private key lives on disk, encrypted at rest under a key derived from the user's existing solstone unlock secret. Never transmitted, never escrowed.
+- **Key storage:** the CA private key lives on disk, encrypted at rest under a key derived from the owner's existing solstone unlock secret. Never transmitted, never escrowed.
 - **Certs issued by this CA** are the mobile client certs signed during pairing.
 
 The CA is per-home. Two solstone installs have two unrelated CAs; mobile devices paired with one cannot speak to the other.
@@ -41,7 +41,7 @@ The CA is per-home. Two solstone installs have two unrelated CAs; mobile devices
 
 Step by step. Times are typical, not specified — the only enforced TTL is the nonce.
 
-### 1. user taps "Pair a phone" in convey
+### 1. owner taps "Pair a phone" in convey
 
 Convey calls into the local `spl.pair` HTTPS server (loopback, port chosen at solstone startup). The pair server:
 
@@ -105,7 +105,7 @@ Candidate-count conformance cases:
 
 The rest of this ceremony describes the direct LAN completion path (identical for `0x04` and `0x05`).
 
-User-visible strings (per spec):
+Owner-visible strings (per spec):
 
 - `LITERAL: "Scan this code with sol on your phone over the same wi-fi or your own vpn."`
 - `LITERAL: "This code expires in 5 minutes and only works once."`
@@ -115,7 +115,7 @@ User-visible strings (per spec):
 The mobile app parses the QR payload and:
 
 - Verifies every candidate address is in the explicit direct-pair allow-list (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, IPv4 link-local `169.254.0.0/16`, RFC 6598 shared address space `100.64.0.0/10`, IPv6 ULA `fc00::/7`, loopback). v1 refuses every other address at this step, including public addresses — the direct-pair constraint is enforced client-side, not just by the address the QR happens to contain. For the `0x05` multi form the whole link is refused unless **all** candidates satisfy this.
-- Confirms with the user: `LITERAL: "Pair with your journal over this local network?"` (showing the device label only after the next step).
+- Confirms with the owner: `LITERAL: "Pair with your journal over this local network?"` (showing the device label only after the next step).
 
 Address-admission conformance cases (normative policy vectors):
 
@@ -138,7 +138,7 @@ The `0x04` and `0x05` forms currently encode IPv4 only. The IPv6 row pins addres
 In the platform keychain (see the end-state note above for accessibility — iOS `AfterFirstUnlock`, macOS `AfterFirstUnlockThisDeviceOnly`):
 
 - **Algorithm:** ECDSA-P256 (matches the home CA's signature algorithm).
-- The private key never leaves the device; the public key is encoded into a **CSR** along with a device label (default: the iOS device name; user-editable).
+- The private key never leaves the device; the public key is encoded into a **CSR** along with a device label (default: the iOS device name; owner-editable).
 
 ### 5. mobile posts the CSR to the pair URL
 
@@ -150,11 +150,11 @@ Content-Type: application/json
 
 {
   "csr": "<PEM-encoded CSR>",
-  "device_label": "Jer's iPhone"
+  "device_label": "iPhone"
 }
 ```
 
-The single-use **nonce travels as the `token` query parameter (lowercase hex)**, not in the JSON body; the body carries only the CSR and device label. TLS verification uses the **CA fingerprint pin from the QR** (`ca_fp`), not the system trust store — the home presents its self-signed CA cert and the mobile rejects unless the SHA-256 of the presented cert matches the pinned fingerprint. This is the trust-on-first-use moment, but it is gated by a fresh QR scan, so there is no leap of faith — the user has just held the phone in front of the home. (The pair request rides the same inner-TLS + mux transport as everyday tunnel traffic; see [`framing.md`](framing.md). Requests are minimal HTTP/1.1; chunked transfer-encoding is not used.)
+The single-use **nonce travels as the `token` query parameter (lowercase hex)**, not in the JSON body; the body carries only the CSR and device label. TLS verification uses the **CA fingerprint pin from the QR** (`ca_fp`), not the system trust store — the home presents its self-signed CA cert and the mobile rejects unless the SHA-256 of the presented cert matches the pinned fingerprint. This is the trust-on-first-use moment, but it is gated by a fresh QR scan, so there is no leap of faith — the owner has just held the phone in front of the home. (The pair request rides the same inner-TLS + mux transport as everyday tunnel traffic; see [`framing.md`](framing.md). Requests are minimal HTTP/1.1; chunked transfer-encoding is not used.)
 
 ### 6. home validates and signs
 
@@ -176,7 +176,7 @@ The home computes the SHA-256 fingerprint of the new cert and writes a new entry
 ```json
 {
   "fingerprint": "sha256:<hex>",
-  "device_label": "Jer's iPhone",
+  "device_label": "iPhone",
   "paired_at": "2026-04-19T17:42:13Z",
   "instance_id": "<home_instance_id>"
 }
@@ -193,7 +193,7 @@ Response body:
   "client_cert": "<PEM>",
   "ca_chain": ["<home CA PEM>"],
   "instance_id": "<home_instance_id>",
-  "home_label": "<user-named home, e.g. 'living room mac'>",
+  "home_label": "<owner-named home, e.g. 'living room mac'>",
   "home_attestation": "<compact JWS, ES256>"
 }
 ```
@@ -216,26 +216,28 @@ POST https://link.solstone.app/enroll/device
 
 `spl-relay` validates the `home_attestation` against the home's registered CA public key (per [`tokens.md`](tokens.md) §"POST /enroll/device"). The attestation binds this specific device fingerprint to a specific pair ceremony within a 5-minute window; its `jti` is consumed exactly once via a D1 UNIQUE constraint. If valid, `spl-relay` issues a **device token** — a JWT scoped to (`instance_id`, fingerprint), signed by `spl-relay`'s signing key. Mobile stores it in Keychain alongside the client cert.
 
-Pairing complete. The mobile now holds: ECDSA private key + client cert + CA chain + device token. User-visible: `LITERAL: "Paired with <home label>."`
+Pairing complete. The mobile now holds: ECDSA private key + client cert + CA chain + device token. Owner-visible: `LITERAL: "Paired with <home label>."`
 
 ## revocation
 
 Revoking a device is a one-step operation **on the home, not on `spl-relay`.**
 
-1. User taps `LITERAL: "Unpair device"` in convey.
+1. Owner taps `LITERAL: "Unpair device"` in convey.
 2. Convey edits `authorized_clients.json`, removing the matching fingerprint entry.
 3. The TLS layer's mtime poller reloads the file within ~500 ms.
-4. The next dial from the revoked device opens the tunnel WS through `spl-relay` (rendezvous still works — the device token is still valid), but the TLS handshake on the home rejects the client cert via `verify_callback`. The mobile sees a TLS handshake failure, surfaced as `LITERAL: "This device was unpaired from your solstone."`
+4. The next dial from the revoked device opens the tunnel WS through `spl-relay` (rendezvous still works — the device token is still valid), but the home refuses the client cert inside the TLS handshake. Which alert it sends, and what the mobile shows the owner, are specified in [`session.md`](session.md) § 7.
 
 This is the authoritative revocation point. The device token at `spl-relay` may remain valid; it confers no data access without the TLS handshake succeeding. v1 does not propagate revocation to `spl-relay`. (Defense-in-depth — invalidate the device token too — is on the H2 list but not blocking.)
 
-The TLS-layer rejection is **not** an app-layer post-handshake drop. The prototype found (§8 + §11.3) that app-layer fingerprint checks produce silent disconnects with no clean error semantics; v1 enforces the check inside the TLS handshake using pyOpenSSL's `verify_callback` precisely so the mobile receives a specific TLS alert and can show a meaningful error.
+The TLS-layer rejection is **not** an app-layer post-handshake drop. The prototype found (§8 + §11.3) that app-layer fingerprint checks produce silent disconnects with no clean error semantics, so the check runs inside the handshake, where a refusal has an alert to travel on and the mobile can tell one refusal from another.
+
+⚠ Enforcing in the handshake only makes a specific alert *possible*; a home still has to choose one deliberately. A home that refuses without choosing is refusing correctly and telling the mobile nothing about which case it hit.
 
 ## why a nonce, not a long-lived secret
 
-The nonce in the QR is short-lived, single-use, and exists only to bind a specific mobile-to-home conversation to a specific user-initiated moment. It is not a credential — it grants nothing beyond the right to submit one CSR for one signing.
+The nonce in the QR is short-lived, single-use, and exists only to bind a specific mobile-to-home conversation to a specific owner-initiated moment. It is not a credential — it grants nothing beyond the right to submit one CSR for one signing.
 
-This means a leaked QR (over the user's shoulder, in a video call, accidental screenshot) is harmless after 5 minutes or after a successful pair, whichever comes first. There is no long-lived "pairing secret" in the system that an attacker could capture.
+This means a leaked QR (over the owner's shoulder, in a video call, accidental screenshot) is harmless after 5 minutes or after a successful pair, whichever comes first. There is no long-lived "pairing secret" in the system that an attacker could capture.
 
 ## why on-device keypair generation, not server-issued
 

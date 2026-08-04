@@ -117,7 +117,7 @@ Called once at solstone first run. Body:
 {
   "instance_id": "<the home's jid, derived from its CA>",
   "ca_pubkey": "<PEM>",
-  "home_label": "<user-named home>"
+  "home_label": "<owner-named home>"
 }
 ```
 

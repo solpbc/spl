@@ -11,7 +11,7 @@ This document is the public-facing operational guide for the JWT signing keys us
 | layer | algorithm | what it protects | where the keys live |
 |---|---|---|---|
 | **JWT signing layer** (this document) | **Ed25519 / EdDSA** | rendezvous: authorizes a WebSocket open to `spl-relay` | private: `env.SIGNING_JWK` (Worker secret); public: `env.JWKS_PUBLIC` (Worker secret + `/.well-known/jwks.json`) |
-| **mTLS layer** (see [`../proto/pairing.md`](../proto/pairing.md), [`../proto/session.md`](../proto/session.md)) | **ECDSA-P256** | data: authorizes the actual byte exchange between mobile and home | home CA private key on the home machine, encrypted at rest under the user's solstone unlock secret; mobile client cert in iOS Keychain |
+| **mTLS layer** (see [`../proto/pairing.md`](../proto/pairing.md), [`../proto/session.md`](../proto/session.md)) | **ECDSA-P256** | data: authorizes the actual byte exchange between mobile and home | home CA private key on the home machine, encrypted at rest under the owner's solstone unlock secret; mobile client cert in iOS Keychain |
 
 The two layers are independent. The signing key never appears in any TLS handshake. The home CA never signs a JWT. **A compromise of one is not a compromise of the other.**
 
@@ -154,7 +154,7 @@ There is **no graceful migration window** on compromise. A migration window exte
    wrangler secret put SIGNING_JWK --env production
    ```
 
-5. **Force re-enroll.** Notify the control plane (or the home / mobile client logic, depending on your deployment) to purge cached service tokens and force re-issuance on next check-in. Paired devices that hold a now-invalid device token will get TLS-handshake-failure-style errors at the relay (rendezvous fails); the user re-pairs through convey.
+5. **Force re-enroll.** Notify the control plane (or the home / mobile client logic, depending on your deployment) to purge cached service tokens and force re-issuance on next check-in. Paired devices that hold a now-invalid device token will get TLS-handshake-failure-style errors at the relay (rendezvous fails); the owner re-pairs through convey.
 6. **Archive the compromised keypair** with metadata noting compromise, root cause, and remediation. Do not delete — keep for forensic review.
 7. **Self-hoster note.** If you operate your own relay, this runbook is yours to execute. Your users (the people you've paired devices for) must re-enroll their devices through the home; the home itself re-enrolls automatically against your new key. There is no sol pbc support path for self-hosted compromise — the trust chain is end-to-end yours.
 

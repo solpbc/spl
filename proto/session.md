@@ -130,11 +130,11 @@ home                          spl-relay                              mobile
 
 (7) TLS 1.3 handshake          ◀── frames forwarded ───▶            TLS 1.3 client
     server presents cert            in both directions               presents paired cert
-    verify_callback checks
-    fingerprint against
-    authorized_clients.json
-    OK → handshake completes
-    BAD → TLS alert, drop
+    home checks fingerprint
+    against authorized_clients.json
+    in the file  → completes
+    not in it    → alert 49, drop
+    unreadable   → alert 46, drop
 
 (8) framed HTTP/SSE/WS         ◀── frames forwarded ───▶            mobile UX
     inside the tunnel
@@ -146,9 +146,9 @@ Numbered steps:
 
 The home's `spl.tunnel` task opens `GET /session/listen` to `spl-relay` immediately on solstone startup. It carries the service token in the `Authorization` header. The relay validates the token (see [`tokens.md`](tokens.md)), records this WS as the ready listen socket for the home's `instance_id`, and holds the WS open. The home sends no further bytes on this WS — it only reads.
 
-### 2. dial — mobile opens when the user opens the app
+### 2. dial — mobile opens when the owner opens the app
 
-When the user opens the solstone mobile app and the app foregrounds, the mobile opens `GET /session/dial?instance=<id>` to `spl-relay`, carrying the device token. The relay validates the token and the matching `instance_id`, mints a `tunnel_id`, and records the mobile's WS as one half of the (not yet complete) tunnel.
+When the owner opens the solstone mobile app and the app foregrounds, the mobile opens `GET /session/dial?instance=<id>` to `spl-relay`, carrying the device token. The relay validates the token and the matching `instance_id`, mints a `tunnel_id`, and records the mobile's WS as one half of the (not yet complete) tunnel.
 
 ### 3. pair signal — relay tells the home
 
@@ -174,9 +174,31 @@ From this point, the relay is a pure byte pump. Bytes received on the home WS ar
 
 ### 7. inner TLS handshake
 
-With the byte pipe open, the mobile initiates TLS 1.3 toward the home. The mobile presents the paired client cert (from Keychain). The home's TLS server presents its self-signed cert (from the local CA). The home's `verify_callback` (pyOpenSSL — stdlib `ssl` doesn't expose this cleanly) validates the SHA-256 fingerprint of the client cert against `authorized_clients.json` **inside the handshake**. A non-match aborts the handshake with a clean TLS alert; the mobile observes it as a specific handshake failure and surfaces `LITERAL: "This device was unpaired from your solstone."`.
+With the byte pipe open, the mobile initiates TLS 1.3 toward the home. The mobile presents the paired client cert (from Keychain). The home's TLS server presents its self-signed cert (from the local CA). The home checks the SHA-256 fingerprint of the client cert against `authorized_clients.json` **inside the handshake**, so an unauthorized device never reaches the application.
 
-`authorized_clients.json` is mtime-polled at 0.5s; revocation propagates within a second of the file edit (see [`pairing.md`](pairing.md) for the revocation flow).
+Three outcomes at a home implementing this section, and the two that abort carry different alerts:
+
+- **The fingerprint is in the file.** The handshake completes and application traffic begins.
+- **The home read the file and the fingerprint is not in it** — the device was unpaired, or was never paired. Alert `access_denied` (49).
+- **The home could not read the file** — it is unreadable, or its contents do not parse. Alert `certificate_unknown` (46).
+
+An unreadable `authorized_clients.json` authorizes nobody, so refusing is the same act in both cases; only the alert code differs. There is nowhere else for the difference to travel, because the handshake fails before any application byte and there is no response body to put it in. On a single alert for both, a home whose file is briefly unreadable tells every device that connects during that window it was unpaired, and each one discards a working credential and walks its owner through a re-pair that nothing required.
+
+This section assigns two codes, and both are new, so no home in the field sends either one. A home predating this section refuses an unauthorized device with whatever its TLS stack produces for a failed authorization callback: OpenSSL's is `internal_error` (80).
+
+A client MUST discriminate on the alert code. Two codes carry the meanings above; every other code is one rule:
+
+- `access_denied` (49) — unpaired. Present `LITERAL: "This device was unpaired from your solstone."`, require a re-pair, and stop retrying.
+- `certificate_unknown` (46) — retry on the schedule under *mobile reconnect* and keep the credential. Present no unpaired message; the reconnect banners there still apply. ⚠ This branch is deliberately unbounded, unlike the one below: the credential is still valid and the home is expected to recover, so there is nothing for the owner to do and nothing to warn them about.
+- **every other code** — retry on that same schedule, and if refusals continue with no handshake completing in between, present the unpaired message and stop retrying. ⛔ Do not key that on the code repeating: a home that alternates its refusal code with an occasional transport error would reset a per-code counter forever, leaving an unpaired owner retrying with no re-pair ever offered. ⚠ How many refusals, or how long, is owned by the client, like the waiting-phase timeout below.
+
+The catch-all is deliberately one rule rather than a table, because it has to be right without knowing which home it is talking to. `internal_error` (80) lands here, so a device unpaired by a home predating this section is still told, eventually. A transient chain or transport error also lands here and resolves before it can persist. And a *persistent* certificate problem — a home that regenerated its CA, a corrupted keychain entry — lands here too, where a re-pair is the remedy anyway. ⛔ **Do not narrow this to a set of recognized codes.** A client that treats unrecognized codes as transient forever leaves an unpaired owner with no re-pair affordance, which is worse than not implementing the split at all.
+
+⚠ **`internal_error` (80) is deliberately not the code for the unreadable-file case**, even though it is the natural reading of a server that cannot consult its own configuration. It is what a home predating this section already sends, so reusing it would collapse the new transient case into the legacy one.
+
+**A home MUST NOT signal an authorization outcome with `unknown_ca` (48) or `bad_certificate` (42).** Those describe the certificate or its chain. A paired device's cert is signed by the home's own CA and matches during chain validation, so a chain error means something else went wrong; authorization sits above the chain, and reporting a chain error for an authorization outcome points the client at the wrong layer.
+
+`authorized_clients.json` is mtime-polled at 0.5 s; revocation propagates within a second of the file edit (see [`pairing.md`](pairing.md) for the revocation flow).
 
 ### 8. application traffic
 
@@ -248,7 +270,7 @@ Any application-layer or device-to-device data, however small, however framed as
 - Capability or version hints
 - Presence signals
 - Key fingerprints or instance metadata beyond what's already inside the bearer tokens
-- User identifiers
+- Owner identifiers
 - Any field whose presence or contents would describe runtime state of the home or the mobile
 
 Such data carries **inside the inner TLS** — as ordinary application traffic to convey on the home, or to a future explicit mux-level control stream below the application protocol (see [`framing.md`](framing.md)). The home and the mobile have a private encrypted channel; that's the only legitimate venue for endpoint-to-endpoint negotiation.
@@ -294,7 +316,7 @@ The listen WS may disconnect for any reason — network flap on the home machine
 - Reset to 1 s only after the reconnected listen WS remains established without transport failure for 60 s. Connection establishment alone does not reset backoff; a connection that fails before the stability interval advances to the next delay.
 - Jitter: ±25% on each delay to avoid synchronized reconnect storms after a CF deploy.
 
-While the listen WS is down, the home cannot receive `incoming` signals. By default (`PRESENCE_HOLD_ENABLED` off), new dials from a paired mobile fail at the relay (the DO marks the home as not-ready and the dial returns 503). With `PRESENCE_HOLD_ENABLED` enabled, the relay holds the dial WS open and brokers it when the home's listen WS reconnects. The mobile's reconnect logic handles this; the user sees `LITERAL: "Reconnecting…"` for the brief outage and `LITERAL: "Offline — check your connection."` if it persists past a small grace window.
+While the listen WS is down, the home cannot receive `incoming` signals. By default (`PRESENCE_HOLD_ENABLED` off), new dials from a paired mobile fail at the relay (the DO marks the home as not-ready and the dial returns 503). With `PRESENCE_HOLD_ENABLED` enabled, the relay holds the dial WS open and brokers it when the home's listen WS reconnects. The mobile's reconnect logic handles this; the owner sees `LITERAL: "Reconnecting…"` for the brief outage and `LITERAL: "Offline — check your connection."` if it persists past a small grace window.
 
 ### mobile reconnect — dial WS / tunnel WS
 
@@ -302,12 +324,12 @@ The mobile dial-turned-tunnel WS disconnects on:
 
 - App backgrounding (iOS suspends after 20 s grace; the WS naturally drops).
 - Network change (wifi ↔ cellular).
-- TLS-handshake failure (revocation).
+- TLS-handshake failure.
 - `spl-relay` deploy.
 
-For non-revocation disconnects, the mobile reconnects on next user-visible activity (foreground, scroll, tap). Backoff is: 1 s, then 5 s, then 10 s, capped at 30 s, with the same ±25% jitter. Connection establishment alone does not reset backoff. The dialer retains its current attempt until a tunnel generation remains connected without transport or keepalive failure for 60 s; only then does the next automatic reconnect start again at 1 s. An explicit user-initiated start or stop begins a fresh backoff sequence. The home and mobile use different delay schedules, but the same demonstrated-stability reset condition. The mobile's UX handles "Reconnecting…" / "Offline" banners.
+Except where § 7 says to stop retrying, the mobile reconnects on next owner-visible activity (foreground, scroll, tap). Backoff is: 1 s, then 5 s, then 10 s, capped at 30 s, with the same ±25% jitter. Connection establishment alone does not reset backoff. The dialer retains its current attempt until a tunnel generation remains connected without transport or keepalive failure for 60 s; only then does the next automatic reconnect start again at 1 s. An explicit owner-initiated start or stop begins a fresh backoff sequence. The home and mobile use different delay schedules, but the same demonstrated-stability reset condition. The mobile's UX handles "Reconnecting…" / "Offline" banners.
 
-For TLS-handshake failure (revocation), the mobile does **not** retry automatically — it presents the unpaired error and requires the user to re-pair through convey.
+§ 7 owns which handshake refusals stop retrying and what the mobile presents; that is not restated here, because two normative lists would drift. This section owns only the schedule they run on, above.
 
 ### waiting-dial lifecycle (presence-hold)
 
