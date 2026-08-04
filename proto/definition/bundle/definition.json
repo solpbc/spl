@@ -624,32 +624,22 @@
     {
       "citation": {
         "document": "proto/identity.md",
-        "marker": "| `not_p256` | the algorithm is not `id-ecPublicKey`, or the curve is not P-256 |"
+        "marker": "The canonical form is fully determined, and every clause below is load-bearing"
       },
       "gap_ref": null,
-      "id": "journal_identity.refusal.not_p256",
-      "kind": "refusal",
-      "value": "the algorithm is not id-ecPublicKey, or the named curve is not P-256"
+      "id": "journal_identity.canonical_form",
+      "kind": "key_domain",
+      "value": "canonical form is: algorithm id-ecPublicKey (1.2.840.10045.2.1); curve named by the prime256v1 OID (1.2.840.10045.3.1.7) and never explicit ECParameters; point uncompressed as 0x04 followed by two 32-byte coordinates; BIT STRING unused-bits octet zero; nothing following the SubjectPublicKeyInfo"
     },
     {
       "citation": {
         "document": "proto/identity.md",
-        "marker": "| `invalid_point` | the structure parses and names P-256, but the public point is not on the curve |"
+        "marker": "**A refusal is a single outcome.**"
       },
       "gap_ref": null,
-      "id": "journal_identity.refusal.invalid_point",
+      "id": "journal_identity.refusal",
       "kind": "refusal",
-      "value": "the structure parses and names P-256, but the public point does not lie on the curve"
-    },
-    {
-      "citation": {
-        "document": "proto/identity.md",
-        "marker": "| `malformed_spki` | the input is not a well-formed `SubjectPublicKeyInfo` |"
-      },
-      "gap_ref": null,
-      "id": "journal_identity.refusal.malformed_spki",
-      "kind": "refusal",
-      "value": "the input is not a well-formed SubjectPublicKeyInfo"
+      "value": "any input that is not a canonical P-256 SubjectPublicKeyInfo, or one differing from canonical only by a compressed point, is refused as a single outcome; a diagnostic reason may accompany it and is not part of this contract"
     },
     {
       "citation": {

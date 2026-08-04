@@ -1,10 +1,10 @@
 {
   "bundle_schema_identity": "spl.pair-link-definition-bundle.schema.v1",
-  "bundle_semver": "4.0.1",
+  "bundle_semver": "5.0.0",
   "files": [
     {
       "path": "definition.json",
-      "sha256": "32c25f3066bcb0f8676dedba6d9797248284fce8617b67c3a3f5e97623eecffe"
+      "sha256": "3e11d71c12dc200d84c0f39ad130f557bd0a5a35ad29bfdadd4144d42aa2ea93"
     },
     {
       "path": "definition.schema.json",
@@ -12,11 +12,11 @@
     },
     {
       "path": "vectors.json",
-      "sha256": "a334e90075328b86264da112d0a710884cf8bf264c2c3c472c8867a3e00b234f"
+      "sha256": "edebc1cfde34cf379e4dc16fcf43eda9254da7141bdce4f7a9d85991f9b6d270"
     },
     {
       "path": "vectors.schema.json",
-      "sha256": "fb2a25d01682b3d099333bbcf1728358d8b2d45e8a6c284e0021d79a7e19258f"
+      "sha256": "4ca9793cb383c5b393f232b63d83814c12e20c33e047ae6053800dd80e78a364"
     }
   ],
   "generator_identity": "spl.proto.definition.generate.v1",
@@ -25,31 +25,31 @@
       "id": "definition.authored_source",
       "path": "proto/definition/definition.toml",
       "role": "authored_source",
-      "sha256": "15d4fd7a4e8c9b84f0f8101a9d39566eec5616373c1ba1b355c2b9150384bfa0"
+      "sha256": "be740d038622d82b2d78e96d18e65bc6aa6adb3b2a42d066cbd8f569a7ccc542"
     },
     {
       "id": "definition.conformance_corpus",
       "path": "proto/definition/vectors.json",
       "role": "conformance_corpus",
-      "sha256": "a334e90075328b86264da112d0a710884cf8bf264c2c3c472c8867a3e00b234f"
+      "sha256": "edebc1cfde34cf379e4dc16fcf43eda9254da7141bdce4f7a9d85991f9b6d270"
     },
     {
       "id": "definition.generator",
       "path": "proto/definition/generate.py",
       "role": "generator",
-      "sha256": "4461ac0ab5d60a9beb3c35eebe05bc2406b4d44822196a7a7aa2d1286cc346aa"
+      "sha256": "09fb65c334cb3e23992720cdbb383fdf0d73599e5ef529aa4bb3262600477566"
     },
     {
       "id": "source.identity",
       "path": "proto/identity.md",
       "role": "normative_source_document",
-      "sha256": "7c0e20490dc9ea4ba5fbb3e11d5b51572d57b06d55e46f4134ea32040e8712e8"
+      "sha256": "e333fa6a9db7aa7ac7a701144454622130c56ad63d9a993885644ae522a732b4"
     },
     {
       "id": "source.pair_window",
       "path": "proto/pair-window.md",
       "role": "normative_source_document",
-      "sha256": "4cf6038aff424f22e0851fa455138fff3095418995995bb04210fcc00cffb380"
+      "sha256": "6845844f14871ee7c9991e5c363620f4002d87099640b5156532ff6fd0922b67"
     },
     {
       "id": "source.pairing",

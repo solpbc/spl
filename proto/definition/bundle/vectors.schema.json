@@ -363,18 +363,8 @@
                 "properties": {
                   "error": {
                     "additionalProperties": false,
-                    "properties": {
-                      "kind": {
-                        "enum": [
-                          "not_p256",
-                          "invalid_point",
-                          "malformed_spki"
-                        ]
-                      }
-                    },
-                    "required": [
-                      "kind"
-                    ],
+                    "properties": {},
+                    "required": [],
                     "type": "object"
                   },
                   "jid": {

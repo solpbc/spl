@@ -73,8 +73,11 @@ EXPECTED_VECTOR_IDS = (
     "direct.admission.rfc6598.upper",
     "identity.jid.canonical",
     "identity.jid.compressed-point",
+    "identity.jid.explicit-parameters",
     "identity.jid.malformed",
     "identity.jid.off-curve-point",
+    "identity.jid.trailing-data",
+    "identity.jid.unused-bits",
     "identity.jid.wrong-algorithm",
     "identity.jid.wrong-curve",
     "pair.v04.canonical.admission",
@@ -125,8 +128,11 @@ EXPECTED_VECTOR_IDS = (
 EXPECTED_DECLARED_VECTOR_IDS = (
     "identity.jid.canonical",
     "identity.jid.compressed-point",
+    "identity.jid.explicit-parameters",
     "identity.jid.malformed",
     "identity.jid.off-curve-point",
+    "identity.jid.trailing-data",
+    "identity.jid.unused-bits",
     "identity.jid.wrong-algorithm",
     "identity.jid.wrong-curve",
     "pair.v04.canonical.admission",
@@ -138,9 +144,9 @@ EXPECTED_DECLARED_VECTOR_IDS = (
 EXPECTED_RECORDED_VECTOR_IDS = tuple(
     vector_id for vector_id in EXPECTED_VECTOR_IDS if vector_id not in EXPECTED_DECLARED_VECTOR_IDS
 )
-assert len(EXPECTED_VECTOR_IDS) == 75
+assert len(EXPECTED_VECTOR_IDS) == 78
 assert EXPECTED_VECTOR_IDS == tuple(sorted(set(EXPECTED_VECTOR_IDS)))
-assert len(EXPECTED_DECLARED_VECTOR_IDS) == 11
+assert len(EXPECTED_DECLARED_VECTOR_IDS) == 14
 assert EXPECTED_DECLARED_VECTOR_IDS == tuple(sorted(set(EXPECTED_DECLARED_VECTOR_IDS)))
 assert set(EXPECTED_DECLARED_VECTOR_IDS) < set(EXPECTED_VECTOR_IDS)
 assert len(EXPECTED_RECORDED_VECTOR_IDS) == 64
@@ -496,9 +502,9 @@ VECTOR_DERIVE_SCHEMA = object_schema(
 # The jid operation needs an expectation that can carry a refusal. The relay-key
 # shape cannot: it is secret_hex plus expected_hex with no error branch, and the
 # refusals are the half of this contract worth pinning.
-VECTOR_JID_ERROR_SCHEMA = object_schema(
-    {"kind": {"enum": ["not_p256", "invalid_point", "malformed_spki"]}}
-)
+# A refusal is one outcome. An implementation may carry a diagnostic reason and
+# the contract does not compare it, so the vector records no kind.
+VECTOR_JID_ERROR_SCHEMA = object_schema({}, required=[])
 VECTOR_JID_EXPECTED_SCHEMA = object_schema(
     {
         "result": {"enum": ["jid", "error"]},

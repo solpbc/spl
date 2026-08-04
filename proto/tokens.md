@@ -51,7 +51,7 @@ JWT payload, service token:
   "sub": "home:<instance_id>",
   "aud": "spl-relay",
   "scope": "session.listen",
-  "instance_id": "<uuidv7>",
+  "instance_id": "<the home's jid>",
   "ca_fp": "sha256:<64 lowercase hex>",
   "iat": 1745006400,
   "exp": 1776542400,
@@ -81,7 +81,7 @@ JWT payload, device token:
 | `sub` | yes | subject; must be `home:<instance_id>` for `session.listen` and `device:<device_id>` for `session.dial`. |
 | `aud` | yes | audience; always `spl-relay`. |
 | `scope` | yes | one of `session.listen` (service token) or `session.dial` (device token). Workers reject mismatched scope at the route level. |
-| `instance_id` | yes | which home this token authorizes the bearer to act on. For service tokens, the home's own id. For device tokens, the paired home. |
+| `instance_id` | yes | which home this token authorizes the bearer to act on. For service tokens, the home's own id. For device tokens, the paired home. **This is the home's jid, derived from its CA public key per [`identity.md`](identity.md) — a UUIDv8, not a freshly generated identifier.** The home derives it and registers it at enrollment; `spl-relay` records what it is given and never computes it. |
 | `ca_fp` | service only | SHA-256 of the home's local CA public key, registered at home enrollment. Required for `session.listen`, must match `^sha256:[0-9a-f]{64}$`, and corresponds to the `ca_pubkey_pem` used to verify `home_attestation` signatures at `/enroll/device`; the relay never receives or recomputes a client cert. |
 | `device_fp` | device only | SHA-256 of the mobile client cert. Required for `session.dial`, must match `^sha256:[0-9a-f]{64}$`, and is bound to a specific paired device. |
 | `iat` | yes | issued-at, seconds since epoch. |
@@ -115,7 +115,7 @@ Called once at solstone first run. Body:
 
 ```json
 {
-  "instance_id": "<freshly generated UUIDv7>",
+  "instance_id": "<the home's jid, derived from its CA>",
   "ca_pubkey": "<PEM>",
   "home_label": "<user-named home>"
 }
@@ -162,7 +162,7 @@ Claims:
   "iss": "home:<instance_id>",
   "aud": "spl-relay",
   "scope": "device.enroll",
-  "instance_id": "<uuidv7>",
+  "instance_id": "<the home's jid>",
   "device_fp": "sha256:<lowercase hex>",
   "iat": 1745006400,
   "exp": 1745006700,

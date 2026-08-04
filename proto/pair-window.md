@@ -96,10 +96,10 @@ Carries `RK` in the `Sec-Pair-Key` upgrade header, routes to the same pairing DO
 
 ## client learns `instance_id` from the inner TLS
 
-The pair-link carries no `instance_id`. After the inner pinned-TLS handshake (pinned to `ca_fp_spki` from the link), the home returns `instance_id` in the inner `PairResponse` (as today). Because the inner channel is cryptographically bound to the pinned CA, that value is trustworthy. The client:
+The pair-link carries no `instance_id`. After the inner pinned-TLS handshake (pinned to `ca_fp_spki` from the link), the home returns `instance_id` in the inner `PairResponse` (as today). Because the inner channel is cryptographically bound to the pinned CA, that value is trustworthy. The equality below always holds for a conforming home, because the home's `instance_id` **is** its jid ([`identity.md`](identity.md)), so a mismatch means the pinned CA and the returned identity disagree and the ceremony has no trustworthy home. The client:
 
 1. takes `instance_id` from the `PairResponse`,
-2. **SHOULD verify** `instance_id == jid_from_spki(pinned CA)` as an integrity check,
+2. **MUST verify** `instance_id == jid_from_spki(pinned CA)` and abort the ceremony on mismatch,
 3. uses it for `/enroll/device` and for storing the dial address.
 
 ## failure reasons & oracle-safety

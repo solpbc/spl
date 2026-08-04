@@ -15,11 +15,10 @@
     "gap.form_0x06.invalid_utf8_behavior",
     "gap.form_0x06.total_length",
     "gap.relay_origin_selector.unknown_behavior",
+    "journal_identity.canonical_form",
     "journal_identity.kdf",
     "journal_identity.key_domain",
-    "journal_identity.refusal.invalid_point",
-    "journal_identity.refusal.malformed_spki",
-    "journal_identity.refusal.not_p256",
+    "journal_identity.refusal",
     "journal_identity.stamp.variant",
     "journal_identity.stamp.version",
     "pair_link.0x05.candidate_count",
@@ -992,6 +991,7 @@
         "5620bab1-476a-88df-93d4-f4f525b991dd"
       ],
       "entry_digests": {
+        "journal_identity.canonical_form": "626d54143869b237309b532803b66be0cf54c117bc747ed5e7543fcc4c4d52e9",
         "journal_identity.kdf": "de3020b04ca46b6547cb0e0b7314c6c7c27e57ac1fbdd501a3e9b5efedcd18d9",
         "journal_identity.key_domain": "b5fe9566423337d96cae56c118b892fa0c43f65562e4d0c7079fcc42e0f20e9b",
         "journal_identity.stamp.variant": "b0b63592b068205604133748d3eaabd0e07de8ded5ff1fef178b6867b4b48030",
@@ -1017,6 +1017,7 @@
         "5620bab1-476a-88df-93d4-f4f525b991dd"
       ],
       "entry_digests": {
+        "journal_identity.canonical_form": "626d54143869b237309b532803b66be0cf54c117bc747ed5e7543fcc4c4d52e9",
         "journal_identity.kdf": "de3020b04ca46b6547cb0e0b7314c6c7c27e57ac1fbdd501a3e9b5efedcd18d9",
         "journal_identity.key_domain": "b5fe9566423337d96cae56c118b892fa0c43f65562e4d0c7079fcc42e0f20e9b",
         "journal_identity.stamp.variant": "b0b63592b068205604133748d3eaabd0e07de8ded5ff1fef178b6867b4b48030",
@@ -1035,18 +1036,36 @@
     {
       "citation": {
         "document": "proto/identity.md",
+        "marker": "the shape explicit `ECParameters` take"
+      },
+      "document_literals": [
+        "3059301306072a8648ce3d020130082a8648ce3d030107034200046b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c2964fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f5"
+      ],
+      "entry_digests": {
+        "journal_identity.canonical_form": "626d54143869b237309b532803b66be0cf54c117bc747ed5e7543fcc4c4d52e9",
+        "journal_identity.refusal": "de2754ad84e372ee3993e907144ab3f92b528e980155c3c125bc4ce9379efd1d"
+      },
+      "expected": {
+        "result": "error"
+      },
+      "id": "identity.jid.explicit-parameters",
+      "kind": "declared",
+      "operation": "derive_jid",
+      "spki_der_hex": "3059301306072a8648ce3d020130082a8648ce3d030107034200046b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c2964fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f5",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/identity.md",
         "marker": "The outer SEQUENCE claims more content than the input holds, so nothing parses."
       },
       "document_literals": [
         "3059301306072a8648ce3d020106082a8648ce3d030107034200046b17d1f2e12c4247f8bce6e563"
       ],
       "entry_digests": {
-        "journal_identity.refusal.malformed_spki": "e73cf035edcb46cd6010187b06d6ef42d34689ac62c21f14720a0c2c3b96dd66"
+        "journal_identity.refusal": "de2754ad84e372ee3993e907144ab3f92b528e980155c3c125bc4ce9379efd1d"
       },
       "expected": {
-        "error": {
-          "kind": "malformed_spki"
-        },
         "result": "error"
       },
       "id": "identity.jid.malformed",
@@ -1058,18 +1077,15 @@
     {
       "citation": {
         "document": "proto/identity.md",
-        "marker": "point not on the curve. Expects `invalid_point`."
+        "marker": "point not on the curve. Expects a refusal."
       },
       "document_literals": [
         "3059301306072a8648ce3d020106082a8648ce3d030107034200046b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c2964fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f4"
       ],
       "entry_digests": {
-        "journal_identity.refusal.invalid_point": "8433679af10b91b46b01f36b254fa69d7ac0a51ab0f11152d6b4907441c62f72"
+        "journal_identity.refusal": "de2754ad84e372ee3993e907144ab3f92b528e980155c3c125bc4ce9379efd1d"
       },
       "expected": {
-        "error": {
-          "kind": "invalid_point"
-        },
         "result": "error"
       },
       "id": "identity.jid.off-curve-point",
@@ -1081,18 +1097,57 @@
     {
       "citation": {
         "document": "proto/identity.md",
+        "marker": "with one byte appended after the `SubjectPublicKeyInfo`"
+      },
+      "document_literals": [
+        "3059301306072a8648ce3d020106082a8648ce3d030107034200046b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c2964fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f5ff"
+      ],
+      "entry_digests": {
+        "journal_identity.canonical_form": "626d54143869b237309b532803b66be0cf54c117bc747ed5e7543fcc4c4d52e9",
+        "journal_identity.refusal": "de2754ad84e372ee3993e907144ab3f92b528e980155c3c125bc4ce9379efd1d"
+      },
+      "expected": {
+        "result": "error"
+      },
+      "id": "identity.jid.trailing-data",
+      "kind": "declared",
+      "operation": "derive_jid",
+      "spki_der_hex": "3059301306072a8648ce3d020106082a8648ce3d030107034200046b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c2964fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f5ff",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/identity.md",
+        "marker": "unused-bits octet set to `1` instead of `0`"
+      },
+      "document_literals": [
+        "3059301306072a8648ce3d020106082a8648ce3d030107034201046b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c2964fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f5"
+      ],
+      "entry_digests": {
+        "journal_identity.canonical_form": "626d54143869b237309b532803b66be0cf54c117bc747ed5e7543fcc4c4d52e9",
+        "journal_identity.refusal": "de2754ad84e372ee3993e907144ab3f92b528e980155c3c125bc4ce9379efd1d"
+      },
+      "expected": {
+        "result": "error"
+      },
+      "id": "identity.jid.unused-bits",
+      "kind": "declared",
+      "operation": "derive_jid",
+      "spki_der_hex": "3059301306072a8648ce3d020106082a8648ce3d030107034201046b17d1f2e12c4247f8bce6e563a440f277037d812deb33a0f4a13945d898c2964fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f5",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/identity.md",
         "marker": "An Ed25519 public key, from an all-zero seed."
       },
       "document_literals": [
         "302a300506032b65700321003b6a27bcceb6a42d62a3a8d02a6f0d73653215771de243a63ac048a18b59da29"
       ],
       "entry_digests": {
-        "journal_identity.refusal.not_p256": "cd79926c01c7bc2d5735a0e1014d4929bac4ab4eb2fef7fb3b545e97bbaed254"
+        "journal_identity.refusal": "de2754ad84e372ee3993e907144ab3f92b528e980155c3c125bc4ce9379efd1d"
       },
       "expected": {
-        "error": {
-          "kind": "not_p256"
-        },
         "result": "error"
       },
       "id": "identity.jid.wrong-algorithm",
@@ -1104,19 +1159,15 @@
     {
       "citation": {
         "document": "proto/identity.md",
-        "marker": "Correct algorithm OID, wrong curve OID. Expects `not_p256`."
+        "marker": "Correct algorithm OID, wrong curve OID. Expects a refusal."
       },
       "document_literals": [
         "3076301006072a8648ce3d020106052b8104002203620004aa87ca22be8b05378eb1c71ef320ad746e1d3b628ba79b9859f741e082542a385502f25dbf55296c3a545e3872760ab73617de4a96262c6f5d9e98bf9292dc29f8f41dbd289a147ce9da3113b5f0b8c00a60b1ce1d7e819d7a431d7c90ea0e5f"
       ],
       "entry_digests": {
-        "journal_identity.key_domain": "b5fe9566423337d96cae56c118b892fa0c43f65562e4d0c7079fcc42e0f20e9b",
-        "journal_identity.refusal.not_p256": "cd79926c01c7bc2d5735a0e1014d4929bac4ab4eb2fef7fb3b545e97bbaed254"
+        "journal_identity.refusal": "de2754ad84e372ee3993e907144ab3f92b528e980155c3c125bc4ce9379efd1d"
       },
       "expected": {
-        "error": {
-          "kind": "not_p256"
-        },
         "result": "error"
       },
       "id": "identity.jid.wrong-curve",
