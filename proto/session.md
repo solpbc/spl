@@ -155,7 +155,7 @@ When the owner opens the solstone mobile app and the app foregrounds, the mobile
 The relay sends a single control frame on the home's listen WS:
 
 ```json
-{ "type": "incoming", "tunnel_id": "<uuidv7>" }
+{ "type": "incoming", "tunnel_id": "<uuidv4>" }
 ```
 
 This is a structured JSON message in a WebSocket text frame. It is the **only** message the home receives on its listen WS, and per *WS-layer minimality* (below) any future addition at this layer is bounded to TLS-establishment-related signaling — endpoint-to-endpoint application data does not belong here. The home parses defensively and ignores unknown message types.
@@ -235,7 +235,7 @@ Flow at the relay boundary:
 4. The home receives the byte-identical control message it gets for a normal dial:
 
 ```json
-{ "type": "incoming", "tunnel_id": "<uuidv7>" }
+{ "type": "incoming", "tunnel_id": "<uuidv4>" }
 ```
 
 There is no new WebSocket message type.
@@ -266,7 +266,7 @@ The discipline:
 - Dial signaling — the HTTP+upgrade exchanges on `/session/listen`, `/session/dial`, `/session/pair-window`, `/session/pair-dial`, `/tunnel/<id>` and their required rendezvous headers (`Authorization` where token-authenticated, `Sec-Pair-Key` where RK-addressed).
 - The `incoming` / `tunnel_id` control message from relay to home (above, §3).
 - Opaque ciphertext payload of inner-TLS records, framed as binary WS messages.
-- WebSocket transport keepalive (library-level ping/pong; see *no app heartbeat* below).
+- WebSocket transport keepalive (RFC 6455 Ping/Pong; see *no app heartbeat* below).
 
 Pair-dial deliberately reuses the existing `incoming` control message and adds no new WS-layer message type. The operator gate for this surface was cleared 2026-05-29.
 
@@ -293,9 +293,9 @@ The discipline also rules out a class of leak by construction: a coding-agent or
 
 ## hibernation
 
-Cloudflare hibernates idle Hibernatable WebSockets after ~10 seconds of inactivity. This is aggressive but cheap:
+Cloudflare hibernates idle Hibernatable WebSockets after ~10 seconds of inactivity. This is aggressive but cheap. The Hibernation API answers Ping automatically, does not invoke `webSocketMessage` for control frames, and does not interrupt hibernation; control frames never enter the forwarding or pending-buffer path:
 
-- **Listen WS:** hibernates between dials. Wake on next `incoming` signal pre-empt or on the WebSocket library's own ping (see *no app heartbeat* below).
+- **Listen WS:** hibernates between dials. Wake on the next `incoming` signal pre-empt; transport Ping/Pong control frames do not wake it (see *no app heartbeat* below).
 - **Tunnel WS:** hibernates between bursts. Every mobile request after ≥10 s of inactivity pays wake cost.
 - **Wake cost is low and flat across idle duration.** Prototype measurements (§3): 1-min idle p50 = 157 ms, 5-min idle p50 = 37 ms. Both well under the 500 ms criterion. There is no growing tax on longer idle periods (§11.2).
 
@@ -303,14 +303,13 @@ The 30-min and 2-hr profiles weren't measured in the prototype session; the 30+ 
 
 ## no app heartbeat
 
-v1 ships **no application-level heartbeat.** Both sides rely on:
+v1 ships **no application-level heartbeat** and no heartbeat alarm. The home uses only RFC 6455 control frames:
 
-- The WebSocket library's built-in ping (typically every 20-30 s for `websockets` in python and Apple's `URLSessionWebSocketTask` on iOS).
-- Cloudflare's auto ping/pong response from the Hibernatable WebSocket runtime (does not wake the DO).
+- home -> relay: RFC 6455 Ping with exactly 8 opaque random bytes
+- relay -> home: RFC 6455 Pong with the identical 8 bytes
+- home interval: 30 seconds; home acknowledgement timeout: 10 seconds
 
-Prototype §9: the listen WS held open across 30+ min idle without any application-level heartbeat, with only the `websockets` library's default ping. Cost implication: this halves wake-billing frequency vs. the cost simulation's 1/min heartbeat assumption.
-
-If alpha reveals idle disconnects beyond 30 min in real-world conditions, we revisit. v1 ships without.
+CF's Hibernation API answers Ping automatically, does not invoke `webSocketMessage` for control frames, and does not interrupt hibernation. Control frames never enter the forwarding or pending-buffer path. No heartbeat payload is persisted.
 
 ## reconnect semantics
 
@@ -341,9 +340,9 @@ Except where § 7 says to stop retrying, the mobile reconnects on next owner-vis
 
 ### waiting-dial lifecycle (presence-hold)
 
-Presence-hold is flag-gated and default-off. When `PRESENCE_HOLD_ENABLED` is enabled and a mobile dials while no home listen WS is open, the relay accepts the dial WS (`101 Switching Protocols`) and holds it indefinitely as a waiting dialer. There is no relay-side max-hold timer and no alarm; cleanup is reactive on WS close.
+Presence-hold is flag-gated and default-off. When `PRESENCE_HOLD_ENABLED` is enabled, the relay accepts a mobile dial as a waiting dialer (`101 Switching Protocols`) and tags it for both waiting-dial discovery and its tunnel. An idle held dial has no timer and no alarm. The first buffered mobile-to-home byte starts one in-memory, per-tunnel 20-second home-attach lease. Successful attach and drain clear the lease; expiry frees pending state, logs the existing `tunnel_mobile_close` event with `attach_timeout`, and closes the mobile with 1013 / `home attach timeout`.
 
-When a home listen WS appears, the relay sends the existing `incoming` control message for each not-yet-signaled waiting dial. Presence-hold adds no new WS-layer message type. The home then opens `/tunnel/<tunnel_id>` exactly as in the normal session flow, and any pending mobile bytes drain through the existing pending-buffer path.
+When a home listen WS appears, the relay sends the existing `incoming` control message once for each unpaired, non-retired waiting dial in that listener generation. A later listener generation may re-offer the same still-unpaired tunnel ID; a paired tunnel is never re-offered. A `retired` attachment is an error-cleanup marker, distinct from `paired` ownership, and is never eligible for another offer. Presence-hold adds no new WS-layer message type. The home then opens `/tunnel/<tunnel_id>` exactly as in the normal session flow, and any pending mobile bytes drain through the existing pending-buffer path.
 
 The waiting-phase timeout is owned by the client and is out of scope for the relay. If the dialer gives up, the network drops, a deploy disconnects sockets, or Cloudflare reaps a dead peer, the close path frees the socket state and any pending buffer for that tunnel.
 
@@ -366,11 +365,11 @@ Operational implication: deploy cadence on `spl-relay` is low. We don't ship fea
 
 The DO uses `getWebSockets(tag)` to look up sockets by tag. The relay tags sockets as:
 
-- `home:<instance_id>` for the listen WS.
+- `listen:<instance_id>` for the listen WS.
 - `tunnel_home:<tunnel_id>` for the home tunnel WS.
 - `tunnel_mobile:<tunnel_id>` for the mobile dial-turned-tunnel WS.
 
-Each tag MUST resolve to exactly one WebSocket. If a duplicate WS attaches under any of these tags (e.g., a home reconnects without the previous WS having been observed as closed), the relay closes the duplicate and keeps the most recently attached. Prototype finding §11.4 — the API doesn't enforce cardinality, the application must.
+Each tag MUST resolve to exactly one offerable WebSocket. CLOSING sockets returned by `getWebSockets()` are not offerable. Listen attachments carry a persisted, strictly increasing generation; only the highest offerable generation may offer or re-offer an unpaired held tunnel ID. If a duplicate WS attaches under any of these tags (e.g., a home reconnects without the previous WS having been observed as closed), the relay closes the duplicate and keeps the most recently attached. Prototype finding §11.4 — the API doesn't enforce cardinality, the application must.
 
 Presence-hold also uses `waiting_dial:<instance_id>` as a many-valued discovery tag for held dials. It is intentionally excluded from the exact-one cardinality invariant: one instance may have N waiting dials.
 
@@ -386,7 +385,7 @@ The buffer is **capped at 16 MiB per tunnel**. If the cap is exceeded:
 
 Sixteen MiB is generous; a healthy v1 client will buffer ≤2 KiB. The cap exists to bound memory under a misbehaving or attacking peer that opens a dial WS, sends a flood, and never connects the home side.
 
-Once both sides are paired, the buffer is drained and the relay reverts to direct forwarding. From that point, backpressure is the WebSocket layer's job (via TCP and the framing-layer credit windows — see [`framing.md`](framing.md)).
+Once both sides are paired, the buffer is drained and the relay reverts to direct forwarding. A drain send failure closes both halves with 1011, clears the remaining buffer and any attach lease, and never leaves a paired tunnel established from a partial drain. From that point, backpressure is the WebSocket layer's job (via TCP and the framing-layer credit windows — see [`framing.md`](framing.md)).
 
 ## clean disconnect
 
@@ -403,8 +402,8 @@ For audit and debugging, the Worker emits structured log events at session bound
 
 - `tunnel_id` (uuid)
 - `instance_id` (uuid)
-- `direction` (one of `home → mobile`, `mobile → home`, or `meta`)
-- `event` (one of `listen_open`, `listen_close`, `dial_open`, `dial_close`, `pair_window_open`, `pair_window_close`, `pair_dial_open`, `pair_dial_rejected`, `tunnel_home_open`, `tunnel_home_close`, `tunnel_mobile_close`, `pair`, `fwd`, `pending_buffer`, `pending_buffer_overflow`, `unauthorized`, `cardinality_violation`, `not_entitled`)
+- `direction` (one of `home_to_mobile`, `mobile_to_home`, or `meta`)
+- `event` (one of `listen_open`, `listen_close`, `dial_open`, `dial_close`, `tunnel_home_open`, `tunnel_home_close`, `tunnel_mobile_open`, `tunnel_mobile_close`, `pair`, `fwd`, `pending_buffer`, `pending_buffer_overflow`, `unauthorized`, `cardinality_violation`, `enroll_home`, `enroll_device`, `enroll_device_remint`, `device_refresh`, `enroll_home_rotate`, `enroll_rejected`, `pair_window_open`, `pair_window_close`, `pair_dial_open`, `pair_dial_rejected`, `entitlement_set`, `entitlement_pending`, `entitlement_revoke`, `pending_grant_claimed`, `admin_instances_list`, `admin_instance_show`, `not_entitled`, `internal_error`)
 - `byte_count` (when applicable)
 - `close_code` (when applicable)
 - `reason` (on close/error events; a relay-authored classification drawn from a fixed closed set)
@@ -414,6 +413,7 @@ For audit and debugging, the Worker emits structured log events at session bound
 **Never** a payload byte. **Never** a token claim. **Never** a TLS handshake message. **Never** an `Authorization` header value. **Never** `S`, `RK`, the pair-link fragment, a token value, or the home-side nonce. This is enforced by code review; the framework does not protect us from a sloppy `console.log`.
 The peer-supplied WebSocket close-reason string is never logged and cannot select
 the relay-authored close classification.
+Server-driven attach expiry uses `attach_timeout`; a failed pending drain uses `pending_drain_failed`. Both are fixed relay-authored classifications, and the relay explicitly emits their close events because server-initiated closes do not invoke the close callback.
 
 ## related
 

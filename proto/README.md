@@ -11,7 +11,7 @@ The rule for this directory: **if any two components would need to agree on the 
 - [`pairing.md`](pairing.md) — LAN-primary pairing ceremony. QR + nonce, on-device keypair generation, CSR submitted to the home over pinned-cert HTTPS, home-CA signing, fingerprint recorded in `authorized_clients.json`, device token acquired from the relay's control plane.
 - [`pair-window.md`](pair-window.md) — off-LAN home-opened pairing window. Defines the `0x06` pair-link form, relay-side RK derivation, and RK-addressed pair-window / pair-dial admission.
 - [`tokens.md`](tokens.md) — service-token (home → relay) and device-token (mobile → relay) JWT structure. **EdDSA / Ed25519** signature, required claims, scopes, TTLs, and the `kid`-keyed JWKS rotation model. Validation contract between the relay and both endpoints.
-- [`session.md`](session.md) — listen / dial / tunnel WebSocket lifecycle. Single-WS-per-side on mobile (the dial WS becomes the tunnel WS — saves a round-trip). Hibernation behavior. Why there is no app-level heartbeat. Deploy-disconnect semantics. WS-tag cardinality. The 16 MiB pending-buffer cap.
+- [`session.md`](session.md) — listen / dial / tunnel WebSocket lifecycle. Single-WS-per-side on mobile (the dial WS becomes the tunnel WS — saves a round-trip). Hibernation and RFC 6455 control-frame keepalive behavior. Recoverable presence-held dial ownership with a 20-second first-buffered-byte attach lease. Deploy-disconnect semantics. WS-tag cardinality. The 16 MiB pending-buffer cap.
 
 ## reading order
 
