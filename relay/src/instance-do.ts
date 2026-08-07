@@ -129,6 +129,11 @@ export class InstanceDO extends DurableObject<Env> {
 			.getWebSockets(tagListen(instanceId))
 			.filter((ws) => this.isOfferable(ws));
 		for (const ws of existing) {
+			const attachment = ws.deserializeAttachment() as Attachment | null;
+			if (attachment) {
+				attachment.retired = true;
+				ws.serializeAttachment(attachment);
+			}
 			try {
 				ws.close(CLOSE_CODE_NORMAL, "replaced");
 			} catch {}
@@ -364,6 +369,11 @@ export class InstanceDO extends DurableObject<Env> {
 		// Cardinality: at most one home tunnel WS per tunnel_id.
 		const existing = this.ctx.getWebSockets(tagTunnelHome(tunnelId));
 		for (const ws of existing) {
+			const attachment = ws.deserializeAttachment() as Attachment | null;
+			if (attachment) {
+				attachment.retired = true;
+				ws.serializeAttachment(attachment);
+			}
 			try {
 				ws.close(CLOSE_CODE_NORMAL, "replaced");
 			} catch {}

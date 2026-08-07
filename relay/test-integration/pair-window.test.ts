@@ -6,6 +6,7 @@
 
 import { SELF, env, runDurableObjectAlarm, runInDurableObject } from "cloudflare:test";
 import { beforeAll, describe, expect, it, vi } from "vitest";
+import { tagTunnelHome, tagTunnelMobile } from "../src/instance-do";
 import { mintDeviceToken, mintServiceToken } from "../src/tokens";
 import { genCaKeypair } from "../test/fixtures";
 import { applyRelayD1Migrations } from "./apply-migrations";
@@ -23,6 +24,15 @@ declare module "cloudflare:test" {
 const VALID_FP = `sha256:${"a".repeat(64)}`;
 const RK = "0123456789abcdeffedcba9876543210";
 const ALT_RK = "11111111111111112222222222222222";
+
+interface TunnelAttachment {
+	retired?: boolean;
+}
+
+type CallbackInspectable = {
+	webSocketClose(ws: WebSocket, code: number, reason: string, wasClean: boolean): Promise<void>;
+	webSocketError(ws: WebSocket, error: unknown): Promise<void>;
+};
 
 beforeAll(async () => {
 	await applyRelayD1Migrations();
@@ -169,6 +179,61 @@ describe("pair-window bridge", () => {
 		homeTunnel.close(1000, "test_done");
 		mobile.close(1000, "test_done");
 		window.close(1000, "test_done");
+	});
+
+	it("ignores repeated callbacks from a superseded home tunnel", async () => {
+		const rk = rkFor("superseded-home");
+		const { serviceToken } = await enrollHome();
+		const spy = vi.spyOn(console, "log").mockImplementation(() => {});
+		let mobile: WebSocket | undefined;
+		let window: WebSocket | undefined;
+		let replacement: WebSocket | undefined;
+		try {
+			window = await pairOpen("/session/pair-window", { rk, token: serviceToken });
+			const incoming = onMessage(window);
+			mobile = await pairOpen("/session/pair-dial", { rk });
+			const tunnelId = parseIncoming(await incoming);
+			const first = await pairOpen(`/tunnel/${tunnelId}`, { rk, token: serviceToken });
+			replacement = await pairOpen(`/tunnel/${tunnelId}`, { rk, token: serviceToken });
+			const stub = env.INSTANCE.get(env.INSTANCE.idFromName(rk));
+			const logCount = spy.mock.calls.length;
+
+			const state = await runInDurableObject(stub, async (instance, doState) => {
+				const homes = doState.getWebSockets(tagTunnelHome(tunnelId));
+				const stale = homes.find(
+					(ws) => (ws.deserializeAttachment() as TunnelAttachment | null)?.retired === true,
+				);
+				const current = homes.find(
+					(ws) => (ws.deserializeAttachment() as TunnelAttachment | null)?.retired !== true,
+				);
+				const currentMobile = doState.getWebSockets(tagTunnelMobile(tunnelId))[0];
+				if (!stale || !current || !currentMobile) throw new Error("replacement sockets missing");
+
+				const callbacks = instance as unknown as CallbackInspectable;
+				await callbacks.webSocketError(stale, new Error("stale home error"));
+				await callbacks.webSocketClose(stale, 1006, "stale home close", false);
+				await callbacks.webSocketError(stale, new Error("stale home error again"));
+				await callbacks.webSocketClose(stale, 1006, "stale home close again", false);
+				return {
+					staleRetired: (stale.deserializeAttachment() as TunnelAttachment).retired,
+					currentHomeReadyState: current.readyState,
+					mobileReadyState: currentMobile.readyState,
+				};
+			});
+
+			expect(state).toEqual({
+				staleRetired: true,
+				currentHomeReadyState: WebSocket.OPEN,
+				mobileReadyState: WebSocket.OPEN,
+			});
+			expect(spy.mock.calls).toHaveLength(logCount);
+			first.close(1000, "test_done");
+		} finally {
+			spy.mockRestore();
+			replacement?.close(1000, "test_done");
+			mobile?.close(1000, "test_done");
+			window?.close(1000, "test_done");
+		}
 	});
 
 	it("rejects pair-dial when no window exists", async () => {
