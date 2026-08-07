@@ -18,13 +18,19 @@ import { type Direction, type LogFields, log } from "./logging";
 import { verifyToken } from "./tokens";
 
 interface Attachment {
-	role: "listen" | "dial" | "pair_window" | "tunnel_home" | "tunnel_mobile";
+	role: "listen" | "pair_window" | "tunnel_home" | "tunnel_mobile";
 	tunnel_id?: string;
 	instance_id: string;
 	opened_at: number;
-	jti: string;
-	// Dedup flag for waiting-dial signaling; mutable post-accept, persisted via serializeAttachment.
+	listener_generation?: number;
+	// Pair-window consumption flag; unrelated to recoverable held-dial ownership.
 	signaled?: boolean;
+	// Present only on recoverable held mobile attachments.
+	paired?: boolean;
+	// An errored held mobile remains tag-visible until its close handshake ends,
+	// but must never be offered again.
+	retired?: boolean;
+	last_offered_generation?: number;
 }
 
 // Pending-buffer cap per tunnel, per peer direction. Bounds memory under a
@@ -46,12 +52,19 @@ const CLOSE_CODE_UNAUTHORIZED = 4401;
 // 4402 is the not-entitled-close code for the opt-in session gate.
 const CLOSE_CODE_NOT_ENTITLED = 4402;
 
+const CLOSE_CODE_TRY_AGAIN_LATER = 1013;
+const CLOSE_CODE_INTERNAL_ERROR = 1011;
+
+const ATTACH_LEASE_MS = 20 * 1000;
+const LISTENER_GENERATION_KEY = "listener_generation";
+
 const PAIR_DIAL_FAILED_LIMIT = 50;
 const PAIR_WINDOW_TTL_MS = 7 * 60 * 1000;
 
 export class InstanceDO extends DurableObject<Env> {
 	// Buffers keyed by WS-tag destination (e.g., `tunnel_home:<id>`).
 	private pending: Map<string, PendingBuffer> = new Map();
+	private attachLeases: Map<string, ReturnType<typeof setTimeout>> = new Map();
 	private failedDials = 0;
 
 	override async fetch(request: Request): Promise<Response> {
@@ -109,9 +122,12 @@ export class InstanceDO extends DurableObject<Env> {
 			log({ event: "not_entitled", route: "/session/listen", instance_id: instanceId });
 			return notEntitledResponse();
 		}
+		const listenerGeneration = await this.nextListenerGeneration();
 
 		// WS-tag cardinality: at most one active listen WS per instance.
-		const existing = this.ctx.getWebSockets(tagListen(instanceId));
+		const existing = this.ctx
+			.getWebSockets(tagListen(instanceId))
+			.filter((ws) => this.isOfferable(ws));
 		for (const ws of existing) {
 			try {
 				ws.close(CLOSE_CODE_NORMAL, "replaced");
@@ -128,30 +144,14 @@ export class InstanceDO extends DurableObject<Env> {
 			role: "listen",
 			instance_id: instanceId,
 			opened_at: Date.now(),
-			jti: result.claims.jti,
+			listener_generation: listenerGeneration,
 		};
 		server.serializeAttachment(att);
 		this.ctx.acceptWebSocket(server, [tagListen(instanceId)]);
-		log({ event: "listen_open", instance_id: instanceId, jti: result.claims.jti });
+		log({ event: "listen_open", instance_id: instanceId });
 
 		if (this.env.PRESENCE_HOLD_ENABLED === "true") {
-			// Broker any dials that were held waiting for a home. Tags are
-			// immutable, so a paired (still-open) dial also carries tagWaiting;
-			// `signaled` dedups so we never re-incoming an already-signaled dial.
-			for (const waiting of this.ctx.getWebSockets(tagWaiting(instanceId))) {
-				const watt = waiting.deserializeAttachment() as Attachment | null;
-				if (!watt || watt.signaled || !watt.tunnel_id) continue;
-				if (this.signalIncoming(server, watt.tunnel_id)) {
-					watt.signaled = true;
-					waiting.serializeAttachment(watt);
-					log({
-						event: "dial_open",
-						instance_id: instanceId,
-						tunnel_id: watt.tunnel_id,
-						jti: watt.jti,
-					});
-				}
-			}
+			this.offerWaitingDials(server, instanceId, listenerGeneration);
 		}
 
 		return new Response(null, { status: 101, webSocket: client });
@@ -176,23 +176,16 @@ export class InstanceDO extends DurableObject<Env> {
 		}
 
 		const listeners = this.ctx.getWebSockets(tagListen(instanceId));
+		const recoverable = this.env.PRESENCE_HOLD_ENABLED === "true";
+		if (recoverable) {
+			const listener = this.highestOfferableListener(listeners);
+			return this.brokerTunnel(listener, instanceId, "dial_open", true);
+		}
 		if (listeners.length === 0) {
-			if (this.env.PRESENCE_HOLD_ENABLED === "true") {
-				// No home listening: hold the dial open as a waiting dialer. Pre-mint
-				// the tunnel_id and tag the socket [waiting, tunnel_mobile] at accept
-				// time (tags are immutable). handleListen signals it when a home
-				// appears. Relay holds indefinitely; cleanup is reactive on close.
-				const tunnelId = crypto.randomUUID();
-				const { client } = this.acceptMobileTunnel(instanceId, result.claims.jti, tunnelId, [
-					tagWaiting(instanceId),
-					tagTunnelMobile(tunnelId),
-				]);
-				return new Response(null, { status: 101, webSocket: client });
-			}
 			return new Response("no home listening", { status: 503 });
 		}
 
-		return this.brokerTunnel(listeners[0], instanceId, result.claims.jti, "dial_open");
+		return this.brokerTunnel(listeners[0], instanceId, "dial_open", false);
 	}
 
 	override async alarm(): Promise<void> {
@@ -248,13 +241,12 @@ export class InstanceDO extends DurableObject<Env> {
 			role: "pair_window",
 			instance_id: instanceId,
 			opened_at: Date.now(),
-			jti: result.claims.jti,
 		};
 		server.serializeAttachment(att);
 		this.ctx.acceptWebSocket(server, [tagPairWindow()]);
 		this.failedDials = 0;
 		await this.ctx.storage.setAlarm(Date.now() + PAIR_WINDOW_TTL_MS);
-		log({ event: "pair_window_open", instance_id: instanceId, jti: result.claims.jti });
+		log({ event: "pair_window_open", instance_id: instanceId });
 		return new Response(null, { status: 101, webSocket: client });
 	}
 
@@ -284,7 +276,7 @@ export class InstanceDO extends DurableObject<Env> {
 			return unauthorizedResponse();
 		}
 
-		const resp = this.brokerTunnel(window, watt.instance_id, watt.jti, "pair_dial_open");
+		const resp = this.brokerTunnel(window, watt.instance_id, "pair_dial_open", false);
 		if (resp.status === 101) {
 			watt.signaled = true;
 			window.serializeAttachment(watt);
@@ -315,7 +307,7 @@ export class InstanceDO extends DurableObject<Env> {
 			return unauthorizedWithLog("/tunnel", "instance_mismatch", instanceId, tunnelId);
 		}
 
-		return this.attachHomeTunnel(tunnelId, instanceId, result.claims.jti);
+		return this.attachHomeTunnel(tunnelId, instanceId);
 	}
 
 	private async handlePairingTunnel(
@@ -350,16 +342,23 @@ export class InstanceDO extends DurableObject<Env> {
 			);
 		}
 
-		return this.attachHomeTunnel(tunnelId, result.claims.instance_id, result.claims.jti);
+		return this.attachHomeTunnel(tunnelId, result.claims.instance_id);
 	}
 
-	private attachHomeTunnel(tunnelId: string, instanceId: string, jti: string): Response {
+	private attachHomeTunnel(tunnelId: string, instanceId: string): Response {
 		// The mobile side must already be attached — otherwise there's no
 		// tunnel to pair into. (If the mobile has disconnected, we refuse the
 		// home-side attach; fresh dial mints a new tunnel_id.)
-		const mobilePeers = this.ctx.getWebSockets(tagTunnelMobile(tunnelId));
+		const mobilePeers = this.ctx
+			.getWebSockets(tagTunnelMobile(tunnelId))
+			.filter((ws) => this.isOfferable(ws));
 		if (mobilePeers.length === 0) {
 			return new Response("no mobile for tunnel_id", { status: 404 });
+		}
+		const mobile = mobilePeers[0];
+		const mobileAttachment = mobile.deserializeAttachment() as Attachment | null;
+		if (mobileAttachment?.paired === true) {
+			return new Response("tunnel already paired", { status: 409 });
 		}
 
 		// Cardinality: at most one home tunnel WS per tunnel_id.
@@ -382,10 +381,17 @@ export class InstanceDO extends DurableObject<Env> {
 			tunnel_id: tunnelId,
 			instance_id: instanceId,
 			opened_at: Date.now(),
-			jti,
 		};
 		server.serializeAttachment(att);
 		this.ctx.acceptWebSocket(server, [tagTunnelHome(tunnelId)]);
+		if (!this.drainPending(tunnelId, tagTunnelHome(tunnelId), server, instanceId)) {
+			return new Response("pending drain failed", { status: 500 });
+		}
+		if (mobileAttachment?.paired === false) {
+			mobileAttachment.paired = true;
+			mobile.serializeAttachment(mobileAttachment);
+		}
+		this.clearAttachLease(tunnelId);
 
 		log({
 			event: "tunnel_home_open",
@@ -399,7 +405,6 @@ export class InstanceDO extends DurableObject<Env> {
 			direction: "meta",
 		});
 
-		this.drainPending(tagTunnelHome(tunnelId), server);
 		return new Response(null, { status: 101, webSocket: client });
 	}
 
@@ -407,12 +412,10 @@ export class InstanceDO extends DurableObject<Env> {
 		const att = ws.deserializeAttachment() as Attachment | null;
 		if (!att) return;
 
-		// listen/dial are signaling surfaces. listen sends nothing v1.
-		// dial has already morphed into tunnel_mobile — anything delivered
-		// on that WS flows through the forwarding path below via the
-		// tunnel_mobile attachment.
+		// The listen WS is a signaling surface and sends nothing in v1.
+		// A dial has already morphed into tunnel_mobile, so anything delivered
+		// on it flows through the forwarding path below.
 		if (att.role === "listen") return;
-		if (att.role === "dial") return;
 		if (att.role === "pair_window") return;
 
 		if (!att.tunnel_id) return;
@@ -444,6 +447,13 @@ export class InstanceDO extends DurableObject<Env> {
 			buf.frames.push(message);
 			buf.bytes += byteCount;
 			this.pending.set(peerTag, buf);
+			if (
+				direction === "mobile_to_home" &&
+				att.paired === false &&
+				this.env.PRESENCE_HOLD_ENABLED === "true"
+			) {
+				this.startAttachLease(tunnelId, ws);
+			}
 			log({
 				event: "pending_buffer",
 				tunnel_id: tunnelId,
@@ -481,6 +491,7 @@ export class InstanceDO extends DurableObject<Env> {
 	): Promise<void> {
 		const att = ws.deserializeAttachment() as Attachment | null;
 		if (!att) return;
+		if (att.retired) return;
 
 		const durationMs = Date.now() - att.opened_at;
 		log({
@@ -502,6 +513,12 @@ export class InstanceDO extends DurableObject<Env> {
 	override async webSocketError(ws: WebSocket, _error: unknown): Promise<void> {
 		const att = ws.deserializeAttachment() as Attachment | null;
 		if (!att) return;
+		if (att.retired) return;
+		if (att.role === "tunnel_mobile" && att.paired === false) {
+			att.retired = true;
+			ws.serializeAttachment(att);
+			if (att.tunnel_id) this.clearAttachLease(att.tunnel_id);
+		}
 		log({
 			event: this.closeEventForRole(att.role),
 			instance_id: att.instance_id,
@@ -509,6 +526,11 @@ export class InstanceDO extends DurableObject<Env> {
 			close_code: 1006,
 			reason: "ws_error",
 		});
+		if (att.role === "tunnel_home" || att.role === "tunnel_mobile") {
+			const tunnelId = att.tunnel_id;
+			if (!tunnelId) return;
+			this.closeTunnel(tunnelId, CLOSE_CODE_NORMAL, "ws_error", att.role);
+		}
 	}
 
 	// Helpers
@@ -525,11 +547,41 @@ export class InstanceDO extends DurableObject<Env> {
 		return row.entitled_until > now;
 	}
 
+	private async nextListenerGeneration(): Promise<number> {
+		let next = 0;
+		await this.ctx.blockConcurrencyWhile(async () => {
+			const current = (await this.ctx.storage.get<number>(LISTENER_GENERATION_KEY)) ?? 0;
+			next = current + 1;
+			await this.ctx.storage.put(LISTENER_GENERATION_KEY, next);
+		});
+		return next;
+	}
+
+	private isOfferable(ws: WebSocket): boolean {
+		return ws.readyState === WebSocket.OPEN;
+	}
+
+	private highestOfferableListener(listeners: WebSocket[]): WebSocket | undefined {
+		let selected: WebSocket | undefined;
+		let generation = -1;
+		for (const listener of listeners) {
+			if (!this.isOfferable(listener)) continue;
+			const att = listener.deserializeAttachment() as Attachment | null;
+			if (att?.role !== "listen" || att.listener_generation === undefined) continue;
+			if (att.listener_generation > generation) {
+				selected = listener;
+				generation = att.listener_generation;
+			}
+		}
+		return selected;
+	}
+
 	private acceptMobileTunnel(
 		instanceId: string,
-		jti: string,
 		tunnelId: string,
 		tags: string[],
+		openEvent: "dial_open" | "pair_dial_open",
+		recoverable: boolean,
 	): { client: WebSocket; server: WebSocket } {
 		const { client, server } = newPair();
 		const att: Attachment = {
@@ -537,10 +589,11 @@ export class InstanceDO extends DurableObject<Env> {
 			tunnel_id: tunnelId,
 			instance_id: instanceId,
 			opened_at: Date.now(),
-			jti,
+			paired: recoverable ? false : undefined,
 		};
 		server.serializeAttachment(att);
 		this.ctx.acceptWebSocket(server, tags);
+		log({ event: openEvent, instance_id: instanceId, tunnel_id: tunnelId });
 		return { client, server };
 	}
 
@@ -554,50 +607,118 @@ export class InstanceDO extends DurableObject<Env> {
 	}
 
 	private brokerTunnel(
-		listener: WebSocket,
+		listener: WebSocket | undefined,
 		instanceId: string,
-		jti: string,
 		openEvent: "dial_open" | "pair_dial_open",
-		onSendFail?: () => void,
+		recoverable: boolean,
 	): Response {
 		const tunnelId = crypto.randomUUID();
-		const { client, server } = this.acceptMobileTunnel(instanceId, jti, tunnelId, [
-			tagTunnelMobile(tunnelId),
-		]);
+		const tags = recoverable
+			? [tagWaiting(instanceId), tagTunnelMobile(tunnelId)]
+			: [tagTunnelMobile(tunnelId)];
+		const { client, server } = this.acceptMobileTunnel(
+			instanceId,
+			tunnelId,
+			tags,
+			openEvent,
+			recoverable,
+		);
 
-		log({
-			event: openEvent,
-			instance_id: instanceId,
-			tunnel_id: tunnelId,
-			jti,
-		});
-
-		if (!this.signalIncoming(listener, tunnelId)) {
-			// If the send fails the home lost its listen — close the dial with 503 semantics.
-			try {
-				server.close(CLOSE_CODE_NORMAL, "home offline");
-			} catch {}
-			onSendFail?.();
-			return new Response("home unreachable", { status: 503 });
+		const listenerAttachment = listener?.deserializeAttachment() as Attachment | null;
+		const generation = recoverable ? listenerAttachment?.listener_generation : undefined;
+		if (listener && this.offerTunnel(listener, tunnelId, generation)) {
+			return new Response(null, { status: 101, webSocket: client });
 		}
-
-		return new Response(null, { status: 101, webSocket: client });
+		if (recoverable) {
+			return new Response(null, { status: 101, webSocket: client });
+		}
+		try {
+			server.close(CLOSE_CODE_NORMAL, "home offline");
+		} catch {}
+		return new Response("home unreachable", { status: 503 });
 	}
 
-	private drainPending(tag: string, ws: WebSocket): void {
+	private offerWaitingDials(listener: WebSocket, instanceId: string, generation: number): void {
+		const waiting = this.ctx
+			.getWebSockets(tagWaiting(instanceId))
+			.map((ws) => ({ ws, att: ws.deserializeAttachment() as Attachment | null }))
+			.filter(
+				(entry): entry is { ws: WebSocket; att: Attachment & { tunnel_id: string } } =>
+					this.isOfferable(entry.ws) &&
+					entry.att?.role === "tunnel_mobile" &&
+					entry.att.paired === false &&
+					entry.att.retired !== true &&
+					typeof entry.att.tunnel_id === "string" &&
+					entry.att.last_offered_generation !== generation,
+			)
+			.sort((a, b) => a.att.tunnel_id.localeCompare(b.att.tunnel_id));
+		for (const entry of waiting) {
+			if (!this.isHighestListenerGeneration(listener, instanceId, generation)) return;
+			if (!this.offerTunnel(listener, entry.att.tunnel_id, generation)) return;
+		}
+	}
+
+	private isHighestListenerGeneration(
+		listener: WebSocket,
+		instanceId: string,
+		generation: number,
+	): boolean {
+		const att = listener.deserializeAttachment() as Attachment | null;
+		if (!this.isOfferable(listener) || att?.listener_generation !== generation) return false;
+		const highest = this.highestOfferableListener(this.ctx.getWebSockets(tagListen(instanceId)));
+		return highest === listener;
+	}
+
+	private offerTunnel(listener: WebSocket, tunnelId: string, generation?: number): boolean {
+		if (!this.isOfferable(listener) || !this.signalIncoming(listener, tunnelId)) {
+			try {
+				listener.close(CLOSE_CODE_NORMAL, "stale listener");
+			} catch {}
+			return false;
+		}
+		if (generation !== undefined) {
+			const mobile = this.ctx.getWebSockets(tagTunnelMobile(tunnelId))[0];
+			const att = mobile?.deserializeAttachment() as Attachment | null;
+			if (mobile && att?.paired === false) {
+				att.last_offered_generation = generation;
+				mobile.serializeAttachment(att);
+			}
+		}
+		return true;
+	}
+
+	private drainPending(tunnelId: string, tag: string, ws: WebSocket, instanceId: string): boolean {
 		const buf = this.pending.get(tag);
 		if (!buf || buf.frames.length === 0) {
 			this.pending.delete(tag);
-			return;
+			return true;
 		}
 		for (const msg of buf.frames) {
 			try {
 				ws.send(msg);
 			} catch {
-				break;
+				this.pending.delete(tag);
+				this.clearAttachLease(tunnelId);
+				log({
+					event: "tunnel_home_close",
+					instance_id: instanceId,
+					tunnel_id: tunnelId,
+					close_code: CLOSE_CODE_INTERNAL_ERROR,
+					reason: "pending_drain_failed",
+				});
+				log({
+					event: "tunnel_mobile_close",
+					instance_id: instanceId,
+					tunnel_id: tunnelId,
+					close_code: CLOSE_CODE_INTERNAL_ERROR,
+					reason: "pending_drain_failed",
+				});
+				this.closeTunnel(tunnelId, CLOSE_CODE_INTERNAL_ERROR, "pending_drain_failed");
+				return false;
 			}
 		}
 		this.pending.delete(tag);
+		return true;
 	}
 
 	private closeTunnel(
@@ -608,6 +729,7 @@ export class InstanceDO extends DurableObject<Env> {
 	): void {
 		const homeTag = tagTunnelHome(tunnelId);
 		const mobileTag = tagTunnelMobile(tunnelId);
+		this.clearAttachLease(tunnelId);
 		this.pending.delete(homeTag);
 		this.pending.delete(mobileTag);
 
@@ -621,12 +743,58 @@ export class InstanceDO extends DurableObject<Env> {
 		}
 	}
 
+	private startAttachLease(tunnelId: string, mobile: WebSocket): void {
+		if (this.attachLeases.has(tunnelId)) return;
+		const handle = setTimeout(
+			() => void this.expireAttachLease(tunnelId, mobile, handle),
+			ATTACH_LEASE_MS,
+		);
+		this.attachLeases.set(tunnelId, handle);
+	}
+
+	private clearAttachLease(tunnelId: string): void {
+		const handle = this.attachLeases.get(tunnelId);
+		if (handle !== undefined) clearTimeout(handle);
+		this.attachLeases.delete(tunnelId);
+	}
+
+	private async expireAttachLease(
+		tunnelId: string,
+		mobile: WebSocket,
+		handle: ReturnType<typeof setTimeout>,
+	): Promise<void> {
+		await this.ctx.blockConcurrencyWhile(async () => {
+			if (this.attachLeases.get(tunnelId) !== handle) return;
+			const current = this.ctx
+				.getWebSockets(tagTunnelMobile(tunnelId))
+				.find((ws) => this.isOfferable(ws));
+			const target = current ?? mobile;
+			const att = target.deserializeAttachment() as Attachment | null;
+			if (!att || att.tunnel_id !== tunnelId || att.paired === true) {
+				this.clearAttachLease(tunnelId);
+				return;
+			}
+			this.attachLeases.delete(tunnelId);
+			this.pending.delete(tagTunnelHome(tunnelId));
+			this.pending.delete(tagTunnelMobile(tunnelId));
+			log({
+				event: "tunnel_mobile_close",
+				instance_id: att.instance_id,
+				tunnel_id: tunnelId,
+				close_code: CLOSE_CODE_TRY_AGAIN_LATER,
+				reason: "attach_timeout",
+				duration_ms: Date.now() - att.opened_at,
+			});
+			try {
+				target.close(CLOSE_CODE_TRY_AGAIN_LATER, "home attach timeout");
+			} catch {}
+		});
+	}
+
 	private closeEventForRole(role: Attachment["role"]): CloseEvent {
 		switch (role) {
 			case "listen":
 				return "listen_close";
-			case "dial":
-				return "dial_close";
 			case "pair_window":
 				return "pair_window_close";
 			case "tunnel_home":
@@ -639,7 +807,6 @@ export class InstanceDO extends DurableObject<Env> {
 
 type CloseEvent =
 	| "listen_close"
-	| "dial_close"
 	| "pair_window_close"
 	| "tunnel_home_close"
 	| "tunnel_mobile_close";

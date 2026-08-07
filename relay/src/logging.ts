@@ -56,7 +56,7 @@ export type Direction = "home_to_mobile" | "mobile_to_home" | "meta";
 // Relay-authored close classifications. Distinct from — and a strict subset
 // of — the general authored-reason set below. webSocketClose/webSocketError
 // emit a FIXED member here; peer close text is never a source.
-export type CloseReason = "peer_closed" | "ws_error";
+export type CloseReason = "peer_closed" | "ws_error" | "attach_timeout" | "pending_drain_failed";
 
 type AuthorizedReason =
 	// token verification (forwarded via unauthorizedWithLog)
