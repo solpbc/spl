@@ -85,22 +85,26 @@ Do **not** edit `wrangler.toml` to add an `account_id` line. The pattern is: the
 Never commit a secret. For production:
 
 ```sh
-# Private Ed25519 signing JWK (JSON; the private half used to mint
-# service/device tokens):
-echo "$PRIVATE_JWK_JSON" | wrangler secret put SIGNING_JWK --env production
+# Private Ed25519 signing JWK (the private half used to mint service/device
+# tokens). Pipe it from the keypair file, or run the command bare and paste at
+# the prompt. Never pass it as an argument — that records the root of trust in
+# your shell history:
+jq -c .privateKey ~/.spl/signing-keypair.json | wrangler secret put SIGNING_JWK --env production
 
 # Public JWKS envelope (JSON; the public half the Worker verifies against —
-# supports multi-key rotation via kid):
+# supports multi-key rotation via kid). Not secret:
 echo "$JWKS_ENVELOPE_JSON" | wrangler secret put JWKS_PUBLIC --env production
 ```
 
 Read in the Worker via `env.SIGNING_JWK` and `env.JWKS_PUBLIC`. The private key is the root of trust; see [`../docs/signing-keys.md`](../docs/signing-keys.md) for the full lifecycle (generation, rotation, compromise response).
 
-Run `bun run gen-key` to mint a self-host keypair — it writes to `~/.spl/signing-keypair.json` with mode 0600 and prints the exact `wrangler secret put` commands.
+Run `npm run gen-key` to mint a self-host keypair — it writes to `~/.spl/signing-keypair.json` with mode 0600 and prints the exact `wrangler secret put` commands.
 
 ## configuration
 
 `wrangler.toml` is checked in and contains no secrets. The top-level block is a dev-only placeholder; `[env.production]` is sol pbc's hosted deploy target. It deploys Worker `spl-relay`, D1 database `spl-relay`, and custom domain `link.solstone.app`. Fill in the target env's `database_id` (from `wrangler d1 create ...`) before deploying your own copy. Signing keys and tokens are secrets, provisioned via `wrangler secret put`.
+
+⚠ `[env.production]` also sets `ENTITLEMENT_REQUIRED = "true"`, and `make deploy` above uses `--env production`. With it on, `/session/listen` and `/session/dial` answer `402` for any instance without a live grant; pairing is not gated. A self-host that wants the gate off has to clear the variable in its own copy.
 
 ## logging policy
 

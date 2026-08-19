@@ -2,7 +2,7 @@
 
 The wire format that lets one tunnel WebSocket carry many concurrent logical streams. Lives between the TLS 1.3 record layer and whatever application-layer bytes the endpoints decide to send through it.
 
-This is the SSH-channel-style multiplex. The prototype (tracked in sol pbc's internal engineering notes, §13.1) ran one request per tunnel — fine for vetting the relay, TLS, and hibernation paths, but not what v1 ships. v1 needs to load a journal page that pulls images, holds a server-sent-event stream, and opens a WebSocket for live updates concurrently. All of that has to multiplex onto the single WebSocket each side holds open through `spl-relay`.
+This is the SSH-channel-style multiplex. The prototype (notes §13.1, meaning sol pbc's internal engineering notes, which are not published) ran one request per tunnel — fine for vetting the relay, TLS, and hibernation paths, but not what v1 ships. v1 needs to load a journal page that pulls images, holds a server-sent-event stream, and opens a WebSocket for live updates concurrently. All of that has to multiplex onto the single WebSocket each side holds open through `spl-relay`.
 
 This document is the contract between the production endpoint implementations — the home side in `solstone-journal` (`solstone/convey/secure_listener/` for the listener role, `solstone/think/link/client.py` for the dialing role) and the Apple observer in `solstone-macos` (`Sources/SPLTunnel/`) — and any future port (Android, browser bridge, etc.). The relay (`spl-relay`) does not parse frames — it forwards opaque bytes — so the contract is **between the two endpoints only**. That is the load-bearing fact: any framing change is a coordinated endpoint upgrade. The relay does not need a deploy.
 

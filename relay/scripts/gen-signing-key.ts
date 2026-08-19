@@ -183,7 +183,6 @@ async function main(): Promise<void> {
 	await writeFile(out, `${JSON.stringify(file, null, 2)}\n`, { mode: 0o600 });
 	await chmod(out, 0o600); // belt-and-suspenders for environments where mode in writeFile isn't honored
 
-	const signingJwkPayload = JSON.stringify(privateJwk);
 	const jwksPayload = JSON.stringify(jwksEnvelope(publicJwk));
 
 	stdout.write(
@@ -194,15 +193,23 @@ async function main(): Promise<void> {
 			"  alg: EdDSA (Ed25519)",
 			"",
 			"⚠  This file is the root of trust for your tunnel.",
-			"   Lose it and every paired device must re-enroll.",
+			"   Lose it and every home must enroll again; leak it and every device re-pairs too.",
 			"   Back it up offline (paper, hardware token, encrypted USB — never a cloud drive).",
 			"",
 			"Provision the secrets to your spl-relay Worker. Make sure you are using the GLOBAL",
 			"wrangler binary (npx wrangler loses the OAuth session and breaks secret put).",
 			"",
-			"For production:",
+			"For production, pipe the private JWK straight out of the keypair file:",
 			"",
-			`  echo '${signingJwkPayload}' | wrangler secret put SIGNING_JWK --env production`,
+			`  jq -c .privateKey ${out} | wrangler secret put SIGNING_JWK --env production`,
+			"",
+			"⚠  Do not pass the key as an argument. That records the root of trust in your",
+			"   shell history. Without jq, run the same command without the pipe and paste",
+			"   the privateKey object at the prompt, flattened onto ONE line: it is stored",
+			"   pretty-printed in the file, and the prompt reads a single line.",
+			"",
+			"The public JWKS is not secret, so it can be piped:",
+			"",
 			`  echo '${jwksPayload}' | wrangler secret put JWKS_PUBLIC --env production`,
 			"",
 			"For any additional deployment, use a separate keypair:",
@@ -212,7 +219,7 @@ async function main(): Promise<void> {
 			"After provisioning, your spl-relay will serve the public JWKS at",
 			"  https://<your-relay-host>/.well-known/jwks.json",
 			"",
-			"Rotation: see docs/signing-keys.md. Default cadence is 12 months with a 30-day overlap.",
+			"Rotation: see docs/signing-keys.md. Default cadence is 12 months with a 60-day overlap.",
 			"",
 		].join("\n"),
 	);

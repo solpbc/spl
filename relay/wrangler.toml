@@ -36,8 +36,9 @@ new_sqlite_classes = ["InstanceDO"]
 # Non-secret configuration. Secrets (SIGNING_JWK, JWKS_PUBLIC, GRANT_SECRET)
 # are set via `wrangler secret put` and are NEVER committed here. ISSUER is the
 # JWT `iss` claim the Worker enforces on every verify; self-hosters override in
-# their env block. ENTITLEMENT_REQUIRED is off by default; only the exact string
-# "true" enables the session gate.
+# their env block. ENTITLEMENT_REQUIRED is unset in this block, and only the
+# exact string "true" enables the session gate — but [env.production] below
+# sets it "true", and that is the env `make deploy` uses.
 [vars]
 ENVIRONMENT = "development"
 ISSUER = "spl.local"
@@ -55,13 +56,13 @@ migrations_dir = "migrations"
 # Production environment. Secrets are provisioned with `wrangler secret put`;
 # the custom domain route is created by `wrangler deploy --env production`.
 #
-# ENTITLEMENT_REQUIRED stays "false" until the deliberate paid-tier go-live.
-# link.solstone.app already serves live SPL users (pair-from-anywhere) who hold
-# NO entitlement grant — flipping the gate on before billing is live + existing
-# instances are grandfathered would 402-lock every current user. Go-live order:
-# (1) deploy the account-portal billing rail to prod + provision its secrets;
-# (2) push grants for all existing/comp instances (grandfather);
-# (3) THEN set this to "true" and redeploy; (4) gated on sales-tax/DPA/payout/credits.
+# ENTITLEMENT_REQUIRED is "true" below: the paid-tier go-live has happened and
+# the gate is ON in production. It is read at exactly two call sites, the
+# /session/listen and /session/dial handlers, which answer 402 for an instance
+# with no live grant; pair-window, pair-dial and /tunnel/<id> never consult it.
+# Anyone deploying with --env production (which is what `make deploy` runs) must
+# either clear this variable in their own config or push a grant per instance
+# via POST /admin/entitlement.
 [env.production]
 name = "spl-relay"
 workers_dev = false

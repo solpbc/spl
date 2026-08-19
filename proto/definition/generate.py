@@ -298,13 +298,13 @@ RECORD_SCHEMAS: dict[str, dict[str, Any]] = {
         }
     ),
     # Journal identity: the jid derivation, its refusal vocabulary, and the
-    # statement of what a device id is. One uniform shape across all of them,
+    # statement of what a client id is. One uniform shape across all of them,
     # because every record here answers the same question — what is normatively
     # fixed about this value — and a per-kind shape would only add ways to fail.
     "journal_identity": object_schema(
         {
             "id": STRING,
-            "kind": {"enum": ["key_domain", "kdf", "stamp", "refusal", "device_fingerprint"]},
+            "kind": {"enum": ["key_domain", "kdf", "stamp", "refusal", "client_fingerprint"]},
             "value": STRING,
             "citation": CITATION_REF,
             "gap_ref": GAP_REF,

@@ -1,4 +1,4 @@
-bundle_semver = "5.0.1"
+bundle_semver = "6.0.0"
 
 # Citation markers are exact source substrings. The longer markers below are
 # deliberate: the obvious markers `0x01` = IPv4, first 16 bytes of SHA-256
@@ -668,7 +668,7 @@ marker = "byte 6 becomes `(byte6 & 0x0F) | 0x80`, making this a UUID version 8"
 document = "proto/identity.md"
 marker = "byte 8 becomes `(byte8 & 0x3F) | 0x80`, the RFC 9562 variant"
 
-[citations.identity_device_id]
+[citations.identity_client_id]
 document = "proto/identity.md"
 marker = "**SHA-256 digest of its client certificate, over the certificate's DER encoding**"
 
@@ -733,10 +733,10 @@ value = "any input that is not a canonical P-256 SubjectPublicKeyInfo, or one di
 citation = "identity_refusal"
 
 [[journal_identity]]
-id = "journal_identity.did"
-kind = "device_fingerprint"
-value = "the did is SHA-256 over the client certificate DER, lowercase hex with a sha256: prefix, carried as device_fp in token claims and as fingerprint in the authorized-client ledger; it is not derived, carries no mark, and is not the device_id in a session.dial token subject"
-citation = "identity_device_id"
+id = "journal_identity.cid"
+kind = "client_fingerprint"
+value = "the cid, or client id, is SHA-256 over the client certificate DER, lowercase hex with a sha256: prefix, carried as device_fp in token claims and as fingerprint in the authorized-client ledger; it is not derived, carries no mark, and is not the device_id in a session.dial token subject"
+citation = "identity_client_id"
 
 [citations.identity_vector_malformed]
 document = "proto/identity.md"

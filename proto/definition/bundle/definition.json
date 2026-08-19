@@ -647,9 +647,9 @@
         "marker": "**SHA-256 digest of its client certificate, over the certificate's DER encoding**"
       },
       "gap_ref": null,
-      "id": "journal_identity.did",
-      "kind": "device_fingerprint",
-      "value": "the did is SHA-256 over the client certificate DER, lowercase hex with a sha256: prefix, carried as device_fp in token claims and as fingerprint in the authorized-client ledger; it is not derived, carries no mark, and is not the device_id in a session.dial token subject"
+      "id": "journal_identity.cid",
+      "kind": "client_fingerprint",
+      "value": "the cid, or client id, is SHA-256 over the client certificate DER, lowercase hex with a sha256: prefix, carried as device_fp in token claims and as fingerprint in the authorized-client ledger; it is not derived, carries no mark, and is not the device_id in a session.dial token subject"
     }
   ],
   "pin_domains": [

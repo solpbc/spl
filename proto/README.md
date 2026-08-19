@@ -7,7 +7,7 @@ The rule for this directory: **if any two components would need to agree on the 
 ## the documents
 
 - [`framing.md`](framing.md) — SSH-channel-style multiplexing inside the TLS tunnel. Frame layout (`stream_id | flags | length | payload`), stream lifecycle, per-stream credit-based flow control, ordering guarantees. The contract between the two TLS endpoints; the relay does not parse frames.
-- [`identity.md`](identity.md) — journal identity. The jid derivation from the journal CA's public key, its refusal vocabulary, and the definition of a device id as the fingerprint of that device's certificate.
+- [`identity.md`](identity.md) — journal identity. The jid derivation from the journal CA's public key, its refusal vocabulary, and the definition of the client id (`cid`) as the fingerprint of that client's certificate.
 - [`pairing.md`](pairing.md) — LAN-primary pairing ceremony. QR + nonce, on-device keypair generation, CSR submitted to the home over pinned-cert HTTPS, home-CA signing, fingerprint recorded in `authorized_clients.json`, device token acquired from the relay's control plane.
 - [`pair-window.md`](pair-window.md) — off-LAN home-opened pairing window. Defines the `0x06` pair-link form, relay-side RK derivation, and RK-addressed pair-window / pair-dial admission.
 - [`tokens.md`](tokens.md) — service-token (home → relay) and device-token (mobile → relay) JWT structure. **EdDSA / Ed25519** signature, required claims, scopes, TTLs, and the `kid`-keyed JWKS rotation model. Validation contract between the relay and both endpoints.

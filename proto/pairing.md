@@ -227,9 +227,9 @@ Revoking a device is a one-step operation **on the home, not on `spl-relay`.**
 3. The TLS layer's mtime poller reloads the file within ~500 ms.
 4. The next dial from the revoked device opens the tunnel WS through `spl-relay` (rendezvous still works — the device token is still valid), but the home refuses the client cert inside the TLS handshake. Which alert it sends, and what the mobile shows the owner, are specified in [`session.md`](session.md) § 7.
 
-This is the authoritative revocation point. The device token at `spl-relay` may remain valid; it confers no data access without the TLS handshake succeeding. v1 does not propagate revocation to `spl-relay`. (Defense-in-depth — invalidate the device token too — is on the H2 list but not blocking.)
+This is the authoritative revocation point. The device token at `spl-relay` may remain valid; it confers no data access without the TLS handshake succeeding. v1 does not propagate revocation to `spl-relay`. (Defense-in-depth — invalidate the device token too — is a known follow-up, not a blocker.)
 
-The TLS-layer rejection is **not** an app-layer post-handshake drop. The prototype found (§8 + §11.3) that app-layer fingerprint checks produce silent disconnects with no clean error semantics, so the check runs inside the handshake, where a refusal has an alert to travel on and the mobile can tell one refusal from another.
+The TLS-layer rejection is **not** an app-layer post-handshake drop. The prototype found (notes §8 + §11.3, meaning sol pbc's internal engineering notes, which are not published — ⚠ **not** this document's own step 8) that app-layer fingerprint checks produce silent disconnects with no clean error semantics, so the check runs inside the handshake, where a refusal has an alert to travel on and the mobile can tell one refusal from another.
 
 ⚠ Enforcing in the handshake only makes a specific alert *possible*; a home still has to choose one deliberately. A home that refuses without choosing is refusing correctly and telling the mobile nothing about which case it hit.
 

@@ -16,7 +16,9 @@ Five WebSocket endpoints on `spl-relay`:
 
 Pair-window admission is specified in [`pair-window.md`](pair-window.md).
 
-The asymmetry is deliberate. The mobile opens **one** WebSocket per dial (the dial WS becomes the tunnel WS — single-WS-per-side, prototype finding §11.1, saves ~40-80 ms per cold request). The home opens **one** persistent listen WS plus **one** transient tunnel WS per active tunnel.
+The asymmetry is deliberate. The mobile opens **one** WebSocket per dial (the dial WS becomes the tunnel WS — single-WS-per-side, notes §11.1, saves ~40-80 ms per cold request). The home opens **one** persistent listen WS plus **one** transient tunnel WS per active tunnel.
+
+⚠ **This document carries two `§` numbering schemes, and they collide.** A citation written **notes §N** points into sol pbc's internal engineering notes, which are not published: you cannot open the section, and no requirement in this document is stated only there. A bare **§ N** points at a numbered step of *the dance, step by step*, below. Both schemes have a §3 and a §7, so the `notes` prefix is the only thing separating them.
 
 ## endpoint shapes
 
@@ -264,7 +266,7 @@ The discipline:
 **Acceptable at the WS layer:**
 
 - Dial signaling — the HTTP+upgrade exchanges on `/session/listen`, `/session/dial`, `/session/pair-window`, `/session/pair-dial`, `/tunnel/<id>` and their required rendezvous headers (`Authorization` where token-authenticated, `Sec-Pair-Key` where RK-addressed).
-- The `incoming` / `tunnel_id` control message from relay to home (above, §3).
+- The `incoming` / `tunnel_id` control message from relay to home (above, § 3 *pair signal — relay tells the home*).
 - Opaque ciphertext payload of inner-TLS records, framed as binary WS messages.
 - WebSocket transport keepalive (RFC 6455 Ping/Pong; see *no app heartbeat* below).
 
@@ -297,7 +299,7 @@ Cloudflare hibernates idle Hibernatable WebSockets after ~10 seconds of inactivi
 
 - **Listen WS:** hibernates between dials. Wake on the next `incoming` signal pre-empt; transport Ping/Pong control frames do not wake it (see *no app heartbeat* below).
 - **Tunnel WS:** hibernates between bursts. Every mobile request after ≥10 s of inactivity pays wake cost.
-- **Wake cost is low and flat across idle duration.** Prototype measurements (§3): 1-min idle p50 = 157 ms, 5-min idle p50 = 37 ms. Both well under the 500 ms criterion. There is no growing tax on longer idle periods (§11.2).
+- **Wake cost is low, and nothing measured grows with idle duration.** Prototype measurements (notes §3): 1-min idle p50 = 157 ms, 5-min idle p50 = 37 ms. Both sit well under the 500 ms criterion, and the longer idle measured *faster* than the shorter one (notes §11.2). ⚠ Two p50 points are not a curve. Read this as the absence of an observed penalty, not as a measured flat line, and do not budget against the exact figures.
 
 The 30-min and 2-hr profiles weren't measured in the prototype session; the 30+ min listen WS held open without app heartbeats is observational evidence that hibernation works at those durations too. Confirmed measurements of the 2-hr profile remain a v1 alpha follow-up (not blocking).
 
@@ -357,7 +359,7 @@ Behavior:
 - **Pair state is not preserved.** All in-flight `tunnel_id`s are invalidated. The mobile's next dial mints a new `tunnel_id`; the home opens a fresh tunnel WS in response to the new `incoming`.
 - **Pairing material is preserved.** The home's CA, the mobile's client cert, the device tokens, and the service tokens all survive — they live in their respective stores, not in the Worker. **No re-enrollment is required.**
 
-Acceptance criterion (per spec): clients reconnect within 10 seconds of a Worker redeploy without requiring re-pair. Prototype did not measure this directly (§7); MVP test suite covers it.
+Acceptance criterion (per spec): clients reconnect within 10 seconds of a Worker redeploy without requiring re-pair. The prototype did not measure this directly (notes §7); MVP test suite covers it.
 
 Operational implication: deploy cadence on `spl-relay` is low. We don't ship features weekly. Every deploy is a customer-visible blip; only ship when it's worth that.
 
@@ -369,7 +371,7 @@ The DO uses `getWebSockets(tag)` to look up sockets by tag. The relay tags socke
 - `tunnel_home:<tunnel_id>` for the home tunnel WS.
 - `tunnel_mobile:<tunnel_id>` for the mobile dial-turned-tunnel WS.
 
-Each tag MUST resolve to exactly one offerable WebSocket. CLOSING sockets returned by `getWebSockets()` are not offerable. Listen attachments carry a persisted, strictly increasing generation; only the highest offerable generation may offer or re-offer an unpaired held tunnel ID. If a duplicate WS attaches under any of these tags (e.g., a home reconnects without the previous WS having been observed as closed), the relay closes the duplicate and keeps the most recently attached. Prototype finding §11.4 — the API doesn't enforce cardinality, the application must.
+Each tag MUST resolve to exactly one offerable WebSocket. CLOSING sockets returned by `getWebSockets()` are not offerable. Listen attachments carry a persisted, strictly increasing generation; only the highest offerable generation may offer or re-offer an unpaired held tunnel ID. If a duplicate WS attaches under any of these tags (e.g., a home reconnects without the previous WS having been observed as closed), the relay closes the duplicate and keeps the most recently attached. Prototype finding, notes §11.4 — the API doesn't enforce cardinality, the application must.
 
 Presence-hold also uses `waiting_dial:<instance_id>` as a many-valued discovery tag for held dials. It is intentionally excluded from the exact-one cardinality invariant: one instance may have N waiting dials.
 

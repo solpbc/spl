@@ -1,9 +1,9 @@
 # journal identity
 
-The journal's own identity, and the device identity that sits beside it. Two values, computed two different ways.
+The journal's own identity, and the client identity that sits beside it. Two values, computed two different ways.
 
 - The **jid** identifies a journal. The home derives it from its own CA's public key, and a client compares it against the `instance_id` it dials.
-- The **did** identifies a paired device. It is the fingerprint of that device's certificate, taken directly rather than derived, and it is carried as `device_fp` in the token claims and as `fingerprint` in the home's authorized-client ledger. It is **not** the `device_id` that appears in a `session.dial` token's subject; that is a different value.
+- The **cid**, or client id, identifies a paired client. It is the fingerprint of that client's certificate, taken directly rather than derived, and it is carried as `device_fp` in the token claims and as `fingerprint` in the home's authorized-client ledger. It is **not** the `device_id` that appears in a `session.dial` token's subject; that is a different value.
 
 This document is the normative source for both. Machine-readable form for both, and conformance vectors for the jid, are in [`definition/`](definition/README.md).
 
@@ -52,17 +52,19 @@ An implementation MUST refuse any input that is not a canonical P-256 `SubjectPu
 
 An implementation MUST NOT signal a refusal in-band as a returned jid. A jid returned for a key that was never validated identifies nothing.
 
-## the did
+## the cid
 
-A paired device is identified by the **SHA-256 digest of its client certificate, over the certificate's DER encoding**, rendered lowercase hexadecimal with a `sha256:` prefix. That is the same value the home records for the device when it signs the certificate.
+A paired client is identified by the **SHA-256 digest of its client certificate, over the certificate's DER encoding**, rendered lowercase hexadecimal with a `sha256:` prefix. That is the same value the home records for the client when it signs the certificate.
 
-> **`ca_fp` names more than one value in this protocol, and they are not interchangeable.** The direct pair-link's `ca_fp` is the leading 16 bytes of SHA-256 over the CA certificate DER ([`pairing.md`](pairing.md)). The relay pair-link's `ca_fp_spki` is the leading 16 bytes over the CA `SubjectPublicKeyInfo` DER ([`pair-window.md`](pair-window.md)). A service token's `ca_fp` claim is a full 32-byte digest over the home's CA public key ([`tokens.md`](tokens.md)). The `pair-start` response's `ca_fingerprint` is the full 32 bytes over the CA certificate DER ([`pairing.md`](pairing.md)).
+⚠ **This value was called the `did` in every revision of this document before definition bundle 6.0.0.** It was renamed for two reasons. `did` reads as a W3C Decentralized Identifier for exactly the audience implementing a device-identity protocol, and it is not one and never was. It also sat one letter away from `device_id`, which is a different value inside the same token. Nothing on the wire changed with the rename: the claim is still `device_fp`, the ledger key is still `fingerprint`, and the bytes are the same bytes.
+
+> **`ca_fp` names more than one value in this protocol, and they are not interchangeable.** The direct pair-link's `ca_fp` is the leading 16 bytes of SHA-256 over the CA certificate DER ([`pairing.md`](pairing.md)). The relay pair-link's `ca_fp_spki` is the leading 16 bytes over the CA `SubjectPublicKeyInfo` DER ([`pair-window.md`](pair-window.md)). A service token's `ca_fp` claim is a full 32-byte digest over the home's CA `SubjectPublicKeyInfo` DER ([`tokens.md`](tokens.md)). The `pair-start` response's `ca_fingerprint` is the full 32 bytes over the CA certificate DER ([`pairing.md`](pairing.md)).
 >
-> Each is specified where it is used. What matters here is that the `did` is none of them.
+> Every one of them digests DER, never PEM text: strip the PEM armor and the whitespace, base64-decode, digest what is left. What differs between them is which DER structure is digested (a certificate or a `SubjectPublicKeyInfo`) and how many leading bytes are kept. Each is specified where it is used. What matters here is that the `cid` is none of them.
 
-A device gets neither a jid nor a mark, because both are derived from a journal CA key and a device has no such key.
+A client gets neither a jid nor a mark, because both are derived from a journal CA key and a client has no such key.
 
-Because the did is taken over the certificate, a device that is issued a new certificate gets a new did. Re-pairing does exactly that: [`pairing.md`](pairing.md) specifies it as revoke-then-pair-again, which mints a fresh certificate for the same physical device. Nothing renews a certificate in place.
+Because the cid is taken over the certificate, a client that is issued a new certificate gets a new cid. Re-pairing does exactly that: [`pairing.md`](pairing.md) specifies it as revoke-then-pair-again, which mints a fresh certificate for the same physical device. Nothing renews a certificate in place.
 
 ## conformance vectors
 
@@ -147,4 +149,4 @@ spki_der_hex: 3059301306072a8648ce3d020130082a8648ce3d030107034200046b17d1f2e12c
 
 ## scope
 
-This document defines the jid derivation, its refusals, and what the did is. It does not define the journal mark, the pairing ceremony, session lifecycle, framing, or token claims, and silence here grants no permission to change any of them.
+This document defines the jid derivation, its refusals, and what the cid is. It does not define the journal mark, the pairing ceremony, session lifecycle, framing, or token claims, and silence here grants no permission to change any of them.
