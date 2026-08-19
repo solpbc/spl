@@ -2,7 +2,7 @@
 
 The two long-lived JWTs that authorize a side to establish a WebSocket with `spl-relay` are the service token and device token. Both are issued by `spl-relay`'s control plane and signed by an Ed25519 key held only by sol pbc (or by the self-host operator, for self-hosted deployments). Both authorize **rendezvous only** — neither confers data access. Data access is gated by the TLS handshake inside the tunnel, against `authorized_clients.json` on the home.
 
-This document specifies the token shape, claims, validation, and the JWKS-based rotation model. The signing-key lifecycle (generation, vault storage, provisioning, rotation cadence, compromise response) is out of scope here — see [`../docs/signing-keys.md`](../docs/signing-keys.md) for the public-facing playbook. sol pbc internal operators additionally follow their own operational playbook.
+This document specifies the token shape, claims, validation, and the JWKS-based rotation model. The signing-key lifecycle (generation, vault storage, provisioning, compromise response) is out of scope here — see [`../docs/signing-keys.md`](../docs/signing-keys.md) for the public-facing playbook. The rotation cadence and the overlap window are the exception: they are derived in § rotation below, and that playbook references them from here. sol pbc internal operators additionally follow their own operational playbook.
 
 ## algorithm
 
@@ -280,20 +280,30 @@ If any check fails, the Worker refuses the upgrade rather than accepting a socke
 
 ## rotation
 
-The signing key has a 12-month rotation cadence. The overlap window has to outlast the device refresh interval, which is 48 days (see step 4), so it is **60 days**. The rotation mechanism is `kid`-keyed lookup into a multi-entry JWKS:
+The signing key has a 12-month rotation cadence with a **90-day overlap window**, measured from the step 3 push below. This section is where that number is derived; other documents reference it rather than restating it.
+
+**Where 90 comes from.** A device token is refreshable for its first 90 days and no longer: a 60-day TTL plus the 30-day post-expiry grace. Issuance switches to the new `kid` at step 3, so the newest token still bearing the old `kid` is minted exactly as the window opens, and 90 days later it is past refreshing whatever anyone does. Hold the old key that long and every device that could have moved itself has; trim sooner and you strand devices that were merely switched off.
+
+⚠ **That bounds devices, and only devices.** A service token has a 365-day TTL and no refresh path at all, so no window length moves a home. This is why step 5 is released by the home sweep in step 4 and never by the calendar.
+
+The rotation mechanism is `kid`-keyed lookup into a multi-entry JWKS. ⚠ The steps below are that mechanism, not the operator procedure: [`../docs/signing-keys.md`](../docs/signing-keys.md) § rotation is the runbook to execute, and it carries the generator invocation and the key-archival step that this list does not.
 
 1. Generate the new keypair (new `kid` = fresh UUIDv7). See `../docs/signing-keys.md` for the generator script.
 2. Push the **new JWKS** containing both old and new public keys: `wrangler secret put JWKS_PUBLIC --env production`.
 3. Push the **new private key**: `wrangler secret put SIGNING_JWK --env production`. Issuance immediately switches to the new `kid`.
-4. **Let the window outlast the device refresh interval, and move every home onto the new key inside it.**
+4. **Hold the old key 90 days from the step 3 push, and move every home onto the new key inside that window.**
 
-   A device re-issues its own token when it passes 80% of its 60-day TTL, which is a token age of 48 days. For a device whose token was fresh on the day of the push, that is **48 days after the push**; a device already holding an older token moves sooner. You cannot count on sooner, and 48 days is a floor rather than a guarantee: it assumes a client that implements the trigger, and one that does not never moves on its own at all. ⚠ **An overlap window shorter than 48 days does not move every device.** A device whose token was fresh at the push has not attempted a refresh when a 30-day window closes, and the 30-day post-expiry grace does not rescue it: after the trim the refusal is an unknown `kid`, not an expiry, so refresh fails on the same check either way. Anything trimmed before 48 days is paid for in re-pairs.
+   A running device re-issues its own token when it passes 80% of its 60-day TTL, a token age of 48 days. For a device whose token was fresh on the day of the push that is **48 days after the push**; one already holding an older token moves sooner. So 48 days is the floor for a device that is *awake the whole time*, and it is not the number to size the window on.
+
+   ⚠ **The device that decides the window is the one that was switched off.** It comes back inside its 30-day grace still able to refresh, but only while the old `kid` is published. Trim before then and it cannot use the grace at all, because the refusal it meets is an unknown `kid` rather than an expiry. It re-pairs instead, which costs its owner a physical QR ceremony for nothing.
+
+   ⚠ 90 days bounds what the *protocol* can do, not what a fleet will do. It assumes a client that implements the refresh trigger; one that does not never moves on its own at all, whatever the window.
 
    **Homes do not move on their own at all.** A service token minted under the old `kid` stays valid to the relay for up to 365 days, and is replaced only by another `POST /enroll/home`.
 
    🔴 **That call has to come from the home, and an operator cannot make it on the home's behalf.** The response carries the new token back to whoever sent the request, and nothing pushes it anywhere else — so a call made from an admin console rotates the D1 row while the home goes on holding its old, soon-to-be-unverifiable token. That is the whole of the argument: it is about where the answer lands, not about who can reach the endpoint. The operator's job is to *trigger* the home-side action that re-enrolls, then confirm it landed.
 
-   Confirm with `GET /admin/instances`, which reports `created_at` and `rotated_at` per instance. The sweep is done when every non-revoked instance carries one of the two later than the moment the new key went live. Both are needed: a re-enroll stamps `rotated_at`, while an instance enrolling for the first time after the key push has a null `rotated_at` and is already on the new `kid`. ⚠ A fresh `rotated_at` proves only that *some* caller holding that instance's CA completed the call. It is evidence the home moved only if the home was the caller, which is why the trigger matters more than the check.
+   Confirm with `GET /admin/instances` — bearer-gated on the deployment's `GRANT_SECRET`, like every admin route — which reports `created_at` and `rotated_at` per instance. The sweep is done when every non-revoked instance carries one of the two later than the moment the new key went live. Both are needed: a re-enroll stamps `rotated_at`, while an instance enrolling for the first time after the key push has a null `rotated_at` and is already on the new `kid`. ⚠ A fresh `rotated_at` proves only that *some* caller holding that instance's CA completed the call. It is evidence the home moved only if the home was the caller, which is why the trigger matters more than the check.
 
 5. After the overlap window **and** that sweep, push a **trimmed JWKS** containing only the new key: `wrangler secret put JWKS_PUBLIC --env production`. The old key is no longer accepted and any token still bearing its `kid` fails validation cleanly.
 
@@ -394,7 +404,7 @@ This is the load-bearing trust statement: tokens are the rendezvous, not the dat
 
 ## related
 
-- [`../docs/signing-keys.md`](../docs/signing-keys.md) — the signing-key lifecycle (generation, vault storage, provisioning, rotation cadence, compromise response).
+- [`../docs/signing-keys.md`](../docs/signing-keys.md) — the signing-key lifecycle (generation, vault storage, provisioning, compromise response), and the operator runbook for the rotation § rotation specifies.
 - [`session.md`](session.md) — the WebSocket lifecycle these tokens authorize.
 - [`pairing.md`](pairing.md) — how a device first becomes eligible to be issued a device token.
 - [`framing.md`](framing.md) — the multiplex inside the tunnel that token validation makes reachable.

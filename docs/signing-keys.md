@@ -87,8 +87,10 @@ Paste the JSON when prompted. wrangler stores both secrets encrypted at rest on 
 
 The Worker uses:
 
-- `env.SIGNING_JWK` to sign tokens at the (control-plane) `/enroll/home` and `/enroll/device` endpoints.
-- `env.JWKS_PUBLIC` to verify tokens on every `/session/listen`, `/session/dial`, and `/tunnel/<id>` upgrade. The JWKS contains all currently valid public keys; verification looks up `kid` from the JWT header.
+- `env.SIGNING_JWK` to sign tokens at the control-plane endpoints: `/enroll/home`, `/enroll/device`, and `/token/refresh`.
+- `env.JWKS_PUBLIC` to verify tokens on every `/session/listen`, `/session/dial`, `/session/pair-window` and `/tunnel/<id>` upgrade, **and at `/token/refresh`**. The JWKS contains all currently valid public keys; verification looks up `kid` from the JWT header. (`/session/pair-dial` is anonymous and presents no token.)
+
+⚠ `/token/refresh` is the one endpoint on both lists: it verifies the presented token against `JWKS_PUBLIC` and then signs its replacement with `SIGNING_JWK`. That is precisely why the overlap window works — a device refreshing inside it is admitted on the old `kid` and re-issued on the new one — and why trimming the JWKS ends the device's ability to recover itself.
 
 ### `/.well-known/jwks.json`
 
@@ -104,7 +106,13 @@ For sol pbc's hosted deployment: `https://link.solstone.app/.well-known/jwks.jso
 
 ## rotation
 
-Default cadence: **12 months**, with a **60-day overlap window**. The window is 60 rather than 30 days because a device does not re-issue its own token until it passes 80% of its 60-day TTL, which is a token age of 48 days, and so can be as late as 48 days after a key push. An overlap shorter than that leaves devices behind. Step 4 works the arithmetic. The mechanism:
+Default cadence: **12 months**, with a **90-day overlap window** measured from the step 3 push.
+
+90 is derived rather than chosen: it is how long a device token stays refreshable. The reasoning lives in [`../proto/tokens.md`](../proto/tokens.md) § rotation; this runbook carries the number and the steps, not the derivation.
+
+⚠ **Two things the number does not decide.** It bounds *devices*; a home has no refresh path at any window length, so step 5 is released by the sweep in step 4 and never by the calendar. And a 12-month cadence with a 90-day overlap keeps the old key **verifying** for 15 months, though it stops **signing** at step 3. If you need key lifetime bounded at 12 months, shorten the cadence to 9 rather than the overlap; shortening the overlap only moves the cost onto owners. On compromise none of this applies, because the kill switch trims immediately with no overlap at all.
+
+The mechanism:
 
 1. **Generate the new keypair to a new path:** `npm run gen-key -- --out ~/.spl/signing-keypair-<date>.json`. New `kid`. ⚠ Do not re-run the bare command — it refuses to overwrite an existing keypair file and exits non-zero, and the `--force` that would let it through would destroy the very key step 6 tells you to archive.
 2. **Push the new JWKS containing both keys.** The new JSON is `{ "keys": [<old public>, <new public>] }`. Paste it into:
@@ -119,15 +127,17 @@ Default cadence: **12 months**, with a **60-day overlap window**. The window is 
    wrangler secret put SIGNING_JWK --env production
    ```
 
-4. **Wait the overlap window, and move every home onto the new key inside it.** Tokens minted under the old `kid` continue to verify against its public key in the JWKS.
+4. **Hold the old key 90 days from the step 3 push, and move every home onto the new key inside that window.** Tokens minted under the old `kid` continue to verify against its public key in the JWKS. ⚠ The clock starts at step 3, not step 2 — issuance switches with the private key, so starting it at the JWKS push trims early by the whole step 2 to step 3 gap and strands the newest old-`kid` tokens.
 
-   Devices carry themselves across, but not quickly. A mobile re-issues its own 60-day token via `POST /token/refresh` when the token passes 80% of its TTL, which is a token age of 48 days. A device already holding an older token moves sooner; a device whose token was fresh on the day you pushed the new key does not contact the relay for a refresh for another 48 days. **Size the window to that worst case, not to 30 days.** A 30-day window closes with devices still on the old `kid`, and the 30-day post-expiry grace does not save them: once the old key is trimmed, refresh fails because the `kid` is unknown, which the grace has nothing to do with.
+   Devices carry themselves across, but not quickly. A running mobile re-issues its own 60-day token via `POST /token/refresh` at 80% of TTL, a token age of 48 days, so a device whose token was fresh on the day you pushed the key waits 48 days before it even tries.
+
+   ⚠ **The device that decides the window is the one that was switched off**, not the running one above. It comes back inside its 30-day grace still able to refresh, but only while the old `kid` is published. Trim before then and it cannot use the grace at all, because the refusal it meets is an unknown `kid` rather than an expiry. It re-pairs instead, which costs its owner a physical QR ceremony for nothing.
 
    **Homes do not carry themselves across at all.** There is no endpoint that re-issues a service token, no timer in `spl-relay` that touches token lifetime, and a 365-day service token minted under the old `kid` will sit there unexpired long after the window closes. A home moves to the new key only when `POST /enroll/home` is called again ([`../proto/tokens.md`](../proto/tokens.md) §TTLs).
 
    🔴 **You cannot make that call for them, and the reason is not access — it is where the answer goes.** `/enroll/home` returns the new token to whoever sent the request, and nothing forwards it onward. An operator-side call therefore rotates the database row, stamps `rotated_at`, and leaves the home holding its old token: the sweep looks complete and the fleet is stranded. (`GET /admin/instances` does not expose `ca_pubkey_pem` either, but do not lean on that — you own the D1 database and could read it.) What you do instead is get each home to re-enroll itself: on solstone that is the owner disabling and re-enabling the private link, which calls the endpoint with the CA and label the home already holds.
 
-   Then confirm with `GET /admin/instances`. It reports `created_at` and `rotated_at` per instance, and the sweep is done when every non-revoked instance carries one of the two later than the moment you pushed the new private key. Check both: a re-enroll stamps `rotated_at`, while an instance that enrolled for the first time after the push has a null `rotated_at` and is already on the new `kid`. ⚠ `rotated_at` tells you the row changed, not that the home has the new token in hand — it is only the second half of the evidence, and the first half is that the home made the call.
+   Then confirm with `GET /admin/instances`, which takes `Authorization: Bearer <GRANT_SECRET>` like every admin route. It reports `created_at` and `rotated_at` per instance, and the sweep is done when every non-revoked instance carries one of the two later than the moment you pushed the new private key. Check both: a re-enroll stamps `rotated_at`, while an instance that enrolled for the first time after the push has a null `rotated_at` and is already on the new `kid`. ⚠ `rotated_at` tells you the row changed, not that the home has the new token in hand — it is only the second half of the evidence, and the first half is that the home made the call.
 
 5. **Push the trimmed JWKS**, once the window has passed *and* the sweep is complete. New JSON is `{ "keys": [<new public>] }`:
 
@@ -135,9 +145,9 @@ Default cadence: **12 months**, with a **60-day overlap window**. The window is 
    wrangler secret put JWKS_PUBLIC --env production
    ```
 
-   Any straggler token under the old `kid` now fails validation cleanly. That includes at `POST /token/refresh`, which verifies the presented token against this same JWKS: a device that missed the window cannot refresh its way back, because the refresh fails on the check that stranded it. The owner re-pairs that device from the home. The home's CA is untouched, so re-pairing simply mints the device a fresh certificate, and with it a new `cid`. **A home does not recover on its own at all.** It will fail every `/session/listen` open, holding a token that still looks valid to it, until someone enrolls it again. That is why step 4 is a gate and not a wait.
+   Any straggler token under the old `kid` now fails validation cleanly. That includes at `POST /token/refresh`, which verifies the presented token against this same JWKS: a device that missed the window cannot refresh its way back, because the refresh fails on the check that stranded it. The owner re-pairs that device from the home. The home's CA is untouched, so re-pairing simply mints the device a fresh certificate, and with it a new `cid` (the client id, defined in [`../proto/identity.md`](../proto/identity.md)). **A home does not recover on its own at all.** It will fail every `/session/listen` open, holding a token that still looks valid to it, until someone enrolls it again. That is why step 4 is a gate and not a wait.
 
-6. **Archive the old keypair** somewhere offline. Keep it for at least 90 days after the overlap window closes (forensic / replay defense), then destroy it.
+6. **Archive the old keypair** somewhere offline. Keep it for **at least 90 days measured from the step 5 trim** (forensic and replay defense), then destroy it. That retention is a separate clock from the overlap window, and shares its length only by coincidence.
 
 Live tunnels survive a rotation — `JWKS_PUBLIC` and `SIGNING_JWK` updates do not redeploy the Worker, so existing WebSockets aren't disconnected. (If a `wrangler deploy` is also part of the rotation for unrelated reasons, expect every WS to disconnect; clients reconnect within 10 s without re-pair.)
 
@@ -155,7 +165,9 @@ There is **no graceful migration window** on compromise. A migration window exte
    wrangler secret put JWKS_PUBLIC --env production
    ```
 
-   This is the kill switch. Every existing token instantly fails validation — including any minted by the attacker.
+   This is the kill switch. Every existing token instantly fails validation, including any minted by the attacker.
+
+   ⚠ **Run steps 3 and 4 back to back.** Compromise inverts the rotation order deliberately, so between them the relay is still signing under the old `kid` while the JWKS no longer contains it. Anything `/enroll/home`, `/enroll/device` or `/token/refresh` mints in that gap is dead on arrival.
 
 4. **Push the new private key:**
 
@@ -163,7 +175,7 @@ There is **no graceful migration window** on compromise. A migration window exte
    wrangler secret put SIGNING_JWK --env production
    ```
 
-5. **Get every home to re-enroll.** The kill switch invalidates service tokens too, and nothing in the protocol re-issues one. As in rotation step 4, **you cannot make the call for them** — `/enroll/home` hands the new token to its caller, so a call from your side rotates the row and leaves the home holding nothing. Trigger the home-side re-enroll (on solstone, the owner disables and re-enables the private link), then confirm against `GET /admin/instances` that every non-revoked instance has a `rotated_at` (or, for one first enrolled since the kill switch, a `created_at`) later than it. Until that call is made for an instance, its home cannot open `/session/listen` and is unreachable off-LAN. A paired device holding a now-invalid device token is refused at the rendezvous, not at TLS: the relay answers the WebSocket upgrade with `401` carrying an `x-close-code: 4401` header, and `POST /token/refresh` answers `401` without it. Neither is a close frame; the upgrade never completes. The owner re-pairs that device from the home, and the home's own CA is untouched, so the device simply receives a fresh certificate and a new `cid`.
+5. **Get every home to re-enroll.** The kill switch invalidates service tokens too, and nothing in the protocol re-issues one. As in rotation step 4, **you cannot make the call for them** — `/enroll/home` hands the new token to its caller, so a call from your side rotates the row and leaves the home holding nothing. Trigger the home-side re-enroll (on solstone, the owner disables and re-enables the private link), then confirm against `GET /admin/instances` (bearer `GRANT_SECRET`) that every non-revoked instance has a `rotated_at` (or, for one first enrolled since the kill switch, a `created_at`) later than it. Until that call is made for an instance, its home cannot open `/session/listen` and is unreachable off-LAN. A paired device holding a now-invalid device token is refused at the rendezvous, not at TLS: the relay answers the WebSocket upgrade with `401` carrying an `x-close-code: 4401` header, and `POST /token/refresh` answers `401` without it. Neither is a close frame; the upgrade never completes. The owner re-pairs that device from the home, and the home's own CA is untouched, so the device simply receives a fresh certificate and a new `cid`.
 6. **Archive the compromised keypair** with metadata noting compromise, root cause, and remediation. Do not delete — keep for forensic review.
 7. **Self-hoster note.** If you operate your own relay, this runbook is yours to execute, and step 5 is the expensive one: it needs an action at every home and at every device, and none of it can be done from your side. Your users re-pair their devices through the home, and each home has to be made to re-enroll itself — it will not do that on its own against your new key, and you cannot do it for it. There is no sol pbc support path for self-hosted compromise — the trust chain is end-to-end yours.
 
@@ -195,5 +207,5 @@ If you find this document insufficient for your deployment, open an issue on `gi
 
 - [`../proto/tokens.md`](../proto/tokens.md) — the wire format of the JWTs this signing key produces. Required claims, scopes, TTLs, validation contract.
 - [`architecture.md`](architecture.md) — the trust boundaries that explain why the signing key sits where it does and what the blast-radius shape looks like.
-- [`../AGENTS.md`](../AGENTS.md) §3 — the safety-rail invariants for any code that touches signing-key material.
+- [`../AGENTS.md`](../AGENTS.md) §4 — the safety rails for any code that touches signing-key material.
 - [`self-host.md`](self-host.md) — end-to-end self-host walkthrough, with this document linked at the signing-key step.

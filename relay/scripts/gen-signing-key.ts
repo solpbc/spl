@@ -219,7 +219,7 @@ async function main(): Promise<void> {
 			"After provisioning, your spl-relay will serve the public JWKS at",
 			"  https://<your-relay-host>/.well-known/jwks.json",
 			"",
-			"Rotation: see docs/signing-keys.md. Default cadence is 12 months with a 60-day overlap.",
+			"Rotation: see docs/signing-keys.md. Default cadence is 12 months with a 90-day overlap.",
 			"",
 		].join("\n"),
 	);
