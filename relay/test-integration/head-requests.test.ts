@@ -10,6 +10,7 @@ import { describe, expect, it } from "vitest";
 describe("HEAD requests", () => {
 	it.each([
 		["/", 200],
+		["/robots.txt", 200],
 		["/.well-known/jwks.json", 200],
 		["/does-not-exist", 404],
 	])("HEAD %s mirrors the GET status with no body", async (path, status) => {
@@ -20,5 +21,14 @@ describe("HEAD requests", () => {
 		expect(headResponse.status).toBe(getResponse.status);
 		expect(await headResponse.text()).toBe("");
 		expect(headResponse.headers.get("content-type")).toBe(getResponse.headers.get("content-type"));
+	});
+
+	it("serves a disallow-all robots.txt", async () => {
+		const res = await SELF.fetch("http://spl.test/robots.txt");
+		const body = await res.text();
+		expect(res.status).toBe(200);
+		expect(res.headers.get("content-type")).toContain("text/plain");
+		expect(body).toContain("Disallow: /");
+		expect(body).not.toContain("Allow: /");
 	});
 });

@@ -4,6 +4,7 @@
 // Entry point for the spl-relay Worker.
 //
 // Routes:
+//   GET  /robots.txt                — disallow-all (machine endpoint)
 //   GET  /.well-known/jwks.json     — transparency mirror of env.JWKS_PUBLIC
 //   POST /enroll/home               — mint service token, store CA pubkey
 //   POST /enroll/device             — verify home attestation, mint device token
@@ -29,6 +30,12 @@ import { unauthorizedResponse } from "./instance-do";
 import { handleTokenRefresh } from "./refresh";
 
 export { InstanceDO } from "./instance-do";
+
+const ROBOTS = `# Machine endpoint. There is no human reader to serve and nothing to rank.
+
+User-agent: *
+Disallow: /
+`;
 
 async function routeRequest(request: Request, env: Env): Promise<Response> {
 	const url = new URL(request.url);
@@ -87,6 +94,13 @@ async function routeRequest(request: Request, env: Env): Promise<Response> {
 
 	if (request.method === "GET" && url.pathname === "/") {
 		return new Response("spl-relay\n", {
+			status: 200,
+			headers: { "content-type": "text/plain; charset=utf-8" },
+		});
+	}
+
+	if (request.method === "GET" && url.pathname === "/robots.txt") {
+		return new Response(ROBOTS, {
 			status: 200,
 			headers: { "content-type": "text/plain; charset=utf-8" },
 		});
