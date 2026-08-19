@@ -144,7 +144,7 @@ Response:
 
 ⚠ **A home re-enrolling must send its stored `home_label` along with the other two fields.** The re-enroll branch writes the label from the request body and the field is optional, so a call that omits it stores `NULL` and the instance silently loses its label in `GET /admin/instances`. This is a home-implementation requirement: only the home holds both the `ca_pubkey` this call must match and the label it should preserve.
 
-In v1, `/enroll/home` is **rate-limited but not gated** — there's no waitlist, no payment gate. Self-hosted deployments will replace this endpoint or its policy as appropriate.
+In v1, `/enroll/home` is **neither gated nor rate-limited**: no waitlist, no payment gate, and no per-endpoint request limit anywhere in the Worker. ⚠ A deployment that needs one has to put it in front of the Worker, because nothing in this repository provides it. Self-hosted deployments will replace this endpoint or its policy as appropriate.
 
 ### POST `/enroll/device`
 
