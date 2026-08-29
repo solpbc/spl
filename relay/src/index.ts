@@ -11,8 +11,8 @@
 //   POST /admin/entitlement         — grant/revoke paid-tier session access
 //   GET  /admin/instances           — operator inspection: list rendezvous metadata
 //   GET  /admin/instances/<id>      — operator inspection: single instance metadata
-//   POST /internal/purge             — portal-signed owner purge submit/retry
-//   POST /internal/purge/confirm     — portal-signed owner purge confirmation
+//   POST /internal/deletion/purge         — owner-purge v1 relay submit/retry
+//   POST /internal/deletion/purge/confirm — owner-purge v1 relay confirmation
 //   POST /token/refresh             — re-issue a device token from a current/recently-expired one
 //   GET  /session/listen?instance=  — home holds this open indefinitely
 //   GET  /session/dial?instance=    — mobile opens, becomes tunnel WS on pair
@@ -63,10 +63,10 @@ async function routeRequest(request: Request, env: Env): Promise<Response> {
 	if (request.method === "GET" && url.pathname.startsWith("/admin/instances/")) {
 		return handleShowInstance(request, env, url.pathname.slice("/admin/instances/".length));
 	}
-	if (request.method === "POST" && url.pathname === "/internal/purge") {
+	if (request.method === "POST" && url.pathname === "/internal/deletion/purge") {
 		return handlePurge(request, env);
 	}
-	if (request.method === "POST" && url.pathname === "/internal/purge/confirm") {
+	if (request.method === "POST" && url.pathname === "/internal/deletion/purge/confirm") {
 		return handlePurgeConfirm(request, env);
 	}
 	if (request.method === "POST" && url.pathname === "/token/refresh") {
@@ -143,9 +143,9 @@ export default {
 	): Promise<void> {
 		try {
 			const count = await purgeExpiredOperations(env);
-			if (count > 0) log({ event: "purge_expiry_sweep", count });
+			if (count > 0) log({ event: "owner_purge_expiry_sweep", count });
 		} catch {
-			log({ event: "purge_expiry_sweep", reason: "purge_database_error" });
+			log({ event: "owner_purge_expiry_sweep", reason: "owner_purge_database_error" });
 			throw new Error("purge expiry sweep failed");
 		}
 	},

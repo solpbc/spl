@@ -48,13 +48,12 @@ export type LogEvent =
 	| "pending_grant_claimed"
 	| "admin_instances_list"
 	| "admin_instance_show"
-	| "purge_complete"
-	| "purge_retryable"
-	| "purge_rejected"
-	| "purge_expired"
-	| "purge_confirmed"
-	| "purge_expiry_sweep"
-	| "purge_not_complete"
+	| "owner_purge_complete"
+	| "owner_purge_retryable"
+	| "owner_purge_refused"
+	| "owner_purge_expired"
+	| "owner_purge_confirmed"
+	| "owner_purge_expiry_sweep"
 	| "not_entitled"
 	| "internal_error";
 
@@ -98,14 +97,17 @@ type AuthorizedReason =
 	| "attestation_replay"
 	// entitlement
 	| "bad_bearer"
-	// portal purge
-	| "purge_malformed"
-	| "purge_untrusted"
-	| "purge_too_many"
-	| "purge_expired"
-	| "purge_altered_replay"
-	| "purge_database_error"
-	| "purge_not_complete";
+	// canonical owner purge
+	| "owner_purge_malformed"
+	| "owner_purge_bad_integrity"
+	| "owner_purge_wrong_service"
+	| "owner_purge_digest_mismatch"
+	| "owner_purge_instance_limit"
+	| "owner_purge_request_lifetime"
+	| "owner_purge_attestation_lifetime"
+	| "owner_purge_binding_mismatch"
+	| "owner_purge_binding_absent"
+	| "owner_purge_database_error";
 
 export interface LogFields {
 	event: LogEvent;

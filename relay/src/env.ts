@@ -32,15 +32,17 @@ export interface Env {
 	SIGNING_JWK?: string;
 	JWKS_PUBLIC?: string;
 
-	// Portal owner-purge verification JWKS — provisioned via
-	// `wrangler secret put PORTAL_JWKS_PUBLIC`; never committed. JSON envelope
-	// { "keys": [<public Ed25519 JWK>, ...] } used to verify portal-signed
-	// purge and purge-confirm compact JWTs by `kid`.
-	PORTAL_JWKS_PUBLIC?: string;
+	// Canonical owner-purge v1 HMAC keys — provisioned via `wrangler secret put`
+	// and never committed. Both retained key versions must be present while v1
+	// accepts them; they authenticate request, confirmation, and response frames.
+	OWNER_PURGE_HMAC_KEY_V1?: string;
+	OWNER_PURGE_HMAC_KEY_V2?: string;
 
-	// Portal owner-purge internal bearer secret — provisioned via
-	// `wrangler secret put PURGE_SECRET`; never committed. Separate from the
-	// admin grant credential because purge is destructive and irreversible.
+	// Canonical owner-purge v1 internal bearer secret — provisioned via
+	// `wrangler secret put PURGE_SECRET`; never committed. It remains separate
+	// from the admin grant credential because purge is destructive and
+	// irreversible. This existing name/value is retained pending cross-service
+	// confirmation with the account-side implementation; it is not a new secret.
 	PURGE_SECRET?: string;
 
 	// Admin grant endpoint bearer secret — provisioned via

@@ -1,148 +1,147 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) 2026 sol pbc
 
-// Portal owner-purge v1. This control-plane endpoint deliberately persists
-// only opaque-operation and target-snapshot fingerprints; it never resolves
-// or records a portal-owner association.
+// Canonical owner-purge v1 relay endpoint. It retains only opaque operation
+// fingerprints and canonical request digests; it never records an owner
+// association, raw operation id, envelope, integrity value, or target snapshot.
 
 import { INSTANCE_ID_RE, hasValidBearer } from "./entitlement";
 import type { Env } from "./env";
 import { json, readJson } from "./http";
 import { log } from "./logging";
-import { base64UrlDecode, utf8Decode } from "./tokens";
+import { base64UrlDecode, base64UrlEncode } from "./tokens";
 
-const PURGE_ROUTE = "/internal/purge";
-const PURGE_CONFIRM_ROUTE = "/internal/purge/confirm";
+const PURGE_ROUTE = "/internal/deletion/purge";
+const PURGE_CONFIRM_ROUTE = "/internal/deletion/purge/confirm";
 const MAX_PURGE_BODY_BYTES = 32 * 1024;
 const MAX_OPERATION_ID_BYTES = 256;
 const MAX_INSTANCE_IDS = 100;
-const MAX_PURGE_LIFETIME_SECONDS = 7 * 24 * 60 * 60;
-const MAX_CONFIRM_LIFETIME_SECONDS = 5 * 60;
+const PROTOCOL_VERSION = 1;
+const SERVICE = "relay";
+const REQUEST_MAX_LIFETIME_MS = 7 * 24 * 60 * 60 * 1000;
+const ATTESTATION_MAX_LIFETIME_MS = 5 * 60 * 1000;
+const REQUEST_FIELDS = [
+	"version",
+	"key_version",
+	"operation_id",
+	"service",
+	"association_snapshot",
+	"request_digest",
+	"issued_at",
+	"expires_at",
+	"integrity",
+] as const;
+const ATTESTATION_FIELDS = [
+	"version",
+	"key_version",
+	"operation_id",
+	"service",
+	"request_digest",
+	"state",
+	"issued_at",
+	"expires_at",
+	"integrity",
+] as const;
+const BASE64URL_SHA256_RE = /^[A-Za-z0-9_-]{43}$/;
 
-const PORTAL_ISSUER = "spl-portal";
-const PURGE_AUDIENCE = "spl-relay-purge";
-const PROTOCOL_VERSION = "1";
+type KeyVersion = 1 | 2;
+type PurgeDisposition = "retryable" | "complete" | "confirmed" | "expired" | "refused";
+type BindingDisposition = Exclude<PurgeDisposition, "expired" | "refused">;
+type IntegrityKind = "request" | "confirm" | "response";
+type RequestFailure = "malformed" | "digest_mismatch" | "instance_limit" | "lifetime" | "expired";
 
-interface EnvelopeBody {
-	envelope?: unknown;
+interface PurgeKeys {
+	readonly 1: string;
+	readonly 2: string;
 }
 
-interface ConfirmEnvelopeBody {
-	envelope?: unknown;
-	confirmation?: unknown;
+interface RawRequestEnvelope {
+	version: number;
+	key_version: KeyVersion;
+	operation_id: string;
+	service: string;
+	association_snapshot: unknown;
+	request_digest: string;
+	issued_at: number;
+	expires_at: number;
+	integrity: string;
 }
 
-interface CommonClaims {
-	iss: string;
-	aud: string;
-	ver: string;
-	typ: string;
-	op: string;
-	iat: number;
-	exp: number;
+interface RequestEnvelope extends Omit<RawRequestEnvelope, "association_snapshot"> {
+	association_snapshot: { instance_ids: string[] };
 }
 
-export interface PurgeClaims extends CommonClaims {
-	typ: "purge";
-	instances: string[];
+interface AttestationEnvelope {
+	version: number;
+	key_version: KeyVersion;
+	operation_id: string;
+	service: string;
+	request_digest: string;
+	state: string;
+	issued_at: number;
+	expires_at: number;
+	integrity: string;
 }
 
-export interface PurgeConfirmClaims extends CommonClaims {
-	typ: "purge-confirm";
-	snapshot_digest: string;
-	state: "complete";
+interface ResponseContext {
+	keyVersion: KeyVersion;
+	operationId: string;
+	requestDigest: string;
 }
-
-interface PublicJwk {
-	kty: "OKP";
-	crv: "Ed25519";
-	kid: string;
-	x: string;
-	alg?: "EdDSA";
-	use?: "sig";
-}
-
-interface JwksEnvelope {
-	keys: PublicJwk[];
-}
-
-type PurgeOperationState = "retryable" | "complete" | "confirmed";
-type PurgeDisposition =
-	| "complete"
-	| "confirmed"
-	| "retryable"
-	| "expired"
-	| "altered_replay"
-	| "not_complete";
 
 interface PurgeOperation {
 	operation_id_hash: string;
-	snapshot_digest: string;
-	state: PurgeOperationState;
+	request_digest: string;
+	disposition: BindingDisposition;
 	expires_at: number;
 }
 
-type VerifyFailure = "malformed" | "untrusted" | "expired" | "unavailable";
-type VerifyResult<T> = { ok: true; claims: T } | { ok: false; reason: VerifyFailure };
-type CanonicalizeResult =
-	| { ok: true; instances: string[] }
-	| { ok: false; reason: "malformed" | "too_many" };
-
 export function unixNow(): number {
-	return Math.floor(Date.now() / 1000);
+	return Date.now();
 }
 
 export async function handlePurge(request: Request, env: Env, now = unixNow()): Promise<Response> {
-	if (!env.PURGE_SECRET || !env.PORTAL_JWKS_PUBLIC) {
-		return json({ error: "relay not provisioned" }, 503);
-	}
+	const keys = purgeKeys(env);
+	if (!env.PURGE_SECRET || !keys) return unprovisioned();
 	if (!hasValidBearer(request, env.PURGE_SECRET)) {
 		log({ event: "unauthorized", route: PURGE_ROUTE, reason: "bad_bearer" });
 		return json({ error: "unauthorized" }, 401);
 	}
 
-	const body = await envelopeFromRequest(request, MAX_PURGE_BODY_BYTES);
-	if (!body.ok) return refused("purge_malformed", 400);
+	const body = await readJson<unknown>(request, MAX_PURGE_BODY_BYTES);
+	if (!body.ok) return plainRefusal("owner_purge_malformed", 400);
+	const raw = parseRequestEnvelope(body.value);
+	if (!raw) return plainRefusal("owner_purge_malformed", 400);
+	if (raw.service !== SERVICE) return plainRefusal("owner_purge_wrong_service", 400);
 
-	const verified = await verifyPurgeEnvelope(body.envelope, env.PORTAL_JWKS_PUBLIC, now);
-	if (!verified.ok) return verifyFailureResponse(verified.reason);
-
-	const canonical = canonicalizeInstances(verified.claims.instances);
-	if (!canonical.ok) {
-		return canonical.reason === "too_many"
-			? refused("purge_too_many", 400)
-			: refused("purge_malformed", 400);
+	const integrity = await verifyIntegrity(raw, "request", keys);
+	if (!integrity) return plainRefusal("owner_purge_bad_integrity", 401);
+	const context = responseContext(raw);
+	const validated = await validateRequest(raw, now);
+	if (!validated.ok) {
+		if (validated.reason === "expired") return expired(context, keys, 0);
+		return refused(context, keys, requestFailureReason(validated.reason), 400);
 	}
 
-	const operationIdHash = await sha256FingerprintText(verified.claims.op);
-	const snapshotDigest = await sha256FingerprintText(JSON.stringify(canonical.instances));
-
+	const operationHash = await hashOperationId(raw.operation_id);
 	let binding: PurgeOperation | null;
 	try {
-		binding = await loadPurgeOperation(operationIdHash, env);
-		if (!binding) {
-			await env.DB.prepare(
-				"INSERT INTO purge_operations (operation_id_hash, snapshot_digest, state, expires_at) VALUES (?, ?, 'retryable', ?) ON CONFLICT(operation_id_hash) DO NOTHING",
-			)
-				.bind(operationIdHash, snapshotDigest, verified.claims.exp)
-				.run();
-			binding = await loadPurgeOperation(operationIdHash, env);
-		}
+		await env.DB.prepare(
+			"INSERT INTO purge_operations (operation_id_hash, request_digest, disposition, expires_at) VALUES (?, ?, 'retryable', ?) ON CONFLICT(operation_id_hash) DO NOTHING",
+		)
+			.bind(operationHash, raw.request_digest, raw.expires_at)
+			.run();
+		binding = await loadPurgeOperation(operationHash, env);
 	} catch {
-		return retryable(0);
+		return retryable(context, keys, 0);
 	}
 
-	// An insert race cannot normally make this absent. If a concurrent hard
-	// delete did, no deletion has been attempted and the portal can retry.
-	if (!binding) return retryable(0);
-
-	if (now >= binding.expires_at) return expired(canonical.instances.length);
-	if (binding.snapshot_digest !== snapshotDigest) return alteredReplay();
-	if (binding.state === "confirmed") return confirmed();
-	if (binding.state === "complete") return complete(canonical.instances.length);
+	if (!binding) return retryable(context, keys, 0);
+	const settled = await submitBindingResponse(binding, raw, context, keys, now, 0);
+	if (settled) return settled;
 
 	let completed = 0;
-	for (const instanceId of canonical.instances) {
+	for (const instanceId of new Set(validated.instanceIds)) {
 		try {
 			await env.DB.batch([
 				env.DB.prepare("DELETE FROM devices WHERE instance_id = ?").bind(instanceId),
@@ -151,30 +150,28 @@ export async function handlePurge(request: Request, env: Env, now = unixNow()): 
 			]);
 			completed += 1;
 		} catch {
-			return retryable(completed);
+			return retryable(context, keys, completed);
 		}
 	}
 
 	try {
 		const result = await env.DB.prepare(
-			"UPDATE purge_operations SET state = 'complete' WHERE operation_id_hash = ? AND state = 'retryable'",
+			"UPDATE purge_operations SET disposition = 'complete' WHERE operation_id_hash = ? AND disposition = 'retryable'",
 		)
-			.bind(operationIdHash)
+			.bind(operationHash)
 			.run();
 		if (result.meta.changes === 0) {
-			binding = await loadPurgeOperation(operationIdHash, env);
-			if (!binding) return retryable(completed);
-			if (now >= binding.expires_at) return expired(canonical.instances.length);
-			if (binding.snapshot_digest !== snapshotDigest) return alteredReplay();
-			if (binding.state === "confirmed") return confirmed();
-			if (binding.state === "complete") return complete(canonical.instances.length);
-			return retryable(completed);
+			binding = await loadPurgeOperation(operationHash, env);
+			if (!binding) return retryable(context, keys, completed);
+			const raced = await submitBindingResponse(binding, raw, context, keys, now, completed);
+			if (raced) return raced;
+			return retryable(context, keys, completed);
 		}
 	} catch {
-		return retryable(completed);
+		return retryable(context, keys, completed);
 	}
 
-	return complete(canonical.instances.length);
+	return complete(context, keys, completed);
 }
 
 export async function handlePurgeConfirm(
@@ -182,339 +179,115 @@ export async function handlePurgeConfirm(
 	env: Env,
 	now = unixNow(),
 ): Promise<Response> {
-	if (!env.PURGE_SECRET || !env.PORTAL_JWKS_PUBLIC) {
-		return json({ error: "relay not provisioned" }, 503);
-	}
+	const keys = purgeKeys(env);
+	if (!env.PURGE_SECRET || !keys) return unprovisioned();
 	if (!hasValidBearer(request, env.PURGE_SECRET)) {
 		log({ event: "unauthorized", route: PURGE_CONFIRM_ROUTE, reason: "bad_bearer" });
 		return json({ error: "unauthorized" }, 401);
 	}
 
-	const body = await confirmEnvelopesFromRequest(request, MAX_PURGE_BODY_BYTES);
-	if (!body.ok) return refused("purge_malformed", 400);
+	const body = await readJson<unknown>(request, MAX_PURGE_BODY_BYTES);
+	if (!body.ok) return plainRefusal("owner_purge_malformed", 400);
+	const attestation = parseAttestationEnvelope(body.value);
+	if (!attestation) return plainRefusal("owner_purge_malformed", 400);
+	if (attestation.service !== SERVICE) return plainRefusal("owner_purge_wrong_service", 400);
 
-	const original = await verifyPurgeEnvelope(body.envelope, env.PORTAL_JWKS_PUBLIC, now);
-	if (!original.ok) return verifyFailureResponse(original.reason);
-
-	const confirmation = await verifyPurgeConfirmEnvelope(
-		body.confirmation,
-		env.PORTAL_JWKS_PUBLIC,
-		now,
-	);
-	if (!confirmation.ok) return verifyFailureResponse(confirmation.reason);
-
-	const canonical = canonicalizeInstances(original.claims.instances);
-	if (!canonical.ok) {
-		return canonical.reason === "too_many"
-			? refused("purge_too_many", 400)
-			: refused("purge_malformed", 400);
+	const integrity = await verifyIntegrity(attestation, "confirm", keys);
+	if (!integrity) return plainRefusal("owner_purge_bad_integrity", 401);
+	const context = responseContext(attestation);
+	const failure = validateAttestation(attestation, now);
+	if (failure) {
+		if (failure === "expired") return expired(context, keys, 0);
+		return refused(context, keys, attestationFailureReason(failure), 400);
 	}
 
-	const operationIdHash = await sha256FingerprintText(original.claims.op);
-	const snapshotDigest = await sha256FingerprintText(JSON.stringify(canonical.instances));
-	if (
-		confirmation.claims.op !== original.claims.op ||
-		confirmation.claims.snapshot_digest !== snapshotDigest
-	) {
-		return untrusted();
-	}
-
+	const operationHash = await hashOperationId(attestation.operation_id);
 	let binding: PurgeOperation | null;
 	try {
-		binding = await loadPurgeOperation(operationIdHash, env);
+		binding = await loadPurgeOperation(operationHash, env);
 	} catch {
-		return retryable(0);
+		return retryable(context, keys, 0);
 	}
-
-	if (!binding) {
-		return notComplete();
+	if (!binding) return refused(context, keys, "owner_purge_binding_absent", 409);
+	if (now >= binding.expires_at) return expired(context, keys, 0);
+	if (binding.request_digest !== attestation.request_digest) {
+		return refused(context, keys, "owner_purge_binding_mismatch", 409);
 	}
-	if (now >= binding.expires_at) return expired(0);
-	if (binding.snapshot_digest !== snapshotDigest || binding.expires_at !== original.claims.exp) {
-		return alteredReplay();
+	if (binding.disposition === "retryable") {
+		return refused(context, keys, "owner_purge_binding_mismatch", 409);
 	}
-	if (binding.state === "retryable") {
-		return notComplete();
-	}
-	if (binding.state === "confirmed") return confirmed();
+	if (binding.disposition === "confirmed") return confirmed(context, keys);
 
 	try {
 		const result = await env.DB.prepare(
-			"UPDATE purge_operations SET state = 'confirmed' WHERE operation_id_hash = ? AND state = 'complete'",
+			"UPDATE purge_operations SET disposition = 'confirmed' WHERE operation_id_hash = ? AND disposition = 'complete'",
 		)
-			.bind(operationIdHash)
+			.bind(operationHash)
 			.run();
 		if (result.meta.changes === 0) {
-			binding = await loadPurgeOperation(operationIdHash, env);
-			if (!binding || now >= binding.expires_at) return expired(0);
-			if (
-				binding.snapshot_digest !== snapshotDigest ||
-				binding.expires_at !== original.claims.exp
-			) {
-				return alteredReplay();
+			binding = await loadPurgeOperation(operationHash, env);
+			if (!binding) return refused(context, keys, "owner_purge_binding_absent", 409);
+			if (now >= binding.expires_at) return expired(context, keys, 0);
+			if (binding.request_digest !== attestation.request_digest) {
+				return refused(context, keys, "owner_purge_binding_mismatch", 409);
 			}
-			if (binding.state === "confirmed") return confirmed();
-			if (binding.state === "retryable") return notComplete();
-			return retryable(0);
+			if (binding.disposition === "confirmed") return confirmed(context, keys);
+			if (binding.disposition === "retryable") {
+				return refused(context, keys, "owner_purge_binding_mismatch", 409);
+			}
+			return retryable(context, keys, 0);
 		}
 	} catch {
-		return retryable(0);
+		return retryable(context, keys, 0);
 	}
 
-	return confirmed();
+	return confirmed(context, keys);
 }
 
-export async function verifyPurgeEnvelope(
-	envelope: string,
-	jwksRaw: string,
-	now = unixNow(),
-): Promise<VerifyResult<PurgeClaims>> {
-	const verified = await verifyCompactEdDsaJwt(envelope, jwksRaw);
-	if (!verified.ok) return verified;
-	const claims = toCommonClaims(verified.claims);
-	if (!claims) return { ok: false, reason: "untrusted" };
-	if (claims.typ !== "purge" || !Array.isArray(verified.claims.instances)) {
-		return { ok: false, reason: "untrusted" };
+export function canonicalizeOwnerPurgeJson(value: unknown): string {
+	if (value === null) return "null";
+	if (typeof value === "string" || typeof value === "boolean") return JSON.stringify(value);
+	if (typeof value === "number") {
+		if (!Number.isSafeInteger(value))
+			throw new TypeError("owner-purge JSON number must be a safe integer");
+		return JSON.stringify(value);
 	}
-	if (!claimsFresh(claims, now, MAX_PURGE_LIFETIME_SECONDS)) {
-		return { ok: false, reason: claimsExpired(claims, now) ? "expired" : "untrusted" };
-	}
-	return { ok: true, claims: { ...claims, typ: "purge", instances: verified.claims.instances } };
+	if (Array.isArray(value)) return `[${value.map(canonicalizeOwnerPurgeJson).join(",")}]`;
+	if (!isRecord(value)) throw new TypeError("owner-purge JSON value must be JSON");
+	return `{${Object.keys(value)
+		.sort(compareUtf8)
+		.map((key) => `${JSON.stringify(key)}:${canonicalizeOwnerPurgeJson(value[key])}`)
+		.join(",")}}`;
 }
 
-export async function verifyPurgeConfirmEnvelope(
-	envelope: string,
-	jwksRaw: string,
-	now = unixNow(),
-): Promise<VerifyResult<PurgeConfirmClaims>> {
-	const verified = await verifyCompactEdDsaJwt(envelope, jwksRaw);
-	if (!verified.ok) return verified;
-	const claims = toCommonClaims(verified.claims);
-	if (
-		!claims ||
-		claims.typ !== "purge-confirm" ||
-		"instances" in verified.claims ||
-		typeof verified.claims.snapshot_digest !== "string" ||
-		!/^sha256:[0-9a-f]{64}$/.test(verified.claims.snapshot_digest) ||
-		verified.claims.state !== "complete"
-	) {
-		return { ok: false, reason: "untrusted" };
-	}
-	if (!claimsFresh(claims, now, MAX_CONFIRM_LIFETIME_SECONDS)) {
-		return { ok: false, reason: claimsExpired(claims, now) ? "expired" : "untrusted" };
-	}
-	return {
-		ok: true,
-		claims: {
-			...claims,
-			typ: "purge-confirm",
-			snapshot_digest: verified.claims.snapshot_digest,
-			state: "complete",
-		},
-	};
+export function ownerPurgeIntegrityFrame(
+	domain: string,
+	canonicalWithoutIntegrity: string,
+): Uint8Array {
+	const encoder = new TextEncoder();
+	const domainBytes = encoder.encode(domain);
+	const bodyBytes = encoder.encode(canonicalWithoutIntegrity);
+	const frame = new Uint8Array(16 + domainBytes.byteLength + bodyBytes.byteLength);
+	frame.set(uint64be(domainBytes.byteLength), 0);
+	frame.set(domainBytes, 8);
+	frame.set(uint64be(bodyBytes.byteLength), 8 + domainBytes.byteLength);
+	frame.set(bodyBytes, 16 + domainBytes.byteLength);
+	return frame;
 }
 
-export function canonicalizeInstances(instances: unknown): CanonicalizeResult {
-	if (!Array.isArray(instances)) return { ok: false, reason: "malformed" };
-	for (const instanceId of instances) {
-		if (typeof instanceId !== "string" || !INSTANCE_ID_RE.test(instanceId)) {
-			return { ok: false, reason: "malformed" };
-		}
-	}
-	const canonical = Array.from(new Set(instances)).sort();
-	if (canonical.length > MAX_INSTANCE_IDS) return { ok: false, reason: "too_many" };
-	return { ok: true, instances: canonical };
-}
-
-export async function sha256FingerprintText(text: string): Promise<string> {
-	const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
-	const hex = Array.from(new Uint8Array(hash), (byte) => byte.toString(16).padStart(2, "0")).join(
-		"",
-	);
-	return `sha256:${hex}`;
-}
-
-async function envelopeFromRequest(
-	request: Request,
-	maxBytes: number,
-): Promise<{ ok: true; envelope: string } | { ok: false }> {
-	const read = await readJson<EnvelopeBody>(request, maxBytes);
-	if (!read.ok || typeof read.value !== "object" || read.value === null) return { ok: false };
-	if (typeof read.value.envelope !== "string") return { ok: false };
-	return { ok: true, envelope: read.value.envelope };
-}
-
-async function confirmEnvelopesFromRequest(
-	request: Request,
-	maxBytes: number,
-): Promise<{ ok: true; envelope: string; confirmation: string } | { ok: false }> {
-	const read = await readJson<ConfirmEnvelopeBody>(request, maxBytes);
-	if (!read.ok || typeof read.value !== "object" || read.value === null) return { ok: false };
-	if (
-		typeof read.value.envelope !== "string" ||
-		!read.value.envelope ||
-		typeof read.value.confirmation !== "string" ||
-		!read.value.confirmation
-	) {
-		return { ok: false };
-	}
-	return { ok: true, envelope: read.value.envelope, confirmation: read.value.confirmation };
-}
-
-async function verifyCompactEdDsaJwt(
-	envelope: string,
-	jwksRaw: string,
-): Promise<VerifyResult<Record<string, unknown>>> {
-	const parts = envelope.split(".");
-	if (parts.length !== 3) return { ok: false, reason: "malformed" };
-	const [headerB64, payloadB64, signatureB64] = parts;
-
-	let header: { alg?: unknown; kid?: unknown };
-	let claims: unknown;
-	try {
-		header = JSON.parse(utf8Decode(base64UrlDecode(headerB64))) as { alg?: unknown; kid?: unknown };
-		claims = JSON.parse(utf8Decode(base64UrlDecode(payloadB64))) as unknown;
-	} catch {
-		return { ok: false, reason: "malformed" };
-	}
-	if (
-		header.alg !== "EdDSA" ||
-		typeof header.kid !== "string" ||
-		!header.kid ||
-		typeof claims !== "object" ||
-		claims === null ||
-		Array.isArray(claims)
-	) {
-		return { ok: false, reason: "malformed" };
-	}
-
-	const jwks = parsePortalJwks(jwksRaw);
-	if (!jwks) return { ok: false, reason: "unavailable" };
-	const jwk = jwks.keys.find((key) => key.kid === header.kid);
-	if (!jwk) return { ok: false, reason: "untrusted" };
-
-	let signature: Uint8Array;
-	try {
-		signature = base64UrlDecode(signatureB64);
-	} catch {
-		return { ok: false, reason: "malformed" };
-	}
-
-	let key: CryptoKey;
-	try {
-		key = await crypto.subtle.importKey(
-			"jwk",
-			{ kty: jwk.kty, crv: jwk.crv, x: jwk.x },
-			{ name: "Ed25519" },
-			false,
-			["verify"],
-		);
-	} catch {
-		return { ok: false, reason: "unavailable" };
-	}
-
-	let valid: boolean;
-	try {
-		valid = await crypto.subtle.verify(
-			"Ed25519",
-			key,
-			signature,
-			new TextEncoder().encode(`${headerB64}.${payloadB64}`),
-		);
-	} catch {
-		return { ok: false, reason: "untrusted" };
-	}
-	if (!valid) return { ok: false, reason: "untrusted" };
-	return { ok: true, claims: claims as Record<string, unknown> };
-}
-
-function parsePortalJwks(raw: string): JwksEnvelope | null {
-	try {
-		const parsed = JSON.parse(raw) as unknown;
-		if (
-			typeof parsed !== "object" ||
-			parsed === null ||
-			!Array.isArray((parsed as { keys?: unknown }).keys)
-		) {
-			return null;
-		}
-		const keys = (parsed as { keys: unknown[] }).keys;
-		if (!keys.length || !keys.every(isPortalPublicJwk)) return null;
-		const kids = new Set(keys.map((key) => (key as PublicJwk).kid));
-		if (kids.size !== keys.length) return null;
-		return { keys: keys as PublicJwk[] };
-	} catch {
-		return null;
-	}
-}
-
-function isPortalPublicJwk(value: unknown): value is PublicJwk {
-	if (typeof value !== "object" || value === null) return false;
-	const jwk = value as Record<string, unknown>;
-	return (
-		jwk.kty === "OKP" &&
-		jwk.crv === "Ed25519" &&
-		typeof jwk.kid === "string" &&
-		jwk.kid.length > 0 &&
-		typeof jwk.x === "string" &&
-		jwk.x.length > 0 &&
-		(jwk.alg === undefined || jwk.alg === "EdDSA") &&
-		(jwk.use === undefined || jwk.use === "sig")
-	);
-}
-
-function toCommonClaims(claims: Record<string, unknown>): CommonClaims | null {
-	if (
-		claims.iss !== PORTAL_ISSUER ||
-		claims.aud !== PURGE_AUDIENCE ||
-		claims.ver !== PROTOCOL_VERSION ||
-		typeof claims.typ !== "string" ||
-		typeof claims.op !== "string" ||
-		!claims.op ||
-		new TextEncoder().encode(claims.op).byteLength > MAX_OPERATION_ID_BYTES ||
-		!isSafeUnixSecond(claims.iat) ||
-		!isSafeUnixSecond(claims.exp)
-	) {
-		return null;
-	}
-	return {
-		iss: claims.iss,
-		aud: claims.aud,
-		ver: claims.ver,
-		typ: claims.typ,
-		op: claims.op,
-		iat: claims.iat,
-		exp: claims.exp,
-	};
-}
-
-function isSafeUnixSecond(value: unknown): value is number {
-	return typeof value === "number" && Number.isSafeInteger(value);
-}
-
-function claimsFresh(claims: CommonClaims, now: number, maxLifetimeSeconds: number): boolean {
-	return (
-		claims.iat <= now &&
-		claims.exp > claims.iat &&
-		claims.exp > now &&
-		claims.exp - claims.iat <= maxLifetimeSeconds
-	);
-}
-
-function claimsExpired(claims: CommonClaims, now: number): boolean {
-	return claims.exp <= now;
-}
-
-async function loadPurgeOperation(
-	operationIdHash: string,
-	env: Env,
-): Promise<PurgeOperation | null> {
-	const row = await env.DB.prepare(
-		"SELECT operation_id_hash, snapshot_digest, state, expires_at FROM purge_operations WHERE operation_id_hash = ?",
-	)
-		.bind(operationIdHash)
-		.first<PurgeOperation>();
-	return row ?? null;
+export async function ownerPurgeRequestDigest(
+	version: number,
+	keyVersion: number,
+	service: string,
+	associationSnapshot: unknown,
+): Promise<string> {
+	const canonical = canonicalizeOwnerPurgeJson({
+		version,
+		key_version: keyVersion,
+		service,
+		association_snapshot: associationSnapshot,
+	});
+	return sha256Base64Url(new TextEncoder().encode(canonical));
 }
 
 export async function purgeExpiredOperations(env: Env, now = unixNow()): Promise<number> {
@@ -524,60 +297,353 @@ export async function purgeExpiredOperations(env: Env, now = unixNow()): Promise
 	return result.meta.changes;
 }
 
-function protocol(disposition: PurgeDisposition, status = 200): Response {
-	return json({ ver: PROTOCOL_VERSION, disposition }, status);
+function parseRequestEnvelope(value: unknown): RawRequestEnvelope | null {
+	const record = exactRecord(value, REQUEST_FIELDS);
+	const common = record ? commonEnvelopeFields(record) : null;
+	if (!record || !common) return null;
+	return { ...common, association_snapshot: record.association_snapshot };
 }
 
-function refused(reason: "purge_malformed" | "purge_too_many", status: number): Response {
-	log({ event: "purge_rejected", reason });
-	return json(
-		{
-			ver: PROTOCOL_VERSION,
-			disposition: "refused",
-			reason: reason === "purge_too_many" ? "too_many" : "malformed",
-		},
-		status,
+function parseAttestationEnvelope(value: unknown): AttestationEnvelope | null {
+	const record = exactRecord(value, ATTESTATION_FIELDS);
+	const common = record ? commonEnvelopeFields(record) : null;
+	if (!record || !common || typeof record.state !== "string") return null;
+	return { ...common, state: record.state };
+}
+
+function commonEnvelopeFields(
+	record: Record<string, unknown>,
+): Omit<RawRequestEnvelope, "association_snapshot"> | null {
+	if (
+		!isSafeInteger(record.version) ||
+		!isKeyVersion(record.key_version) ||
+		typeof record.operation_id !== "string" ||
+		typeof record.service !== "string" ||
+		typeof record.request_digest !== "string" ||
+		!isSafeInteger(record.issued_at) ||
+		!isSafeInteger(record.expires_at) ||
+		typeof record.integrity !== "string"
+	) {
+		return null;
+	}
+	return {
+		version: record.version,
+		key_version: record.key_version,
+		operation_id: record.operation_id,
+		service: record.service,
+		request_digest: record.request_digest,
+		issued_at: record.issued_at,
+		expires_at: record.expires_at,
+		integrity: record.integrity,
+	};
+}
+
+async function validateRequest(
+	raw: RawRequestEnvelope,
+	now: number,
+): Promise<{ ok: true; instanceIds: string[] } | { ok: false; reason: RequestFailure }> {
+	if (
+		!isRecord(raw.association_snapshot) ||
+		!exactKeys(raw.association_snapshot, ["instance_ids"])
+	) {
+		return { ok: false, reason: "malformed" };
+	}
+	const instanceIds = raw.association_snapshot.instance_ids;
+	if (!Array.isArray(instanceIds)) return { ok: false, reason: "malformed" };
+	const expectedDigest = await ownerPurgeRequestDigest(
+		raw.version,
+		raw.key_version,
+		raw.service,
+		raw.association_snapshot,
 	);
+	if (!BASE64URL_SHA256_RE.test(raw.request_digest) || raw.request_digest !== expectedDigest) {
+		return { ok: false, reason: "digest_mismatch" };
+	}
+	if (instanceIds.length > MAX_INSTANCE_IDS) return { ok: false, reason: "instance_limit" };
+	if (
+		!instanceIds.every(
+			(instanceId) => typeof instanceId === "string" && INSTANCE_ID_RE.test(instanceId),
+		)
+	) {
+		return { ok: false, reason: "malformed" };
+	}
+	if (!validOperationId(raw.operation_id)) return { ok: false, reason: "malformed" };
+	if (raw.version !== PROTOCOL_VERSION) return { ok: false, reason: "malformed" };
+	if (raw.expires_at <= now) return { ok: false, reason: "expired" };
+	if (!validLifetime(raw.issued_at, raw.expires_at, now, REQUEST_MAX_LIFETIME_MS)) {
+		return { ok: false, reason: "lifetime" };
+	}
+	return { ok: true, instanceIds: instanceIds as string[] };
 }
 
-function verifyFailureResponse(reason: VerifyFailure): Response {
-	if (reason === "unavailable") return json({ error: "relay not provisioned" }, 503);
-	if (reason === "expired") return expired(0);
-	if (reason === "malformed") return refused("purge_malformed", 400);
-	return untrusted();
+function validateAttestation(attestation: AttestationEnvelope, now: number): RequestFailure | null {
+	if (
+		!validOperationId(attestation.operation_id) ||
+		!BASE64URL_SHA256_RE.test(attestation.request_digest)
+	) {
+		return "malformed";
+	}
+	if (attestation.version !== PROTOCOL_VERSION || attestation.state !== "complete")
+		return "malformed";
+	if (attestation.expires_at <= now) return "expired";
+	if (
+		!validLifetime(attestation.issued_at, attestation.expires_at, now, ATTESTATION_MAX_LIFETIME_MS)
+	) {
+		return "lifetime";
+	}
+	return null;
 }
 
-function untrusted(): Response {
-	log({ event: "purge_rejected", reason: "purge_untrusted" });
-	return json({ ver: PROTOCOL_VERSION, disposition: "refused", reason: "untrusted" }, 401);
+async function verifyIntegrity(
+	envelope: RawRequestEnvelope | AttestationEnvelope,
+	kind: Exclude<IntegrityKind, "response">,
+	keys: PurgeKeys,
+): Promise<boolean> {
+	let supplied: Uint8Array;
+	try {
+		supplied = base64UrlDecode(envelope.integrity);
+	} catch {
+		return false;
+	}
+	if (supplied.byteLength !== 32) return false;
+	const frame = ownerPurgeIntegrityFrame(domain(kind), canonicalWithoutIntegrity(envelope));
+	let matchingVersion: KeyVersion | null = null;
+	for (const version of [1, 2] as const) {
+		const expected = await hmacSha256(frame, keys[version]);
+		if (crypto.subtle.timingSafeEqual(expected, supplied)) matchingVersion = version;
+	}
+	return matchingVersion === envelope.key_version;
 }
 
-function complete(count: number): Response {
-	log({ event: "purge_complete", count });
-	return protocol("complete");
+async function submitBindingResponse(
+	binding: PurgeOperation,
+	request: Pick<RawRequestEnvelope, "request_digest" | "expires_at">,
+	context: ResponseContext,
+	keys: PurgeKeys,
+	now: number,
+	count: number,
+): Promise<Response | null> {
+	if (now >= binding.expires_at) return expired(context, keys, count);
+	if (
+		binding.request_digest !== request.request_digest ||
+		binding.expires_at !== request.expires_at
+	) {
+		return refused(context, keys, "owner_purge_binding_mismatch", 409);
+	}
+	if (binding.disposition === "confirmed") return confirmed(context, keys);
+	if (binding.disposition === "complete") return complete(context, keys, count);
+	return null;
 }
 
-function confirmed(): Response {
-	log({ event: "purge_confirmed" });
-	return protocol("confirmed");
+async function loadPurgeOperation(
+	operationIdHash: string,
+	env: Env,
+): Promise<PurgeOperation | null> {
+	const row = await env.DB.prepare(
+		"SELECT operation_id_hash, request_digest, disposition, expires_at FROM purge_operations WHERE operation_id_hash = ?",
+	)
+		.bind(operationIdHash)
+		.first<PurgeOperation>();
+	return row ?? null;
 }
 
-function notComplete(): Response {
-	log({ event: "purge_not_complete", reason: "purge_not_complete" });
-	return protocol("not_complete", 409);
+async function hashOperationId(operationId: string): Promise<string> {
+	return sha256Base64Url(new TextEncoder().encode(operationId));
 }
 
-function retryable(count: number): Response {
-	log({ event: "purge_retryable", count, reason: "purge_database_error" });
-	return protocol("retryable", 503);
+async function sha256Base64Url(bytes: Uint8Array): Promise<string> {
+	return base64UrlEncode(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)));
 }
 
-function expired(count: number): Response {
-	log({ event: "purge_expired", count, reason: "purge_expired" });
-	return protocol("expired", 409);
+async function signedResponse(
+	context: ResponseContext,
+	keys: PurgeKeys,
+	disposition: PurgeDisposition,
+	status: number,
+): Promise<Response> {
+	const unsigned = {
+		version: PROTOCOL_VERSION,
+		key_version: context.keyVersion,
+		service: SERVICE,
+		operation_id: context.operationId,
+		request_digest: context.requestDigest,
+		disposition,
+	};
+	const integrity = base64UrlEncode(
+		await hmacSha256(
+			ownerPurgeIntegrityFrame(domain("response"), canonicalizeOwnerPurgeJson(unsigned)),
+			keys[context.keyVersion],
+		),
+	);
+	return json({ ...unsigned, integrity }, status);
 }
 
-function alteredReplay(): Response {
-	log({ event: "purge_rejected", reason: "purge_altered_replay" });
-	return protocol("altered_replay", 409);
+async function complete(
+	context: ResponseContext,
+	keys: PurgeKeys,
+	count: number,
+): Promise<Response> {
+	log({ event: "owner_purge_complete", count });
+	return signedResponse(context, keys, "complete", 200);
+}
+
+async function confirmed(context: ResponseContext, keys: PurgeKeys): Promise<Response> {
+	log({ event: "owner_purge_confirmed" });
+	return signedResponse(context, keys, "confirmed", 200);
+}
+
+async function retryable(
+	context: ResponseContext,
+	keys: PurgeKeys,
+	count: number,
+): Promise<Response> {
+	log({ event: "owner_purge_retryable", count, reason: "owner_purge_database_error" });
+	return signedResponse(context, keys, "retryable", 503);
+}
+
+async function expired(
+	context: ResponseContext,
+	keys: PurgeKeys,
+	count: number,
+): Promise<Response> {
+	log({ event: "owner_purge_expired", count });
+	return signedResponse(context, keys, "expired", 409);
+}
+
+async function refused(
+	context: ResponseContext,
+	keys: PurgeKeys,
+	reason:
+		| "owner_purge_malformed"
+		| "owner_purge_digest_mismatch"
+		| "owner_purge_instance_limit"
+		| "owner_purge_request_lifetime"
+		| "owner_purge_attestation_lifetime"
+		| "owner_purge_binding_mismatch"
+		| "owner_purge_binding_absent",
+	status: number,
+): Promise<Response> {
+	log({ event: "owner_purge_refused", reason });
+	return signedResponse(context, keys, "refused", status);
+}
+
+function unprovisioned(): Response {
+	return json({ error: "relay not provisioned" }, 503);
+}
+
+function plainRefusal(
+	reason: "owner_purge_malformed" | "owner_purge_bad_integrity" | "owner_purge_wrong_service",
+	status: number,
+): Response {
+	log({ event: "owner_purge_refused", reason });
+	return json({ error: status === 401 ? "unauthorized" : "bad request" }, status);
+}
+
+function responseContext(envelope: RawRequestEnvelope | AttestationEnvelope): ResponseContext {
+	return {
+		keyVersion: envelope.key_version,
+		operationId: envelope.operation_id,
+		requestDigest: envelope.request_digest,
+	};
+}
+
+function canonicalWithoutIntegrity(envelope: RawRequestEnvelope | AttestationEnvelope): string {
+	const { integrity: _integrity, ...unsigned } = envelope;
+	return canonicalizeOwnerPurgeJson(unsigned);
+}
+
+function domain(kind: IntegrityKind): string {
+	return `solpbc-owner-purge-v1:${SERVICE}:${kind}`;
+}
+
+function purgeKeys(env: Env): PurgeKeys | null {
+	if (!env.OWNER_PURGE_HMAC_KEY_V1 || !env.OWNER_PURGE_HMAC_KEY_V2) return null;
+	return { 1: env.OWNER_PURGE_HMAC_KEY_V1, 2: env.OWNER_PURGE_HMAC_KEY_V2 };
+}
+
+async function hmacSha256(frame: Uint8Array, keyText: string): Promise<Uint8Array> {
+	const key = await crypto.subtle.importKey(
+		"raw",
+		new TextEncoder().encode(keyText),
+		{ name: "HMAC", hash: "SHA-256" },
+		false,
+		["sign"],
+	);
+	return new Uint8Array(await crypto.subtle.sign("HMAC", key, frame));
+}
+
+function uint64be(value: number): Uint8Array {
+	const view = new DataView(new ArrayBuffer(8));
+	view.setBigUint64(0, BigInt(value), false);
+	return new Uint8Array(view.buffer);
+}
+
+function exactRecord(value: unknown, fields: readonly string[]): Record<string, unknown> | null {
+	if (!isRecord(value) || !exactKeys(value, fields)) return null;
+	return value;
+}
+
+function exactKeys(value: Record<string, unknown>, fields: readonly string[]): boolean {
+	const keys = Object.keys(value);
+	return keys.length === fields.length && fields.every((field) => Object.hasOwn(value, field));
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isSafeInteger(value: unknown): value is number {
+	return typeof value === "number" && Number.isSafeInteger(value);
+}
+
+function isKeyVersion(value: unknown): value is KeyVersion {
+	return value === 1 || value === 2;
+}
+
+function validOperationId(value: string): boolean {
+	return value.length > 0 && new TextEncoder().encode(value).byteLength <= MAX_OPERATION_ID_BYTES;
+}
+
+function validLifetime(
+	issuedAt: number,
+	expiresAt: number,
+	now: number,
+	maxLifetime: number,
+): boolean {
+	return issuedAt <= now && expiresAt > issuedAt && expiresAt - issuedAt <= maxLifetime;
+}
+
+function requestFailureReason(
+	failure: Exclude<RequestFailure, "expired">,
+):
+	| "owner_purge_malformed"
+	| "owner_purge_digest_mismatch"
+	| "owner_purge_instance_limit"
+	| "owner_purge_request_lifetime" {
+	switch (failure) {
+		case "malformed":
+			return "owner_purge_malformed";
+		case "digest_mismatch":
+			return "owner_purge_digest_mismatch";
+		case "instance_limit":
+			return "owner_purge_instance_limit";
+		case "lifetime":
+			return "owner_purge_request_lifetime";
+	}
+}
+
+function attestationFailureReason(
+	failure: Exclude<RequestFailure, "expired">,
+): "owner_purge_malformed" | "owner_purge_attestation_lifetime" {
+	return failure === "lifetime" ? "owner_purge_attestation_lifetime" : "owner_purge_malformed";
+}
+
+function compareUtf8(left: string, right: string): number {
+	const leftBytes = new TextEncoder().encode(left);
+	const rightBytes = new TextEncoder().encode(right);
+	const shared = Math.min(leftBytes.length, rightBytes.length);
+	for (let index = 0; index < shared; index += 1) {
+		if (leftBytes[index] !== rightBytes[index]) return leftBytes[index] - rightBytes[index];
+	}
+	return leftBytes.length - rightBytes.length;
 }
