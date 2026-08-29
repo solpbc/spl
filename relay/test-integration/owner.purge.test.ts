@@ -451,6 +451,48 @@ describe("portal purge routes", () => {
 		expect(await purgeBinding(operation)).toMatchObject({ state: "retryable" });
 	});
 
+	it("garbage-collects a stale complete binding before a submit replay", async () => {
+		const operation = `stale-complete-${crypto.randomUUID()}`;
+		const instances = [newId(), newId()];
+		const requestNow = 2_000_000_000;
+		const expiresAt = requestNow + 300;
+
+		for (const instanceId of instances) {
+			await seedInstance(instanceId);
+		}
+		await seedBinding(
+			operation,
+			instances,
+			"complete",
+			expiresAt,
+			requestNow - 7 * DAY - 1,
+		);
+		const envelope = await signPurge(instances, {
+			op: operation,
+			iat: requestNow,
+			exp: expiresAt,
+		});
+
+		expect(
+			await outcome(
+				await handlePurge(
+					serviceRequest("/internal/purge", envelope),
+					handlerEnv(),
+					requestNow,
+				),
+			),
+		).toEqual({ status: 200, disposition: "complete" });
+		for (const instanceId of instances) {
+			expect(await rowCount("instances", instanceId)).toBe(0);
+			expect(await rowCount("devices", instanceId)).toBe(0);
+			expect(await rowCount("pending_grants", instanceId)).toBe(0);
+		}
+		expect(await purgeBinding(operation)).toEqual({
+			state: "complete",
+			completed_at: requestNow,
+		});
+	});
+
 	it("deletes a complete binding before replying to confirmation and preserves retryable bindings", async () => {
 		const target = newId();
 		const targetInstances = [target];
