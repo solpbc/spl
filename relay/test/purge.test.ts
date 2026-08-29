@@ -38,6 +38,8 @@ function confirmClaims(overrides: Record<string, unknown> = {}): Record<string, 
 		ver: "1",
 		typ: "purge-confirm",
 		op: "unit-purge-operation",
+		snapshot_digest: `sha256:${"a".repeat(64)}`,
+		state: "complete",
 		iat: NOW - 60,
 		exp: NOW + 300,
 		...overrides,
@@ -147,6 +149,19 @@ describe("portal purge compact EdDSA JWT validation", () => {
 			ok: false,
 			reason: "untrusted",
 		});
+
+		const { snapshot_digest: _snapshotDigest, ...missingSnapshotDigestClaims } = confirmClaims();
+		for (const claims of [
+			missingSnapshotDigestClaims,
+			confirmClaims({ snapshot_digest: "0".repeat(64) }),
+			confirmClaims({ state: "retryable" }),
+		]) {
+			const envelope = await signClaims(keypair.privateJwkRaw, claims);
+			expect(await verifyPurgeConfirmEnvelope(envelope, keypair.jwksPublicRaw, NOW)).toEqual({
+				ok: false,
+				reason: "untrusted",
+			});
+		}
 	});
 
 	it("verifies every static v1 fixture without committing its private key", async () => {
@@ -158,28 +173,53 @@ describe("portal purge compact EdDSA JWT validation", () => {
 			"expired_purge",
 			"too_many_instances",
 			"tampered_signature",
+			"legacy_confirm_refused",
 			"valid_confirm",
 			"confirm_replay",
 			"confirm_retryable",
-			"confirm_after_hard_delete",
+			"confirm_original_expired",
 			"fault_then_retry",
 		]);
 
 		for (const vector of fixture.vectors) {
-			const result =
-				vector.route === "purge"
-					? await verifyPurgeEnvelope(vector.envelope, fixture.portal_jwks_public, fixture.now)
-					: await verifyPurgeConfirmEnvelope(
-							vector.envelope,
-							fixture.portal_jwks_public,
-							fixture.now,
-						);
-			if (vector.name === "expired_purge") {
-				expect(result).toEqual({ ok: false, reason: "expired" });
-			} else if (vector.name === "tampered_signature") {
-				expect(result).toEqual({ ok: false, reason: "untrusted" });
+			if (vector.route === "purge") {
+				const result = await verifyPurgeEnvelope(
+					vector.envelope,
+					fixture.portal_jwks_public,
+					fixture.now,
+				);
+				if (vector.name === "expired_purge") {
+					expect(result).toEqual({ ok: false, reason: "expired" });
+				} else if (vector.name === "tampered_signature") {
+					expect(result).toEqual({ ok: false, reason: "untrusted" });
+				} else {
+					expect(result).toMatchObject({ ok: true });
+				}
+				continue;
+			}
+
+			if (!("confirmation" in vector) || typeof vector.confirmation !== "string") {
+				throw new Error(`confirm fixture missing confirmation: ${vector.name}`);
+			}
+			const original = await verifyPurgeEnvelope(
+				vector.envelope,
+				fixture.portal_jwks_public,
+				fixture.now,
+			);
+			const confirmation = await verifyPurgeConfirmEnvelope(
+				vector.confirmation,
+				fixture.portal_jwks_public,
+				fixture.now,
+			);
+			if (vector.name === "legacy_confirm_refused") {
+				expect(original).toMatchObject({ ok: true });
+				expect(confirmation).toEqual({ ok: false, reason: "untrusted" });
+			} else if (vector.name === "confirm_original_expired") {
+				expect(original).toEqual({ ok: false, reason: "expired" });
+				expect(confirmation).toMatchObject({ ok: true });
 			} else {
-				expect(result).toMatchObject({ ok: true });
+				expect(original).toMatchObject({ ok: true });
+				expect(confirmation).toMatchObject({ ok: true });
 			}
 		}
 	});

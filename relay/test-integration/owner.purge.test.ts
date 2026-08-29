@@ -5,7 +5,12 @@ import { SELF, env } from "cloudflare:test";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import fixture from "../../proto/purge-v1-fixtures.json";
 import type { Env } from "../src/env";
-import { handlePurge, handlePurgeConfirm, sha256FingerprintText } from "../src/purge";
+import {
+	canonicalizeInstances,
+	handlePurge,
+	handlePurgeConfirm,
+	sha256FingerprintText,
+} from "../src/purge";
 import { signClaims, tamperCompactJwsSignature } from "../test/fixtures";
 import { applyRelayD1Migrations } from "./apply-migrations";
 
@@ -31,6 +36,7 @@ interface FixtureVector {
 	instances?: string[];
 	control?: string;
 	op?: string;
+	confirmation?: string;
 }
 
 const vectors = fixture.vectors as FixtureVector[];
@@ -82,6 +88,7 @@ function dynamicPurgeClaims(
 
 function dynamicConfirmClaims(
 	op: string,
+	snapshotDigest: string,
 	overrides: Record<string, unknown> = {},
 ): Record<string, unknown> {
 	const issuedAt = now();
@@ -91,6 +98,8 @@ function dynamicConfirmClaims(
 		ver: "1",
 		typ: "purge-confirm",
 		op,
+		snapshot_digest: snapshotDigest,
+		state: "complete",
 		iat: issuedAt,
 		exp: issuedAt + 300,
 		...overrides,
@@ -104,8 +113,15 @@ async function signPurge(
 	return signClaims(env.PORTAL_TEST_SIGNING_JWK, dynamicPurgeClaims(instances, overrides));
 }
 
-async function signConfirm(op: string, overrides: Record<string, unknown> = {}): Promise<string> {
-	return signClaims(env.PORTAL_TEST_SIGNING_JWK, dynamicConfirmClaims(op, overrides));
+async function signConfirm(
+	op: string,
+	snapshotDigest: string,
+	overrides: Record<string, unknown> = {},
+): Promise<string> {
+	return signClaims(
+		env.PORTAL_TEST_SIGNING_JWK,
+		dynamicConfirmClaims(op, snapshotDigest, overrides),
+	);
 }
 
 function serviceRequest(path: string, envelope: string, bearer = env.PURGE_SECRET): Request {
@@ -116,6 +132,21 @@ function serviceRequest(path: string, envelope: string, bearer = env.PURGE_SECRE
 			"content-type": "application/json",
 		},
 		body: JSON.stringify({ envelope }),
+	});
+}
+
+function confirmServiceRequest(
+	envelope: string,
+	confirmation: string,
+	bearer = env.PURGE_SECRET,
+): Request {
+	return new Request("http://spl.test/internal/purge/confirm", {
+		method: "POST",
+		headers: {
+			Authorization: `Bearer ${bearer}`,
+			"content-type": "application/json",
+		},
+		body: JSON.stringify({ envelope, confirmation }),
 	});
 }
 
@@ -136,6 +167,21 @@ async function post(path: string, envelope: string, bearer = env.PURGE_SECRET): 
 			"content-type": "application/json",
 		},
 		body: JSON.stringify({ envelope }),
+	});
+}
+
+async function postConfirm(
+	envelope: string,
+	confirmation: string,
+	bearer = env.PURGE_SECRET,
+): Promise<Response> {
+	return SELF.fetch("http://spl.test/internal/purge/confirm", {
+		method: "POST",
+		headers: {
+			Authorization: `Bearer ${bearer}`,
+			"content-type": "application/json",
+		},
+		body: JSON.stringify({ envelope, confirmation }),
 	});
 }
 
@@ -204,15 +250,19 @@ async function purgeBinding(
 
 async function seedBinding(
 	op: string,
+	instances: string[],
 	state: "retryable" | "complete",
 	expiresAt: number,
 	completedAt: number | null,
 ): Promise<void> {
 	const hash = await sha256FingerprintText(op);
+	const canonical = canonicalizeInstances(instances);
+	if (!canonical.ok) throw new Error("seed binding instances must be canonicalizable");
+	const snapshotDigest = await sha256FingerprintText(JSON.stringify(canonical.instances));
 	await env.DB.prepare(
 		"INSERT INTO purge_operations (operation_id_hash, snapshot_digest, state, expires_at, completed_at) VALUES (?, ?, ?, ?, ?)",
 	)
-		.bind(hash, `sha256:${"e".repeat(64)}`, state, expiresAt, completedAt)
+		.bind(hash, snapshotDigest, state, expiresAt, completedAt)
 		.run();
 }
 
@@ -403,82 +453,190 @@ describe("portal purge routes", () => {
 
 	it("deletes a complete binding before replying to confirmation and preserves retryable bindings", async () => {
 		const target = newId();
+		const targetInstances = [target];
 		await seedInstance(target);
 		const operation = `confirm-${crypto.randomUUID()}`;
-		const envelope = await signPurge([target], { op: operation });
+		const envelope = await signPurge(targetInstances, { op: operation });
 		expect((await post("/internal/purge", envelope)).status).toBe(200);
-		const confirmation = await signConfirm(operation);
+		const targetDigest = await sha256FingerprintText(JSON.stringify(targetInstances));
+		const confirmation = await signConfirm(operation, targetDigest);
 
-		expect(await outcome(await post("/internal/purge/confirm", confirmation))).toEqual({
+		expect(await outcome(await postConfirm(envelope, confirmation))).toEqual({
 			status: 200,
 			disposition: "complete",
 		});
 		expect(await purgeBinding(operation)).toBeNull();
-		expect(await outcome(await post("/internal/purge/confirm", confirmation))).toEqual({
+		expect(await outcome(await postConfirm(envelope, confirmation))).toEqual({
 			status: 200,
 			disposition: "confirmed_absent",
 		});
 
 		const retryOperation = `retryable-confirm-${crypto.randomUUID()}`;
-		await seedBinding(retryOperation, "retryable", now() + 300, null);
+		const retryInstances: string[] = [];
+		const retryIssuedAt = now();
+		const retryExpiry = retryIssuedAt + 300;
+		const retryEnvelope = await signPurge(retryInstances, {
+			op: retryOperation,
+			iat: retryIssuedAt,
+			exp: retryExpiry,
+		});
+		const retryDigest = await sha256FingerprintText(JSON.stringify(retryInstances));
+		await seedBinding(retryOperation, retryInstances, "retryable", retryExpiry, null);
 		expect(
-			await outcome(await post("/internal/purge/confirm", await signConfirm(retryOperation))),
+			await outcome(
+				await postConfirm(
+					retryEnvelope,
+					await signConfirm(retryOperation, retryDigest, {
+						iat: retryIssuedAt,
+						exp: retryExpiry,
+					}),
+				),
+			),
 		).toEqual({ status: 409, disposition: "not_complete" });
 		expect(await purgeBinding(retryOperation)).toMatchObject({ state: "retryable" });
 	});
 
-	it("refuses malformed, tampered, and expired confirmations before changing a complete binding", async () => {
+	it("refuses malformed, tampered, and expired original or confirmation before changing a complete binding", async () => {
 		const operation = `confirm-refusal-${crypto.randomUUID()}`;
-		await seedBinding(operation, "complete", now() + 300, now());
-		const confirmation = await signConfirm(operation);
-		const [header, payload] = confirmation.split(".");
-		const malformedSignature = `${header}.${payload}.!`;
-		expect(await outcome(await post("/internal/purge/confirm", malformedSignature))).toEqual({
+		const instances: string[] = [];
+		const issuedAt = now();
+		const expiry = issuedAt + 300;
+		const digest = await sha256FingerprintText(JSON.stringify(instances));
+		await seedBinding(operation, instances, "complete", expiry, issuedAt);
+		const envelope = await signPurge(instances, { op: operation, iat: issuedAt, exp: expiry });
+		const confirmation = await signConfirm(operation, digest, { iat: issuedAt, exp: expiry });
+		const assertBindingIntact = async (): Promise<void> => {
+			expect(await purgeBinding(operation)).toMatchObject({ state: "complete" });
+		};
+		expect(await outcome(await postConfirm("", confirmation))).toEqual({
 			status: 400,
 			disposition: "refused",
 		});
-		expect(await purgeBinding(operation)).toMatchObject({ state: "complete" });
+		await assertBindingIntact();
+		const [header, payload] = confirmation.split(".");
+		const malformedSignature = `${header}.${payload}.!`;
+		expect(await outcome(await postConfirm(envelope, malformedSignature))).toEqual({
+			status: 400,
+			disposition: "refused",
+		});
+		await assertBindingIntact();
 
 		const tampered = tamperCompactJwsSignature(confirmation);
 		expect(tampered).not.toBe(confirmation);
-		expect(await outcome(await post("/internal/purge/confirm", tampered))).toEqual({
+		expect(await outcome(await postConfirm(envelope, tampered))).toEqual({
 			status: 401,
 			disposition: "refused",
 		});
-		expect(await purgeBinding(operation)).toMatchObject({ state: "complete" });
+		await assertBindingIntact();
 
-		const expired = await signConfirm(operation, { iat: now() - 120, exp: now() - 1 });
-		expect(await outcome(await post("/internal/purge/confirm", expired))).toEqual({
+		const expired = await signConfirm(operation, digest, {
+			iat: issuedAt - 120,
+			exp: issuedAt - 1,
+		});
+		expect(await outcome(await postConfirm(envelope, expired))).toEqual({
 			status: 409,
 			disposition: "expired",
 		});
-		expect(await purgeBinding(operation)).toMatchObject({ state: "complete" });
+		await assertBindingIntact();
+
+		const [originalHeader, originalPayload] = envelope.split(".");
+		const malformedOriginal = `${originalHeader}.${originalPayload}.!`;
+		expect(await outcome(await postConfirm(malformedOriginal, confirmation))).toEqual({
+			status: 400,
+			disposition: "refused",
+		});
+		await assertBindingIntact();
+
+		const tamperedOriginal = tamperCompactJwsSignature(envelope);
+		expect(await outcome(await postConfirm(tamperedOriginal, confirmation))).toEqual({
+			status: 401,
+			disposition: "refused",
+		});
+		await assertBindingIntact();
+
+		const expiredOriginal = await signPurge(instances, {
+			op: operation,
+			iat: issuedAt - 8 * DAY,
+			exp: issuedAt - DAY,
+		});
+		expect(await outcome(await postConfirm(expiredOriginal, confirmation))).toEqual({
+			status: 409,
+			disposition: "expired",
+		});
+		await assertBindingIntact();
 	});
 
-	it("lazily hard-deletes completed bindings after seven days", async () => {
-		const operation = `old-complete-${crypto.randomUUID()}`;
+	it("refuses an expired original before touching a hard-delete-eligible complete binding", async () => {
+		const operation = `expired-original-${crypto.randomUUID()}`;
 		const then = 2_000_000_000;
-		await seedBinding(operation, "complete", then + 300, then - 7 * DAY - 1);
-		const confirmation = await signClaims(env.PORTAL_TEST_SIGNING_JWK, {
-			iss: "spl-portal",
-			aud: "spl-relay-purge",
-			ver: "1",
-			typ: "purge-confirm",
+		const instances: string[] = [];
+		const originalIssuedAt = then - 8 * DAY;
+		const originalExpiry = originalIssuedAt + 7 * DAY;
+		const digest = await sha256FingerprintText(JSON.stringify(instances));
+		await seedBinding(operation, instances, "complete", originalExpiry, then - 7 * DAY - 1);
+		const envelope = await signPurge(instances, {
 			op: operation,
-			iat: then,
-			exp: then + 300,
+			iat: originalIssuedAt,
+			exp: originalExpiry,
 		});
+		const confirmation = await signConfirm(operation, digest, { iat: then - 60, exp: then + 300 });
 
 		expect(
 			await outcome(
-				await handlePurgeConfirm(
-					serviceRequest("/internal/purge/confirm", confirmation),
-					handlerEnv(),
-					then,
+				await handlePurgeConfirm(confirmServiceRequest(envelope, confirmation), handlerEnv(), then),
+			),
+		).toEqual({ status: 409, disposition: "expired" });
+		expect(await purgeBinding(operation)).toMatchObject({ state: "complete" });
+	});
+
+	it("refuses a fresh envelope that mismatches a stale retryable binding expiry", async () => {
+		const operation = `stale-confirm-${crypto.randomUUID()}`;
+		const instances = [newId()];
+		const issuedAt = now();
+		const freshExpiry = issuedAt + 300;
+		const digest = await sha256FingerprintText(JSON.stringify(instances));
+		await seedBinding(operation, instances, "retryable", issuedAt - 1, null);
+		const envelope = await signPurge(instances, { op: operation, iat: issuedAt, exp: freshExpiry });
+		const confirmation = await signConfirm(operation, digest, { iat: issuedAt, exp: freshExpiry });
+
+		expect(await outcome(await postConfirm(envelope, confirmation))).toEqual({
+			status: 409,
+			disposition: "altered_replay",
+		});
+		expect(await purgeBinding(operation)).toMatchObject({ state: "retryable" });
+	});
+
+	it("refuses mismatched confirmation operation and snapshot before mutating D1", async () => {
+		const operation = `cross-check-${crypto.randomUUID()}`;
+		const instances = [newId()];
+		const issuedAt = now();
+		const expiry = issuedAt + 300;
+		const digest = await sha256FingerprintText(JSON.stringify(instances));
+		const envelope = await signPurge(instances, { op: operation, iat: issuedAt, exp: expiry });
+
+		expect(
+			await outcome(
+				await postConfirm(
+					envelope,
+					await signConfirm(`${operation}-other`, digest, { iat: issuedAt, exp: expiry }),
 				),
 			),
-		).toEqual({ status: 200, disposition: "confirmed_absent" });
-		expect(await purgeBinding(operation)).toBeNull();
+		).toEqual({ status: 401, disposition: "refused" });
+		expect(
+			await outcome(
+				await postConfirm(
+					envelope,
+					await signConfirm(operation, `sha256:${"b".repeat(64)}`, {
+						iat: issuedAt,
+						exp: expiry,
+					}),
+				),
+			),
+		).toEqual({ status: 401, disposition: "refused" });
+		const binding = await env.DB.prepare("SELECT COUNT(*) AS count FROM purge_operations").first<{
+			count: number;
+		}>();
+		expect(binding?.count).toBe(0);
 	});
 });
 
@@ -490,10 +648,15 @@ describe("portal purge v1 fixture", () => {
 		for (const instanceId of [...valid.instances, valid.control]) await seedInstance(instanceId);
 
 		const invoke = async (vector: FixtureVector, targetEnv = staticEnv): Promise<Response> => {
-			const request = serviceRequest(
-				vector.route === "purge" ? "/internal/purge" : "/internal/purge/confirm",
-				vector.envelope,
-			);
+			const request =
+				vector.route === "purge"
+					? serviceRequest("/internal/purge", vector.envelope)
+					: (() => {
+							if (!vector.confirmation) {
+								throw new Error(`confirm fixture missing confirmation: ${vector.name}`);
+							}
+							return confirmServiceRequest(vector.envelope, vector.confirmation);
+						})();
 			return vector.route === "purge"
 				? handlePurge(request, targetEnv, fixture.now)
 				: handlePurgeConfirm(request, targetEnv, fixture.now);
@@ -531,6 +694,10 @@ describe("portal purge v1 fixture", () => {
 			await invoke(fixtureVector("tampered_signature")),
 		);
 		await expectVector(
+			fixtureVector("legacy_confirm_refused"),
+			await invoke(fixtureVector("legacy_confirm_refused")),
+		);
+		await expectVector(
 			fixtureVector("valid_confirm"),
 			await invoke(fixtureVector("valid_confirm")),
 		);
@@ -541,15 +708,23 @@ describe("portal purge v1 fixture", () => {
 		);
 
 		const retryableConfirm = fixtureVector("confirm_retryable");
-		if (!retryableConfirm.op) throw new Error("retryable fixture setup missing");
-		await seedBinding(retryableConfirm.op, "retryable", fixture.now + 300, null);
+		if (!retryableConfirm.op || !retryableConfirm.instances) {
+			throw new Error("retryable fixture setup missing");
+		}
+		await seedBinding(
+			retryableConfirm.op,
+			retryableConfirm.instances,
+			"retryable",
+			fixture.now + 300,
+			null,
+		);
 		await expectVector(retryableConfirm, await invoke(retryableConfirm));
 
-		const oldConfirm = fixtureVector("confirm_after_hard_delete");
-		if (!oldConfirm.op) throw new Error("old-complete fixture setup missing");
-		await seedBinding(oldConfirm.op, "complete", fixture.now + 300, fixture.now - 7 * DAY - 1);
-		await expectVector(oldConfirm, await invoke(oldConfirm));
-		expect(await purgeBinding(oldConfirm.op)).toBeNull();
+		const expiredOriginal = fixtureVector("confirm_original_expired");
+		if (!expiredOriginal.op) throw new Error("expired fixture setup missing");
+		expect(await purgeBinding(expiredOriginal.op)).toBeNull();
+		await expectVector(expiredOriginal, await invoke(expiredOriginal));
+		expect(await purgeBinding(expiredOriginal.op)).toBeNull();
 
 		const fault = fixtureVector("fault_then_retry");
 		if (!fault.instances) throw new Error("fault fixture setup missing");
@@ -579,7 +754,7 @@ describe("portal purge log hygiene", () => {
 		const envelope = await signPurge([instanceA, instanceB], { op: rawOperation });
 		const operationHash = await sha256FingerprintText(rawOperation);
 		const snapshotDigest = await sha256FingerprintText(JSON.stringify([instanceA, instanceB]));
-		const confirmation = await signConfirm(rawOperation);
+		const confirmation = await signConfirm(rawOperation, snapshotDigest);
 		const spy = vi.spyOn(console, "log").mockImplementation(() => {});
 
 		try {
@@ -600,7 +775,7 @@ describe("portal purge log hygiene", () => {
 			expect(
 				await outcome(
 					await handlePurgeConfirm(
-						serviceRequest("/internal/purge/confirm", confirmation),
+						confirmServiceRequest(envelope, confirmation),
 						handlerEnv(),
 						now(),
 					),
@@ -623,6 +798,7 @@ describe("portal purge log hygiene", () => {
 				ticket,
 				owner,
 				envelope,
+				confirmation,
 				"purge-batch-failure-canary",
 			]) {
 				expect(raw).not.toContain(canary);
