@@ -14,7 +14,6 @@ import { base64UrlDecode, utf8Decode } from "./tokens";
 const PURGE_ROUTE = "/internal/purge";
 const PURGE_CONFIRM_ROUTE = "/internal/purge/confirm";
 const MAX_PURGE_BODY_BYTES = 32 * 1024;
-const MAX_PURGE_CONFIRM_BODY_BYTES = 8 * 1024;
 const MAX_OPERATION_ID_BYTES = 256;
 const MAX_INSTANCE_IDS = 100;
 const MAX_PURGE_LIFETIME_SECONDS = 7 * 24 * 60 * 60;
@@ -27,6 +26,11 @@ const PROTOCOL_VERSION = "1";
 
 interface EnvelopeBody {
 	envelope?: unknown;
+}
+
+interface ConfirmEnvelopeBody {
+	envelope?: unknown;
+	confirmation?: unknown;
 }
 
 interface CommonClaims {
@@ -46,6 +50,8 @@ export interface PurgeClaims extends CommonClaims {
 
 export interface PurgeConfirmClaims extends CommonClaims {
 	typ: "purge-confirm";
+	snapshot_digest: string;
+	state: "complete";
 }
 
 interface PublicJwk {
@@ -173,13 +179,35 @@ export async function handlePurgeConfirm(
 		return json({ error: "unauthorized" }, 401);
 	}
 
-	const body = await envelopeFromRequest(request, MAX_PURGE_CONFIRM_BODY_BYTES);
+	const body = await confirmEnvelopesFromRequest(request, MAX_PURGE_BODY_BYTES);
 	if (!body.ok) return refused("purge_malformed", 400);
 
-	const verified = await verifyPurgeConfirmEnvelope(body.envelope, env.PORTAL_JWKS_PUBLIC, now);
-	if (!verified.ok) return verifyFailureResponse(verified.reason);
+	const original = await verifyPurgeEnvelope(body.envelope, env.PORTAL_JWKS_PUBLIC, now);
+	if (!original.ok) return verifyFailureResponse(original.reason);
 
-	const operationIdHash = await sha256FingerprintText(verified.claims.op);
+	const confirmation = await verifyPurgeConfirmEnvelope(
+		body.confirmation,
+		env.PORTAL_JWKS_PUBLIC,
+		now,
+	);
+	if (!confirmation.ok) return verifyFailureResponse(confirmation.reason);
+
+	const canonical = canonicalizeInstances(original.claims.instances);
+	if (!canonical.ok) {
+		return canonical.reason === "too_many"
+			? refused("purge_too_many", 400)
+			: refused("purge_malformed", 400);
+	}
+
+	const operationIdHash = await sha256FingerprintText(original.claims.op);
+	const snapshotDigest = await sha256FingerprintText(JSON.stringify(canonical.instances));
+	if (
+		confirmation.claims.op !== original.claims.op ||
+		confirmation.claims.snapshot_digest !== snapshotDigest
+	) {
+		return untrusted();
+	}
+
 	let binding: PurgeOperation | null;
 	try {
 		binding = await loadPurgeOperation(operationIdHash, now, env);
@@ -191,8 +219,10 @@ export async function handlePurgeConfirm(
 		log({ event: "purge_confirmed_absent" });
 		return protocol("confirmed_absent");
 	}
+	if (binding.snapshot_digest !== snapshotDigest || binding.expires_at !== original.claims.exp) {
+		return alteredReplay();
+	}
 	if (binding.state === "retryable") {
-		if (now >= binding.expires_at) return expired(0);
 		log({ event: "purge_not_complete", reason: "purge_not_complete" });
 		return protocol("not_complete", 409);
 	}
@@ -235,13 +265,28 @@ export async function verifyPurgeConfirmEnvelope(
 	const verified = await verifyCompactEdDsaJwt(envelope, jwksRaw);
 	if (!verified.ok) return verified;
 	const claims = toCommonClaims(verified.claims);
-	if (!claims || claims.typ !== "purge-confirm" || "instances" in verified.claims) {
+	if (
+		!claims ||
+		claims.typ !== "purge-confirm" ||
+		"instances" in verified.claims ||
+		typeof verified.claims.snapshot_digest !== "string" ||
+		!/^sha256:[0-9a-f]{64}$/.test(verified.claims.snapshot_digest) ||
+		verified.claims.state !== "complete"
+	) {
 		return { ok: false, reason: "untrusted" };
 	}
 	if (!claimsFresh(claims, now, MAX_CONFIRM_LIFETIME_SECONDS)) {
 		return { ok: false, reason: claimsExpired(claims, now) ? "expired" : "untrusted" };
 	}
-	return { ok: true, claims: { ...claims, typ: "purge-confirm" } };
+	return {
+		ok: true,
+		claims: {
+			...claims,
+			typ: "purge-confirm",
+			snapshot_digest: verified.claims.snapshot_digest,
+			state: "complete",
+		},
+	};
 }
 
 export function canonicalizeInstances(instances: unknown): CanonicalizeResult {
@@ -272,6 +317,23 @@ async function envelopeFromRequest(
 	if (!read.ok || typeof read.value !== "object" || read.value === null) return { ok: false };
 	if (typeof read.value.envelope !== "string") return { ok: false };
 	return { ok: true, envelope: read.value.envelope };
+}
+
+async function confirmEnvelopesFromRequest(
+	request: Request,
+	maxBytes: number,
+): Promise<{ ok: true; envelope: string; confirmation: string } | { ok: false }> {
+	const read = await readJson<ConfirmEnvelopeBody>(request, maxBytes);
+	if (!read.ok || typeof read.value !== "object" || read.value === null) return { ok: false };
+	if (
+		typeof read.value.envelope !== "string" ||
+		!read.value.envelope ||
+		typeof read.value.confirmation !== "string" ||
+		!read.value.confirmation
+	) {
+		return { ok: false };
+	}
+	return { ok: true, envelope: read.value.envelope, confirmation: read.value.confirmation };
 }
 
 async function verifyCompactEdDsaJwt(
@@ -464,6 +526,10 @@ function verifyFailureResponse(reason: VerifyFailure): Response {
 	if (reason === "unavailable") return json({ error: "relay not provisioned" }, 503);
 	if (reason === "expired") return expired(0);
 	if (reason === "malformed") return refused("purge_malformed", 400);
+	return untrusted();
+}
+
+function untrusted(): Response {
 	log({ event: "purge_rejected", reason: "purge_untrusted" });
 	return json({ ver: PROTOCOL_VERSION, disposition: "refused", reason: "untrusted" }, 401);
 }
