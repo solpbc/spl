@@ -67,6 +67,18 @@ export async function signClaims(
 	return `${headerB64}.${payloadB64}.${base64UrlEncode(new Uint8Array(sig))}`;
 }
 
+// Mutate a character in the first full base64url quantum of a compact JWS
+// signature. Do not use the final encoded character: its low padding bits can
+// be decode-irrelevant for a 64-byte Ed25519 signature.
+export function tamperCompactJwsSignature(envelope: string): string {
+	const parts = envelope.split(".");
+	if (parts.length !== 3 || parts[2].length < 5) throw new Error("unexpected compact JWS");
+	const index = 4;
+	const signature = parts[2];
+	const replacement = signature[index] === "A" ? "B" : "A";
+	return `${parts[0]}.${parts[1]}.${signature.slice(0, index)}${replacement}${signature.slice(index + 1)}`;
+}
+
 export interface CaKeypair {
 	pubPem: string;
 	privateKey: CryptoKey;

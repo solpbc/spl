@@ -18,7 +18,12 @@ const { privateJwkRaw, jwksPublicRaw } = await genSigningKeypair();
 export default defineWorkersConfig({
 	test: {
 		include: ["test-integration/**/*.test.ts"],
-		exclude: [...configDefaults.exclude, "**/*.gate.test.ts", "**/*.presence.test.ts"],
+		exclude: [
+			...configDefaults.exclude,
+			"**/*.gate.test.ts",
+			"**/*.presence.test.ts",
+			"**/*.purge.test.ts",
+		],
 		poolOptions: {
 			workers: {
 				main: "./src/index.ts",
