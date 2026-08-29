@@ -32,6 +32,17 @@ export interface Env {
 	SIGNING_JWK?: string;
 	JWKS_PUBLIC?: string;
 
+	// Portal owner-purge verification JWKS — provisioned via
+	// `wrangler secret put PORTAL_JWKS_PUBLIC`; never committed. JSON envelope
+	// { "keys": [<public Ed25519 JWK>, ...] } used to verify portal-signed
+	// purge and purge-confirm compact JWTs by `kid`.
+	PORTAL_JWKS_PUBLIC?: string;
+
+	// Portal owner-purge internal bearer secret — provisioned via
+	// `wrangler secret put PURGE_SECRET`; never committed. Separate from the
+	// admin grant credential because purge is destructive and irreversible.
+	PURGE_SECRET?: string;
+
 	// Admin grant endpoint bearer secret — provisioned via
 	// `wrangler secret put GRANT_SECRET`; never committed.
 	GRANT_SECRET?: string;

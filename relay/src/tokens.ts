@@ -289,6 +289,6 @@ function utf8Encode(s: string): Uint8Array {
 	return new TextEncoder().encode(s);
 }
 
-function utf8Decode(bytes: Uint8Array): string {
+export function utf8Decode(bytes: Uint8Array): string {
 	return new TextDecoder("utf-8").decode(bytes);
 }

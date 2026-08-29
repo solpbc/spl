@@ -48,6 +48,13 @@ export type LogEvent =
 	| "pending_grant_claimed"
 	| "admin_instances_list"
 	| "admin_instance_show"
+	| "purge_complete"
+	| "purge_retryable"
+	| "purge_rejected"
+	| "purge_expired"
+	| "purge_confirmed"
+	| "purge_confirmed_absent"
+	| "purge_not_complete"
 	| "not_entitled"
 	| "internal_error";
 
@@ -90,7 +97,15 @@ type AuthorizedReason =
 	| "instance_revoked"
 	| "attestation_replay"
 	// entitlement
-	| "bad_bearer";
+	| "bad_bearer"
+	// portal purge
+	| "purge_malformed"
+	| "purge_untrusted"
+	| "purge_too_many"
+	| "purge_expired"
+	| "purge_altered_replay"
+	| "purge_database_error"
+	| "purge_not_complete";
 
 export interface LogFields {
 	event: LogEvent;

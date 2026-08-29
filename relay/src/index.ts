@@ -11,6 +11,8 @@
 //   POST /admin/entitlement         — grant/revoke paid-tier session access
 //   GET  /admin/instances           — operator inspection: list rendezvous metadata
 //   GET  /admin/instances/<id>      — operator inspection: single instance metadata
+//   POST /internal/purge             — portal-signed owner purge submit/retry
+//   POST /internal/purge/confirm     — portal-signed owner purge confirmation
 //   POST /token/refresh             — re-issue a device token from a current/recently-expired one
 //   GET  /session/listen?instance=  — home holds this open indefinitely
 //   GET  /session/dial?instance=    — mobile opens, becomes tunnel WS on pair
@@ -27,6 +29,7 @@ import { handleEnrollDevice, handleEnrollHome } from "./enroll";
 import { handleListInstances, handleSetEntitlement, handleShowInstance } from "./entitlement";
 import type { Env } from "./env";
 import { unauthorizedResponse } from "./instance-do";
+import { handlePurge, handlePurgeConfirm } from "./purge";
 import { handleTokenRefresh } from "./refresh";
 
 export { InstanceDO } from "./instance-do";
@@ -58,6 +61,12 @@ async function routeRequest(request: Request, env: Env): Promise<Response> {
 	}
 	if (request.method === "GET" && url.pathname.startsWith("/admin/instances/")) {
 		return handleShowInstance(request, env, url.pathname.slice("/admin/instances/".length));
+	}
+	if (request.method === "POST" && url.pathname === "/internal/purge") {
+		return handlePurge(request, env);
+	}
+	if (request.method === "POST" && url.pathname === "/internal/purge/confirm") {
+		return handlePurgeConfirm(request, env);
 	}
 	if (request.method === "POST" && url.pathname === "/token/refresh") {
 		return handleTokenRefresh(request, env);
