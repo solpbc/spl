@@ -23,6 +23,7 @@ export default defineWorkersConfig({
 			"**/*.gate.test.ts",
 			"**/*.presence.test.ts",
 			"**/owner-purge.test.ts",
+			"**/owner-purge.contract.test.ts",
 		],
 		poolOptions: {
 			workers: {

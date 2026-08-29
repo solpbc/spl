@@ -1,0 +1,153 @@
+{
+  "fixture_id": "solpbc-owner-purge-wire-v1",
+  "version": 1,
+  "routes": {
+    "purge": "/internal/deletion/purge",
+    "confirm": "/internal/deletion/purge/confirm"
+  },
+  "canonicalization": {
+    "json": "recursive JSON; object keys sorted by UTF-8 bytes; arrays retain supplied order; no whitespace",
+    "request_digest": "base64url(SHA-256(UTF-8(canonical_json({version,key_version,service,association_snapshot}))))",
+    "integrity_framing": "uint64be(length(UTF-8(domain))) || UTF-8(domain) || uint64be(length(UTF-8(canonical_json_without_integrity))) || UTF-8(canonical_json_without_integrity)"
+  },
+  "integrity": {
+    "algorithm": "HMAC-SHA-256/base64url",
+    "key_versions": {
+      "current": 2,
+      "retained": [1, 2]
+    },
+    "non_production_test_keys_utf8": {
+      "1": "owner-purge-v1-fixture-test-key",
+      "2": "owner-purge-v2-fixture-test-key"
+    },
+    "domains": {
+      "request": "solpbc-owner-purge-v1:<service>:request",
+      "confirm": "solpbc-owner-purge-v1:<service>:confirm",
+      "response": "solpbc-owner-purge-v1:<service>:response"
+    }
+  },
+  "time_bounds_ms": {
+    "request_max_lifetime": 604800000,
+    "attestation_max_lifetime": 300000,
+    "future_issue_skew": 0
+  },
+  "request_fields": ["version", "key_version", "operation_id", "service", "association_snapshot", "request_digest", "issued_at", "expires_at", "integrity"],
+  "attestation_fields": ["version", "key_version", "operation_id", "service", "request_digest", "state", "issued_at", "expires_at", "integrity"],
+  "response_fields": ["version", "key_version", "service", "operation_id", "request_digest", "disposition", "integrity"],
+  "wire_transcripts": [
+    {
+      "name": "relay_retained_key_v1_first_confirmation_and_lost_response_retry",
+      "service": "relay",
+      "request_received_at": 2000000000050,
+      "attestation_received_at": 2000000000150,
+      "request_canonical_without_integrity": "{\"association_snapshot\":{\"instance_ids\":[\"00000000-0000-4000-8000-000000000001\",\"00000000-0000-4000-8000-000000000002\"]},\"expires_at\":2000000300000,\"issued_at\":2000000000000,\"key_version\":1,\"operation_id\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\",\"request_digest\":\"ou_NS2c8cDEtGWNwlKWjQ3lwxlWcBWu8pTlV2ql20i4\",\"service\":\"relay\",\"version\":1}",
+      "request": {
+        "version": 1,
+        "key_version": 1,
+        "operation_id": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "service": "relay",
+        "association_snapshot": {"instance_ids": ["00000000-0000-4000-8000-000000000001", "00000000-0000-4000-8000-000000000002"]},
+        "request_digest": "ou_NS2c8cDEtGWNwlKWjQ3lwxlWcBWu8pTlV2ql20i4",
+        "issued_at": 2000000000000,
+        "expires_at": 2000000300000,
+        "integrity": "pM1F4bARL-0ncsRvNTmFadoIwYZSXjFB0LdKTar_gG8"
+      },
+      "attestation_canonical_without_integrity": "{\"expires_at\":2000000000200,\"issued_at\":2000000000100,\"key_version\":1,\"operation_id\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\",\"request_digest\":\"ou_NS2c8cDEtGWNwlKWjQ3lwxlWcBWu8pTlV2ql20i4\",\"service\":\"relay\",\"state\":\"complete\",\"version\":1}",
+      "attestation": {"version": 1, "key_version": 1, "operation_id": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "service": "relay", "request_digest": "ou_NS2c8cDEtGWNwlKWjQ3lwxlWcBWu8pTlV2ql20i4", "state": "complete", "issued_at": 2000000000100, "expires_at": 2000000000200, "integrity": "EASTL6YsY8nmeiH_CPHl9wR5FYwl_yHOHTDJyAPCB7Q"},
+      "submit_response_canonical_without_integrity": "{\"disposition\":\"complete\",\"key_version\":1,\"operation_id\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\",\"request_digest\":\"ou_NS2c8cDEtGWNwlKWjQ3lwxlWcBWu8pTlV2ql20i4\",\"service\":\"relay\",\"version\":1}",
+      "submit_response": {"version": 1, "key_version": 1, "service": "relay", "operation_id": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "request_digest": "ou_NS2c8cDEtGWNwlKWjQ3lwxlWcBWu8pTlV2ql20i4", "disposition": "complete", "integrity": "GDx9R3GjvPKKGU3G1hqLp3XkI0KtNXShRFfy8SdNBQs"},
+      "response_canonical_without_integrity": "{\"disposition\":\"confirmed\",\"key_version\":1,\"operation_id\":\"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\",\"request_digest\":\"ou_NS2c8cDEtGWNwlKWjQ3lwxlWcBWu8pTlV2ql20i4\",\"service\":\"relay\",\"version\":1}",
+      "response": {"version": 1, "key_version": 1, "service": "relay", "operation_id": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA", "request_digest": "ou_NS2c8cDEtGWNwlKWjQ3lwxlWcBWu8pTlV2ql20i4", "disposition": "confirmed", "integrity": "wsP76AE19RNm2z7f372Q3LFLCZ2-2EtHVvYq88IN7hU"},
+      "expected_submit": "complete",
+      "expected_confirm": "confirmed",
+      "expected_confirm_retry": "confirmed"
+    },
+    {
+      "name": "support_retained_key_v1_first_confirmation_and_lost_response_retry",
+      "service": "support",
+      "request_received_at": 2000000000050,
+      "attestation_received_at": 2000000000150,
+      "request_canonical_without_integrity": "{\"association_snapshot\":{\"portal_principal\":\"fixture-principal-1\",\"verified_emails\":[\"alpha@example.test\",\"beta@example.test\"]},\"expires_at\":2000000300000,\"issued_at\":2000000000000,\"key_version\":1,\"operation_id\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"request_digest\":\"ExwmO-fH8vGk2HhLblV64fK_ff7GUAw4JgFS02G3aes\",\"service\":\"support\",\"version\":1}",
+      "request": {
+        "version": 1,
+        "key_version": 1,
+        "operation_id": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+        "service": "support",
+        "association_snapshot": {"portal_principal": "fixture-principal-1", "verified_emails": ["alpha@example.test", "beta@example.test"]},
+        "request_digest": "ExwmO-fH8vGk2HhLblV64fK_ff7GUAw4JgFS02G3aes",
+        "issued_at": 2000000000000,
+        "expires_at": 2000000300000,
+        "integrity": "gyuHYS1sf8Nq1koRcZUjseNvFKyUYrTQpPNm7OoavSY"
+      },
+      "attestation_canonical_without_integrity": "{\"expires_at\":2000000000200,\"issued_at\":2000000000100,\"key_version\":1,\"operation_id\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"request_digest\":\"ExwmO-fH8vGk2HhLblV64fK_ff7GUAw4JgFS02G3aes\",\"service\":\"support\",\"state\":\"complete\",\"version\":1}",
+      "attestation": {"version": 1, "key_version": 1, "operation_id": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB", "service": "support", "request_digest": "ExwmO-fH8vGk2HhLblV64fK_ff7GUAw4JgFS02G3aes", "state": "complete", "issued_at": 2000000000100, "expires_at": 2000000000200, "integrity": "NE8V_ROEejoAHELgGDjSa09h4nbgreXI29-F0K5kBwU"},
+      "submit_response_canonical_without_integrity": "{\"disposition\":\"complete\",\"key_version\":1,\"operation_id\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"request_digest\":\"ExwmO-fH8vGk2HhLblV64fK_ff7GUAw4JgFS02G3aes\",\"service\":\"support\",\"version\":1}",
+      "submit_response": {"version": 1, "key_version": 1, "service": "support", "operation_id": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB", "request_digest": "ExwmO-fH8vGk2HhLblV64fK_ff7GUAw4JgFS02G3aes", "disposition": "complete", "integrity": "qTHVFUUyyLABJmkjN-Gj5dxq2ptyA_iPQXfnN3ZD_dE"},
+      "response_canonical_without_integrity": "{\"disposition\":\"confirmed\",\"key_version\":1,\"operation_id\":\"BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB\",\"request_digest\":\"ExwmO-fH8vGk2HhLblV64fK_ff7GUAw4JgFS02G3aes\",\"service\":\"support\",\"version\":1}",
+      "response": {"version": 1, "key_version": 1, "service": "support", "operation_id": "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB", "request_digest": "ExwmO-fH8vGk2HhLblV64fK_ff7GUAw4JgFS02G3aes", "disposition": "confirmed", "integrity": "QMb8KNLlc7uvrqQw7LiIXduj16fDB0uQiKFeJb7IC54"},
+      "expected_submit": "complete",
+      "expected_confirm": "confirmed",
+      "expected_confirm_retry": "confirmed"
+    },
+    {
+      "name": "support_current_key_v2_utf8_snapshot",
+      "service": "support",
+      "request_received_at": 2000000000050,
+      "attestation_received_at": 2000000000150,
+      "request_canonical_without_integrity": "{\"association_snapshot\":{\"portal_principal\":\"fixture-principal-utf8\",\"verified_emails\":[\"álpha@example.test\"]},\"expires_at\":2000000300000,\"issued_at\":2000000000000,\"key_version\":2,\"operation_id\":\"CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC\",\"request_digest\":\"32nZxoKc0q_2WakrM4Z25NZH5cKEWc-9PUhYdD97d3E\",\"service\":\"support\",\"version\":1}",
+      "request_frame_hex": "0000000000000025736f6c7062632d6f776e65722d70757267652d76313a737570706f72743a7265717565737400000000000001517b226173736f63696174696f6e5f736e617073686f74223a7b22706f7274616c5f7072696e636970616c223a22666978747572652d7072696e636970616c2d75746638222c2276657269666965645f656d61696c73223a5b22c3a16c706861406578616d706c652e74657374225d7d2c22657870697265735f6174223a323030303030303330303030302c226973737565645f6174223a323030303030303030303030302c226b65795f76657273696f6e223a322c226f7065726174696f6e5f6964223a2243434343434343434343434343434343434343434343434343434343434343434343434343434343434343222c22726571756573745f646967657374223a2233326e5a786f4b6330715f3257616b724d345a32354e5a4835634b4557632d395055685964443937643345222c2273657276696365223a22737570706f7274222c2276657273696f6e223a317d",
+      "request": {
+        "version": 1,
+        "key_version": 2,
+        "operation_id": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+        "service": "support",
+        "association_snapshot": {"portal_principal": "fixture-principal-utf8", "verified_emails": ["álpha@example.test"]},
+        "request_digest": "32nZxoKc0q_2WakrM4Z25NZH5cKEWc-9PUhYdD97d3E",
+        "issued_at": 2000000000000,
+        "expires_at": 2000000300000,
+        "integrity": "0vPxN6lZT4TGPTUYrE4OeN0kG2jp3CaUm4YNxC_QEVY"
+      },
+      "attestation_canonical_without_integrity": "{\"expires_at\":2000000000200,\"issued_at\":2000000000100,\"key_version\":2,\"operation_id\":\"CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC\",\"request_digest\":\"32nZxoKc0q_2WakrM4Z25NZH5cKEWc-9PUhYdD97d3E\",\"service\":\"support\",\"state\":\"complete\",\"version\":1}",
+      "attestation": {"version": 1, "key_version": 2, "operation_id": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC", "service": "support", "request_digest": "32nZxoKc0q_2WakrM4Z25NZH5cKEWc-9PUhYdD97d3E", "state": "complete", "issued_at": 2000000000100, "expires_at": 2000000000200, "integrity": "x4YyUlkBI9q7ORgxN9lXOaN0eO-UKj_G1z9usiT4Mo0"},
+      "submit_response_canonical_without_integrity": "{\"disposition\":\"complete\",\"key_version\":2,\"operation_id\":\"CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC\",\"request_digest\":\"32nZxoKc0q_2WakrM4Z25NZH5cKEWc-9PUhYdD97d3E\",\"service\":\"support\",\"version\":1}",
+      "submit_response": {"version": 1, "key_version": 2, "service": "support", "operation_id": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC", "request_digest": "32nZxoKc0q_2WakrM4Z25NZH5cKEWc-9PUhYdD97d3E", "disposition": "complete", "integrity": "FdOcX1QdNOZVHQs_NJQvWsOD7mzKBIskftjBpubjd2g"},
+      "response_canonical_without_integrity": "{\"disposition\":\"confirmed\",\"key_version\":2,\"operation_id\":\"CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC\",\"request_digest\":\"32nZxoKc0q_2WakrM4Z25NZH5cKEWc-9PUhYdD97d3E\",\"service\":\"support\",\"version\":1}",
+      "response": {"version": 1, "key_version": 2, "service": "support", "operation_id": "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC", "request_digest": "32nZxoKc0q_2WakrM4Z25NZH5cKEWc-9PUhYdD97d3E", "disposition": "confirmed", "integrity": "NFPgajcMgvB8150kVJU3ZARaw9MsVCxyBM5fKoyFI1A"},
+      "wrong_response_key_version": {"key_version": 1, "integrity": "9y3f2e7_5q0Ewti7Z0_zW2vInQjnVZDyN84Zf6DQdr8", "expected_account_disposition": "pending"},
+      "expected_submit": "complete",
+      "expected_confirm": "confirmed"
+    },
+    {
+      "name": "relay_current_key_v2",
+      "service": "relay",
+      "request_received_at": 2000000000050,
+      "attestation_received_at": 2000000000150,
+      "request_canonical_without_integrity": "{\"association_snapshot\":{\"instance_ids\":[\"00000000-0000-4000-8000-000000000003\"]},\"expires_at\":2000000300000,\"issued_at\":2000000000000,\"key_version\":2,\"operation_id\":\"DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD\",\"request_digest\":\"giyIglrdgSn_ThNUgr0QkcxHi7p4CujUbJjznPNdPnQ\",\"service\":\"relay\",\"version\":1}",
+      "request": {"version": 1, "key_version": 2, "operation_id": "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD", "service": "relay", "association_snapshot": {"instance_ids": ["00000000-0000-4000-8000-000000000003"]}, "request_digest": "giyIglrdgSn_ThNUgr0QkcxHi7p4CujUbJjznPNdPnQ", "issued_at": 2000000000000, "expires_at": 2000000300000, "integrity": "A0c6VuGnYKdJK5Eu3zfgn0vDOA80mhSqheL3O6eB4EU"},
+      "attestation_canonical_without_integrity": "{\"expires_at\":2000000000200,\"issued_at\":2000000000100,\"key_version\":2,\"operation_id\":\"DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD\",\"request_digest\":\"giyIglrdgSn_ThNUgr0QkcxHi7p4CujUbJjznPNdPnQ\",\"service\":\"relay\",\"state\":\"complete\",\"version\":1}",
+      "attestation": {"version": 1, "key_version": 2, "operation_id": "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD", "service": "relay", "request_digest": "giyIglrdgSn_ThNUgr0QkcxHi7p4CujUbJjznPNdPnQ", "state": "complete", "issued_at": 2000000000100, "expires_at": 2000000000200, "integrity": "6OxFDXQFjt_f3VgKCOJnugc6WMOAzrpjMHiYcUYVJ4c"},
+      "submit_response_canonical_without_integrity": "{\"disposition\":\"complete\",\"key_version\":2,\"operation_id\":\"DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD\",\"request_digest\":\"giyIglrdgSn_ThNUgr0QkcxHi7p4CujUbJjznPNdPnQ\",\"service\":\"relay\",\"version\":1}",
+      "submit_response": {"version": 1, "key_version": 2, "service": "relay", "operation_id": "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD", "request_digest": "giyIglrdgSn_ThNUgr0QkcxHi7p4CujUbJjznPNdPnQ", "disposition": "complete", "integrity": "HyhCGJ-cHs5f9NwvOT34kCNG8a-D4Y_-NQjXnC58sjg"},
+      "response_canonical_without_integrity": "{\"disposition\":\"confirmed\",\"key_version\":2,\"operation_id\":\"DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD\",\"request_digest\":\"giyIglrdgSn_ThNUgr0QkcxHi7p4CujUbJjznPNdPnQ\",\"service\":\"relay\",\"version\":1}",
+      "response": {"version": 1, "key_version": 2, "service": "relay", "operation_id": "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD", "request_digest": "giyIglrdgSn_ThNUgr0QkcxHi7p4CujUbJjznPNdPnQ", "disposition": "confirmed", "integrity": "-wFdX5FcH7mvOPNuhkK9fZ3qzlzApfLcYuHHKN3w7Wk"},
+      "expected_submit": "complete",
+      "expected_confirm": "confirmed"
+    }
+  ],
+  "rejection_vectors": [
+    {"name": "concurrent_or_lost_submit_retry_converges_to_one_binding", "deliveries": 2, "same_unexpired_envelope": true, "expected_bindings": 1, "expected_logical_target_purges": 1, "expected_dispositions": ["complete", "complete"]},
+    {"name": "same_operation_different_digest_is_refused_before_lookup", "expected_disposition": "refused", "expected_binding": false, "expected_target_discovery": false, "expected_mutation": false},
+    {"name": "wrong_service_or_digest_never_advances", "expected_disposition": "refused", "expected_mutation": false},
+    {"name": "legacy_absence_never_certifies_completion", "legacy_disposition": "confirmed_absent", "expected_disposition": "refused", "expected_mutation": false},
+    {"name": "response_signed_with_non_original_key_version_remains_pending", "original_request_key_version": 2, "response_key_version": 1, "expected_account_disposition": "pending", "expected_finalization": false},
+    {"name": "request_at_maximum_lifetime_is_accepted", "received_at": 2000000000000, "issued_at": 2000000000000, "expires_at": 2000604800000, "expected_disposition": "complete"},
+    {"name": "request_future_issued_is_refused_before_lookup", "received_at": 2000000000000, "issued_at": 2000000000001, "expires_at": 2000000300001, "expected_disposition": "refused", "expected_binding": false, "expected_target_discovery": false, "expected_mutation": false},
+    {"name": "request_overlong_is_refused_before_lookup", "received_at": 2000000000000, "issued_at": 2000000000000, "expires_at": 2000604800001, "expected_disposition": "refused", "expected_binding": false, "expected_target_discovery": false, "expected_mutation": false},
+    {"name": "attestation_at_maximum_lifetime_is_accepted", "received_at": 2000000000000, "issued_at": 2000000000000, "expires_at": 2000000300000, "expected_disposition": "confirmed"},
+    {"name": "attestation_future_or_overlong_is_refused_without_state_change", "cases": [{"received_at": 2000000000000, "issued_at": 2000000000001, "expires_at": 2000000000201}, {"received_at": 2000000000000, "issued_at": 2000000000000, "expires_at": 2000000300001}], "expected_disposition": "refused", "expected_mutation": false},
+    {"name": "support_collision_and_missing_association", "service": "support", "snapshot": {"portal_principal": "fixture-principal-1", "verified_emails": ["alpha@example.test"]}, "records": {"permitted_unbound_legacy_ticket_ids": [101], "other_principal_same_email_ticket_ids": [102], "absent_canonical_association_ticket_ids": [103]}, "expected_deleted_ticket_ids": [101], "expected_surviving_ticket_ids": [102, 103], "expected_identity_inference": false, "expected_identity_creation": false}
+  ],
+  "coordinator_vectors": [
+    {"name": "one_expired_confirmed_service_reconciles_same_snapshot", "expected_coordinator_state": "service_reconciliation_pending", "expected_reissued_service_only": true, "expected_snapshot_retained_until_finalization": true, "expected_snapshot_after_finalization": false, "expected_finalization": false}
+  ]
+}
