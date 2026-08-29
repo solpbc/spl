@@ -62,4 +62,20 @@ export const migrations = [
 		name: "0007_drop_totp_secret",
 		queries: ["ALTER TABLE instances DROP COLUMN totp_secret"],
 	},
+	{
+		name: "0008_purge_operations",
+		queries: [
+			`CREATE TABLE IF NOT EXISTS purge_operations (
+				operation_id_hash TEXT PRIMARY KEY,
+				snapshot_digest  TEXT NOT NULL,
+				state            TEXT NOT NULL CHECK (state IN ('retryable', 'complete')),
+				expires_at       INTEGER NOT NULL,
+				completed_at     INTEGER,
+				CHECK (
+					(state = 'retryable' AND completed_at IS NULL) OR
+					(state = 'complete' AND completed_at IS NOT NULL)
+				)
+			)`,
+		],
+	},
 ];
