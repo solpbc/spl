@@ -241,9 +241,7 @@ describe("owner-purge v1 integrity separation", () => {
 			await resignAttestation(attestation, { domainService: supportService }),
 			await resignAttestation(attestation, { signingKeyVersion: 1 }),
 		]) {
-			expect(
-				await response(post(CONFIRM_ROUTE, confirmationWrapper(envelope, altered))),
-			).toEqual({
+			expect(await response(post(CONFIRM_ROUTE, confirmationWrapper(envelope, altered)))).toEqual({
 				status: 401,
 				body: { error: "unauthorized" },
 			});
