@@ -386,10 +386,19 @@ describe("owner-purge v1 relay rejection vectors", () => {
 		const spy = vi.spyOn(console, "log").mockImplementation(() => {});
 		try {
 			expect((await response(post(REQUEST_ROUTE, request))).body.disposition).toBe("complete");
+			const attestation = await signedAttestation({
+				operationId: request.operation_id,
+				requestDigest: request.request_digest,
+			});
+			expect(
+				(await response(post(CONFIRM_ROUTE, confirmationWrapper(request, attestation)))).body
+					.disposition,
+			).toBe("confirmed");
 			const raw = spy.mock.calls.map(([line]) => String(line)).join("\n");
 			expect(raw).not.toContain(operation);
 			expect(raw).not.toContain(instanceId);
 			expect(raw).not.toContain(request.integrity);
+			expect(raw).not.toContain(attestation.integrity);
 			for (const record of spy.mock.calls.map(
 				([line]) => JSON.parse(String(line)) as Record<string, unknown>,
 			)) {
