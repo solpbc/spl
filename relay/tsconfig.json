@@ -21,7 +21,7 @@
     "vitest.workers.config.ts",
     "vitest.workers.gate.config.ts",
     "vitest.workers.presence.config.ts",
-    "vitest.workers.purge.config.ts"
+    "vitest.workers.owner-purge.config.ts"
   ],
   "exclude": ["node_modules", "dist", ".wrangler"]
 }
