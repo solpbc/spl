@@ -452,16 +452,19 @@ describe("owner-purge v1 binding invariants", () => {
 		await expectRetainedCompleteBinding(control, purgedInstanceIds);
 	});
 
-	it("refuses an envelope with broken integrity without signing or binding lookup", async () => {
+	it("refuses an envelope that fails validation without signing or binding lookup", async () => {
 		const { control, purgedInstanceIds, requestEnvelope } = await completeRelayV1Binding();
-		const envelope = {
-			...requestEnvelope,
-			integrity: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-		};
+		const instanceIds = Array.from(
+			{ length: 101 },
+			(_, index) => `00000000-0000-4000-8000-${index.toString().padStart(12, "0")}`,
+		);
+		const envelope = await resignRequest(requestEnvelope, {
+			associationSnapshot: { instance_ids: instanceIds },
+		});
 
 		await expectUnsignedConfirmationWithoutResponseSigningOrBindingLookup(
 			confirmationWrapper(envelope, fixtureAttestation(RELAY_V1_NAME)),
-			{ status: 401, body: { error: "unauthorized" } },
+			{ status: 400, body: { error: "bad request" } },
 		);
 		await expectRetainedCompleteBinding(control, purgedInstanceIds);
 	});
