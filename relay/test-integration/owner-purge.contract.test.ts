@@ -124,11 +124,7 @@ describe("owner-purge v1 admission boundaries", () => {
 
 	it("rejects duplicate submit-envelope members in hand-crafted raw JSON", async () => {
 		const requestEnvelope = fixtureRequest(RELAY_V1_NAME);
-		const raw = duplicateFieldJson(
-			requestEnvelope,
-			"expires_at",
-			requestEnvelope.expires_at + 1,
-		);
+		const raw = duplicateFieldJson(requestEnvelope, "expires_at", requestEnvelope.expires_at + 1);
 		expect(await response(postRaw(REQUEST_ROUTE, raw))).toEqual({
 			status: 401,
 			body: { error: "unauthorized" },
