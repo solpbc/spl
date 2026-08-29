@@ -11,6 +11,7 @@ MVP build — Worker + Durable Object implement the full v1 protocol surface:
 - `/enroll/home` and `/enroll/device` control-plane endpoints with Ed25519 JWT issuance and ES256 home-attestation verification (see [`../proto/tokens.md`](../proto/tokens.md))
 - `/session/listen`, `/session/dial`, `/tunnel/<id>` WebSocket routes with JWT verify, WS-tag cardinality, and 16 MiB pending-buffer cap with 1009 close on overflow
 - `/.well-known/jwks.json` transparency mirror
+- `/internal/purge` and `/internal/purge/confirm` service-to-service owner-purge controls, separately bearer-authenticated and portal-signed; they retain no portal-owner association
 - D1 schema (`migrations/0001_init.sql`) for instance + device metadata — no payload bytes, ever
 - Blind forwarding: the DO holds `ArrayBuffer`s and forwards them without parsing; no code path reads a relayed frame
 
@@ -94,9 +95,17 @@ jq -c .privateKey ~/.spl/signing-keypair.json | wrangler secret put SIGNING_JWK 
 # Public JWKS envelope (JSON; the public half the Worker verifies against —
 # supports multi-key rotation via kid). Not secret:
 echo "$JWKS_ENVELOPE_JSON" | wrangler secret put JWKS_PUBLIC --env production
+
+# Portal public JWKS used only to verify owner-purge envelopes. Keep this
+# trust set out of source even though it contains public verification keys:
+echo "$PORTAL_JWKS_ENVELOPE_JSON" | wrangler secret put PORTAL_JWKS_PUBLIC --env production
+
+# Dedicated portal-to-relay bearer credential for the destructive internal
+# owner-purge endpoints. Enter it at the prompt; never put it in shell history:
+wrangler secret put PURGE_SECRET --env production
 ```
 
-Read in the Worker via `env.SIGNING_JWK` and `env.JWKS_PUBLIC`. The private key is the root of trust; see [`../docs/signing-keys.md`](../docs/signing-keys.md) for the full lifecycle (generation, rotation, compromise response).
+Read in the Worker via `env.SIGNING_JWK`, `env.JWKS_PUBLIC`, `env.PORTAL_JWKS_PUBLIC`, and `env.PURGE_SECRET`. The private signing key is the root of trust; see [`../docs/signing-keys.md`](../docs/signing-keys.md) for the relay JWT signing-key lifecycle (generation, rotation, compromise response).
 
 Run `npm run gen-key` to mint a self-host keypair — it writes to `~/.spl/signing-keypair.json` with mode 0600 and prints the exact `wrangler secret put` commands.
 
