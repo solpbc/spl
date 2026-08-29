@@ -150,6 +150,7 @@ describe("owner-purge v1 relay rejection vectors", () => {
 			body: { error: "bad request" },
 		});
 		const invalidDigest = await signedRequest({ operationId: "bad-digest", instanceIds: [] });
+		// Deliberately invalid digest sentinel, not signed-protocol authority.
 		invalidDigest.request_digest = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 		const { integrity: _integrity, ...invalidUnsigned } = invalidDigest;
 		invalidDigest.integrity = await integrity(
@@ -167,6 +168,7 @@ describe("owner-purge v1 relay rejection vectors", () => {
 		const malformed = {
 			...fixtureRequest(RELAY_V1_NAME),
 			association_snapshot: { instance_ids: [1.5] },
+			// Deliberately invalid integrity sentinel, not signed-protocol authority.
 			integrity: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
 		};
 		expect(await response(post(REQUEST_ROUTE, malformed))).toEqual({
@@ -190,6 +192,7 @@ describe("owner-purge v1 relay rejection vectors", () => {
 	});
 
 	it("response_signed_with_non_original_key_version_remains_pending", async () => {
+		// Finalization is account-side; relay verifies only this fixture's cross-key response HMAC material.
 		const vector = rejectionVector("response_signed_with_non_original_key_version_remains_pending");
 		const request = fixtureRequest(RELAY_V2_NAME);
 		for (const id of fixtureInstanceIds(request)) await seedInstance(id);

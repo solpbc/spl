@@ -109,7 +109,7 @@ interface OwnerPurgeFixture {
 	rejection_vectors: RejectionVector[];
 }
 
-export const ownerPurgeFixture = fixture as OwnerPurgeFixture;
+const ownerPurgeFixture = fixture as OwnerPurgeFixture;
 export const REQUEST_ROUTE = ownerPurgeFixture.routes.purge;
 export const CONFIRM_ROUTE = ownerPurgeFixture.routes.confirm;
 export const NOW = transcript(
@@ -144,13 +144,13 @@ export function fixtureDisposition(vector: RejectionVector): string {
 	return vector.expected_disposition;
 }
 
-export function fixtureKey(version: KeyVersion): string {
+function fixtureKey(version: KeyVersion): string {
 	const key = ownerPurgeFixture.integrity.non_production_test_keys_utf8[String(version)];
 	if (!key) throw new Error(`fixture key missing: ${version}`);
 	return key;
 }
 
-export function fixtureDomain(kind: IntegrityKind, service: string): string {
+function fixtureDomain(kind: IntegrityKind, service: string): string {
 	return ownerPurgeFixture.integrity.domains[kind].replace("<service>", service);
 }
 
@@ -344,7 +344,7 @@ export async function digest(value: unknown): Promise<string> {
 	);
 }
 
-export function canonicalJson(value: unknown): string {
+function canonicalJson(value: unknown): string {
 	if (value === null) return "null";
 	if (typeof value === "string" || typeof value === "boolean") return JSON.stringify(value);
 	if (typeof value === "number") {
