@@ -16,10 +16,19 @@ The portal sends JSON over HTTPS to:
 - POST /internal/purge/confirm to confirm a durably recorded complete result.
 
 Both requests require Authorization: Bearer <PURGE_SECRET> and
-Content-Type: application/json. Both use this body shape:
+Content-Type: application/json. Submit uses this body shape:
 
 ```json
 { "envelope": "<compact EdDSA JWT>" }
+```
+
+Confirmation uses this body shape:
+
+```json
+{
+  "envelope": "<original compact EdDSA purge JWT>",
+  "confirmation": "<compact EdDSA purge-confirm JWT>"
+}
 ```
 
 PURGE_SECRET is a portal-to-relay service credential. It is separate from the
@@ -60,6 +69,8 @@ A confirmation payload requires:
 | ver | string "1" |
 | typ | string "purge-confirm" |
 | op | operation ID from the completed purge |
+| snapshot_digest | `sha256:<64 lowercase hexadecimal digits>` for the canonical target snapshot |
+| state | string "complete" |
 | iat | issue time |
 | exp | independent expiry; exp - iat MUST be at most 300 seconds |
 
@@ -107,18 +118,27 @@ before that deletion can occur.
 ## completion confirmation
 
 After complete, the portal MUST durably record the outcome and exact
-confirmation JWT before sending confirmation. The relay fully verifies a
-confirmation, including typ and expiry, before looking up a binding.
+confirmation JWT before sending confirmation. A confirmation request carries
+both the original purge envelope and the confirmation envelope. The relay
+fully verifies the original under the purge rules, including that it is
+unexpired now, then fully verifies the confirmation under the purge-confirm
+rules, including that it is independently unexpired now.
 
-For a genuine fresh confirmation, a complete binding is deleted before the
-relay returns complete. An absent binding returns confirmed_absent without a new
-record. A retryable binding returns not_complete, or expired when its immutable
-expiry passed, without deletion.
+Before looking up a binding, the relay requires the envelopes to agree on the
+operation ID and canonical snapshot digest; confirmation state is always
+"complete". When a binding exists, its snapshot digest and immutable expiry
+must exactly match the original purge envelope, or the relay returns
+altered_replay without mutation. A matching retryable binding returns
+not_complete without deletion. Its expiry cannot separately have lapsed here:
+it matches an original envelope that was already verified unexpired. For a
+genuine fresh confirmation, a matching complete binding is deleted before the
+relay returns complete.
 
-confirmed_absent is an idempotent outcome only for the portal’s already-durable
-complete operation and the same still-unexpired confirmation. It resolves a
-lost confirmation response. The relay intentionally retains no tombstone and
-does not infer a portal outcome from absence.
+confirmed_absent is an idempotent outcome only when no binding exists after
+both envelopes have been verified unexpired and have agreed on operation,
+canonical snapshot digest, and complete state. It resolves a lost confirmation
+response. The relay intentionally retains no tombstone and does not infer a
+portal outcome from absence.
 
 ## privacy and logging
 
