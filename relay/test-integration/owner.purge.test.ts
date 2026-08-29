@@ -460,13 +460,7 @@ describe("portal purge routes", () => {
 		for (const instanceId of instances) {
 			await seedInstance(instanceId);
 		}
-		await seedBinding(
-			operation,
-			instances,
-			"complete",
-			expiresAt,
-			requestNow - 7 * DAY - 1,
-		);
+		await seedBinding(operation, instances, "complete", expiresAt, requestNow - 7 * DAY - 1);
 		const envelope = await signPurge(instances, {
 			op: operation,
 			iat: requestNow,
@@ -475,11 +469,7 @@ describe("portal purge routes", () => {
 
 		expect(
 			await outcome(
-				await handlePurge(
-					serviceRequest("/internal/purge", envelope),
-					handlerEnv(),
-					requestNow,
-				),
+				await handlePurge(serviceRequest("/internal/purge", envelope), handlerEnv(), requestNow),
 			),
 		).toEqual({ status: 200, disposition: "complete" });
 		for (const instanceId of instances) {
