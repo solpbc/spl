@@ -195,25 +195,26 @@ export async function handlePurgeConfirm(
 	if (envelope.service !== SERVICE) return plainRefusal("owner_purge_wrong_service", 400);
 	const envelopeIntegrity = await verifyIntegrity(envelope, "request", keys);
 	if (!envelopeIntegrity) return plainRefusal("owner_purge_bad_integrity", 401);
-	const context = responseContext(envelope);
 	const validatedEnvelope = await validateRequest(envelope, now);
 	if (!validatedEnvelope.ok) {
-		if (validatedEnvelope.reason === "expired") return expired(context, keys, 0);
-		return refused(context, keys, requestFailureReason(validatedEnvelope.reason), 400);
+		if (validatedEnvelope.reason === "expired")
+			return plainRefusal("owner_purge_request_lifetime", 400);
+		return plainRefusal(requestFailureReason(validatedEnvelope.reason), 400);
 	}
 
 	const attestation = parseAttestationEnvelope(wrapper.attestation);
-	if (!attestation) return refused(context, keys, "owner_purge_malformed", 400);
+	if (!attestation) return plainRefusal("owner_purge_malformed", 400);
 	if (attestation.service !== SERVICE) {
-		return refused(context, keys, "owner_purge_wrong_service", 400);
+		return plainRefusal("owner_purge_wrong_service", 400);
 	}
 	const attestationIntegrity = await verifyIntegrity(attestation, "confirm", keys);
-	if (!attestationIntegrity) return refused(context, keys, "owner_purge_bad_integrity", 401);
+	if (!attestationIntegrity) return plainRefusal("owner_purge_bad_integrity", 401);
 	const failure = validateAttestation(attestation, now);
 	if (failure) {
-		if (failure === "expired") return expired(context, keys, 0);
-		return refused(context, keys, attestationFailureReason(failure), 400);
+		if (failure === "expired") return plainRefusal("owner_purge_attestation_lifetime", 400);
+		return plainRefusal(attestationFailureReason(failure), 400);
 	}
+	const context = responseContext(envelope);
 	if (
 		envelope.operation_id !== attestation.operation_id ||
 		envelope.service !== attestation.service ||
@@ -502,7 +503,7 @@ async function signedResponse(
 		disposition,
 	};
 	const integrity = base64UrlEncode(
-		await hmacSha256(
+		await responseSigner.sign(
 			ownerPurgeIntegrityFrame(domain("response"), canonicalizeOwnerPurgeJson(unsigned)),
 			keys[context.keyVersion],
 		),
@@ -566,7 +567,14 @@ function unprovisioned(): Response {
 }
 
 function plainRefusal(
-	reason: "owner_purge_malformed" | "owner_purge_bad_integrity" | "owner_purge_wrong_service",
+	reason:
+		| "owner_purge_malformed"
+		| "owner_purge_bad_integrity"
+		| "owner_purge_wrong_service"
+		| "owner_purge_digest_mismatch"
+		| "owner_purge_instance_limit"
+		| "owner_purge_request_lifetime"
+		| "owner_purge_attestation_lifetime",
 	status: number,
 ): Response {
 	log({ event: "owner_purge_refused", reason });
@@ -594,6 +602,8 @@ function purgeKeys(env: Env): PurgeKeys | null {
 	if (!env.OWNER_PURGE_HMAC_KEY_V1 || !env.OWNER_PURGE_HMAC_KEY_V2) return null;
 	return { 1: env.OWNER_PURGE_HMAC_KEY_V1, 2: env.OWNER_PURGE_HMAC_KEY_V2 };
 }
+
+export const responseSigner = { sign: hmacSha256 };
 
 async function hmacSha256(frame: Uint8Array, keyText: string): Promise<Uint8Array> {
 	const key = await crypto.subtle.importKey(

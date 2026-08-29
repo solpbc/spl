@@ -3,6 +3,7 @@
 
 import { env } from "cloudflare:test";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { responseSigner } from "../src/purge";
 import fixture from "../test-fixtures/owner-purge-v1.json";
 import { applyRelayD1Migrations } from "./apply-migrations";
 import {
@@ -171,9 +172,9 @@ describe("owner-purge v1 admission boundaries", () => {
 			status: 400,
 			body: { error: "bad request" },
 		});
-		expect(await response(post(CONFIRM_ROUTE, wrongType))).toMatchObject({
+		expect(await response(post(CONFIRM_ROUTE, wrongType))).toEqual({
 			status: 400,
-			body: { disposition: "refused" },
+			body: { error: "bad request" },
 		});
 		expect(await response(post(CONFIRM_ROUTE, nonObjectEnvelope))).toEqual({
 			status: 400,
@@ -193,9 +194,9 @@ describe("owner-purge v1 admission boundaries", () => {
 			...attestation,
 			state: "refused",
 		});
-		expect(await response(postRaw(CONFIRM_ROUTE, raw))).toMatchObject({
+		expect(await response(postRaw(CONFIRM_ROUTE, raw))).toEqual({
 			status: 401,
-			body: { disposition: "refused" },
+			body: { error: "unauthorized" },
 		});
 		expect(await bindingCount()).toBe(0);
 	});
@@ -242,9 +243,9 @@ describe("owner-purge v1 integrity separation", () => {
 		]) {
 			expect(
 				await response(post(CONFIRM_ROUTE, confirmationWrapper(envelope, altered))),
-			).toMatchObject({
+			).toEqual({
 				status: 401,
-				body: { disposition: "refused" },
+				body: { error: "unauthorized" },
 			});
 		}
 		expect(await bindingCount()).toBe(0);
@@ -293,15 +294,13 @@ describe("owner-purge v1 binding invariants", () => {
 		vi.setSystemTime(requestEnvelope.expires_at);
 
 		expect(
-			(
-				await response(
-					post(
-						CONFIRM_ROUTE,
-						confirmationWrapper(requestEnvelope, fixtureAttestation(RELAY_V1_NAME)),
-					),
-				)
-			).body.disposition,
-		).toBe("expired");
+			await response(
+				post(
+					CONFIRM_ROUTE,
+					confirmationWrapper(requestEnvelope, fixtureAttestation(RELAY_V1_NAME)),
+				),
+			),
+		).toEqual({ status: 400, body: { error: "bad request" } });
 		await expectRetainedCompleteBinding(control, purgedInstanceIds);
 	});
 
@@ -341,9 +340,9 @@ describe("owner-purge v1 binding invariants", () => {
 
 		expect(
 			await response(post(CONFIRM_ROUTE, confirmationWrapper(requestEnvelope, mismatch))),
-		).toMatchObject({
+		).toEqual({
 			status: 400,
-			body: { disposition: "refused" },
+			body: { error: "bad request" },
 		});
 		await expectRetainedCompleteBinding(control, purgedInstanceIds);
 	});
@@ -355,9 +354,9 @@ describe("owner-purge v1 binding invariants", () => {
 
 		expect(
 			await response(post(CONFIRM_ROUTE, confirmationWrapper(requestEnvelope, mismatch))),
-		).toMatchObject({
+		).toEqual({
 			status: 401,
-			body: { disposition: "refused" },
+			body: { error: "unauthorized" },
 		});
 		await expectRetainedCompleteBinding(control, purgedInstanceIds);
 	});
@@ -427,6 +426,45 @@ describe("owner-purge v1 binding invariants", () => {
 		expect((await response(post(REQUEST_ROUTE, mismatch))).body.disposition).toBe("refused");
 		await expectRetainedCompleteBinding(control, purgedInstanceIds);
 	});
+
+	it("refuses a malformed attestation without signing or binding lookup", async () => {
+		const { control, purgedInstanceIds, requestEnvelope } = await completeRelayV1Binding();
+		const attestation = { ...fixtureAttestation(RELAY_V1_NAME), state: 1 };
+
+		await expectUnsignedConfirmationWithoutResponseSigningOrBindingLookup(
+			{ envelope: requestEnvelope, attestation },
+			{ status: 400, body: { error: "bad request" } },
+		);
+		await expectRetainedCompleteBinding(control, purgedInstanceIds);
+	});
+
+	it("refuses an attestation with broken integrity without signing or binding lookup", async () => {
+		const { control, purgedInstanceIds, requestEnvelope } = await completeRelayV1Binding();
+		const attestation = {
+			...fixtureAttestation(RELAY_V1_NAME),
+			integrity: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+		};
+
+		await expectUnsignedConfirmationWithoutResponseSigningOrBindingLookup(
+			confirmationWrapper(requestEnvelope, attestation),
+			{ status: 401, body: { error: "unauthorized" } },
+		);
+		await expectRetainedCompleteBinding(control, purgedInstanceIds);
+	});
+
+	it("refuses an envelope with broken integrity without signing or binding lookup", async () => {
+		const { control, purgedInstanceIds, requestEnvelope } = await completeRelayV1Binding();
+		const envelope = {
+			...requestEnvelope,
+			integrity: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+		};
+
+		await expectUnsignedConfirmationWithoutResponseSigningOrBindingLookup(
+			confirmationWrapper(envelope, fixtureAttestation(RELAY_V1_NAME)),
+			{ status: 401, body: { error: "unauthorized" } },
+		);
+		await expectRetainedCompleteBinding(control, purgedInstanceIds);
+	});
 });
 
 async function completeRelayV1Binding(): Promise<{
@@ -452,6 +490,22 @@ async function expectRetainedCompleteBinding(
 	purgedInstanceIds: string[],
 ): Promise<void> {
 	return expectRetainedBinding("complete", control, purgedInstanceIds);
+}
+
+async function expectUnsignedConfirmationWithoutResponseSigningOrBindingLookup(
+	body: unknown,
+	expected: { status: number; body: { error: string } },
+): Promise<void> {
+	const signerSpy = vi.spyOn(responseSigner, "sign");
+	const databaseSpy = vi.spyOn(env.DB, "prepare");
+	try {
+		expect(await response(post(CONFIRM_ROUTE, body))).toEqual(expected);
+		expect(signerSpy).not.toHaveBeenCalled();
+		expect(databaseSpy).not.toHaveBeenCalled();
+	} finally {
+		signerSpy.mockRestore();
+		databaseSpy.mockRestore();
+	}
 }
 
 async function expectRetainedBinding(

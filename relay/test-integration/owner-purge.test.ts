@@ -371,9 +371,8 @@ describe("owner-purge v1 relay rejection vectors", () => {
 				expiresAt: timing.expires_at,
 			});
 			expect(
-				(await response(post(CONFIRM_ROUTE, confirmationWrapper(request, attestation)))).body
-					.disposition,
-			).toBe(fixtureDisposition(vector));
+				await response(post(CONFIRM_ROUTE, confirmationWrapper(request, attestation))),
+			).toEqual({ status: 400, body: { error: "bad request" } });
 		}
 		expect(await bindingDisposition()).toBe("complete");
 	});
@@ -394,6 +393,10 @@ describe("owner-purge v1 relay rejection vectors", () => {
 				(await response(post(CONFIRM_ROUTE, confirmationWrapper(request, attestation)))).body
 					.disposition,
 			).toBe("confirmed");
+			const invalidAttestation = { ...attestation, state: 1 };
+			expect(
+				await response(post(CONFIRM_ROUTE, { envelope: request, attestation: invalidAttestation })),
+			).toEqual({ status: 400, body: { error: "bad request" } });
 			const raw = spy.mock.calls.map(([line]) => String(line)).join("\n");
 			expect(raw).not.toContain(operation);
 			expect(raw).not.toContain(instanceId);
