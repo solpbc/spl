@@ -226,6 +226,19 @@ describe("owner-purge v1 relay rejection vectors", () => {
 		expect(await bindingCount()).toBe(0);
 	});
 
+	it("uncanonicalizable snapshot is rejected as bad integrity before D1", async () => {
+		const malformed = {
+			...RELAY_V1_REQUEST,
+			association_snapshot: { instance_ids: [1.5] },
+			integrity: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+		};
+		expect(await response(post(REQUEST_ROUTE, malformed))).toEqual({
+			status: 401,
+			body: { error: "unauthorized" },
+		});
+		expect(await bindingCount()).toBe(0);
+	});
+
 	it("legacy_absence_never_certifies_completion", async () => {
 		const request = await signedRequest({ operationId: "absent-op", instanceIds: [] });
 		const attestation = await signedAttestation({

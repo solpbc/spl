@@ -67,10 +67,6 @@ interface RawRequestEnvelope {
 	integrity: string;
 }
 
-interface RequestEnvelope extends Omit<RawRequestEnvelope, "association_snapshot"> {
-	association_snapshot: { instance_ids: string[] };
-}
-
 interface AttestationEnvelope {
 	version: number;
 	key_version: KeyVersion;
@@ -96,7 +92,7 @@ interface PurgeOperation {
 	expires_at: number;
 }
 
-export function unixNow(): number {
+function unixNow(): number {
 	return Date.now();
 }
 
@@ -406,13 +402,17 @@ async function verifyIntegrity(
 		return false;
 	}
 	if (supplied.byteLength !== 32) return false;
-	const frame = ownerPurgeIntegrityFrame(domain(kind), canonicalWithoutIntegrity(envelope));
-	let matchingVersion: KeyVersion | null = null;
-	for (const version of [1, 2] as const) {
-		const expected = await hmacSha256(frame, keys[version]);
-		if (crypto.subtle.timingSafeEqual(expected, supplied)) matchingVersion = version;
+	try {
+		const frame = ownerPurgeIntegrityFrame(domain(kind), canonicalWithoutIntegrity(envelope));
+		let matchingVersion: KeyVersion | null = null;
+		for (const version of [1, 2] as const) {
+			const expected = await hmacSha256(frame, keys[version]);
+			if (crypto.subtle.timingSafeEqual(expected, supplied)) matchingVersion = version;
+		}
+		return matchingVersion === envelope.key_version;
+	} catch {
+		return false;
 	}
-	return matchingVersion === envelope.key_version;
 }
 
 async function submitBindingResponse(
