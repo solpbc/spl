@@ -42,6 +42,7 @@ const ATTESTATION_FIELDS = [
 	"expires_at",
 	"integrity",
 ] as const;
+const CONFIRMATION_WRAPPER_FIELDS = ["envelope", "attestation"] as const;
 const BASE64URL_SHA256_RE = /^[A-Za-z0-9_-]{43}$/;
 
 type KeyVersion = 1 | 2;
@@ -184,20 +185,45 @@ export async function handlePurgeConfirm(
 
 	const body = await readJson<unknown>(request, MAX_PURGE_BODY_BYTES);
 	if (!body.ok) return plainRefusal("owner_purge_malformed", 400);
-	const attestation = parseAttestationEnvelope(body.value);
-	if (!attestation) return plainRefusal("owner_purge_malformed", 400);
-	if (attestation.service !== SERVICE) return plainRefusal("owner_purge_wrong_service", 400);
+	const wrapper = exactRecord(body.value, CONFIRMATION_WRAPPER_FIELDS);
+	if (!wrapper || !isRecord(wrapper.envelope) || !isRecord(wrapper.attestation)) {
+		return plainRefusal("owner_purge_malformed", 400);
+	}
 
-	const integrity = await verifyIntegrity(attestation, "confirm", keys);
-	if (!integrity) return plainRefusal("owner_purge_bad_integrity", 401);
-	const context = responseContext(attestation);
+	const envelope = parseRequestEnvelope(wrapper.envelope);
+	if (!envelope) return plainRefusal("owner_purge_malformed", 400);
+	if (envelope.service !== SERVICE) return plainRefusal("owner_purge_wrong_service", 400);
+	const envelopeIntegrity = await verifyIntegrity(envelope, "request", keys);
+	if (!envelopeIntegrity) return plainRefusal("owner_purge_bad_integrity", 401);
+	const context = responseContext(envelope);
+	const validatedEnvelope = await validateRequest(envelope, now);
+	if (!validatedEnvelope.ok) {
+		if (validatedEnvelope.reason === "expired") return expired(context, keys, 0);
+		return refused(context, keys, requestFailureReason(validatedEnvelope.reason), 400);
+	}
+
+	const attestation = parseAttestationEnvelope(wrapper.attestation);
+	if (!attestation) return refused(context, keys, "owner_purge_malformed", 400);
+	if (attestation.service !== SERVICE) {
+		return refused(context, keys, "owner_purge_wrong_service", 400);
+	}
+	const attestationIntegrity = await verifyIntegrity(attestation, "confirm", keys);
+	if (!attestationIntegrity) return refused(context, keys, "owner_purge_bad_integrity", 401);
 	const failure = validateAttestation(attestation, now);
 	if (failure) {
 		if (failure === "expired") return expired(context, keys, 0);
 		return refused(context, keys, attestationFailureReason(failure), 400);
 	}
+	if (
+		envelope.operation_id !== attestation.operation_id ||
+		envelope.service !== attestation.service ||
+		envelope.request_digest !== attestation.request_digest ||
+		envelope.key_version !== attestation.key_version
+	) {
+		return refused(context, keys, "owner_purge_binding_mismatch", 409);
+	}
 
-	const operationHash = await hashOperationId(attestation.operation_id);
+	const operationHash = await hashOperationId(envelope.operation_id);
 	let binding: PurgeOperation | null;
 	try {
 		binding = await loadPurgeOperation(operationHash, env);
@@ -205,10 +231,13 @@ export async function handlePurgeConfirm(
 		return retryable(context, keys, 0);
 	}
 	if (!binding) return refused(context, keys, "owner_purge_binding_absent", 409);
-	if (now >= binding.expires_at) return expired(context, keys, 0);
-	if (binding.request_digest !== attestation.request_digest) {
+	if (binding.request_digest !== envelope.request_digest) {
 		return refused(context, keys, "owner_purge_binding_mismatch", 409);
 	}
+	if (binding.expires_at !== envelope.expires_at) {
+		return refused(context, keys, "owner_purge_binding_mismatch", 409);
+	}
+	if (now >= binding.expires_at) return expired(context, keys, 0);
 	if (binding.disposition === "retryable") {
 		return refused(context, keys, "owner_purge_binding_mismatch", 409);
 	}
@@ -216,17 +245,20 @@ export async function handlePurgeConfirm(
 
 	try {
 		const result = await env.DB.prepare(
-			"UPDATE purge_operations SET disposition = 'confirmed' WHERE operation_id_hash = ? AND disposition = 'complete'",
+			"UPDATE purge_operations SET disposition = 'confirmed' WHERE operation_id_hash = ? AND disposition = 'complete' AND expires_at > ?",
 		)
-			.bind(operationHash)
+			.bind(operationHash, now)
 			.run();
 		if (result.meta.changes === 0) {
 			binding = await loadPurgeOperation(operationHash, env);
 			if (!binding) return refused(context, keys, "owner_purge_binding_absent", 409);
-			if (now >= binding.expires_at) return expired(context, keys, 0);
-			if (binding.request_digest !== attestation.request_digest) {
+			if (binding.request_digest !== envelope.request_digest) {
 				return refused(context, keys, "owner_purge_binding_mismatch", 409);
 			}
+			if (binding.expires_at !== envelope.expires_at) {
+				return refused(context, keys, "owner_purge_binding_mismatch", 409);
+			}
+			if (now >= binding.expires_at) return expired(context, keys, 0);
 			if (binding.disposition === "confirmed") return confirmed(context, keys);
 			if (binding.disposition === "retryable") {
 				return refused(context, keys, "owner_purge_binding_mismatch", 409);
@@ -515,6 +547,8 @@ async function refused(
 	keys: PurgeKeys,
 	reason:
 		| "owner_purge_malformed"
+		| "owner_purge_bad_integrity"
+		| "owner_purge_wrong_service"
 		| "owner_purge_digest_mismatch"
 		| "owner_purge_instance_limit"
 		| "owner_purge_request_lifetime"

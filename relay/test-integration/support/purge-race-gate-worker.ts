@@ -7,19 +7,23 @@ import relay, { InstanceDO } from "../../src/index";
 export { InstanceDO };
 
 const RACE_GATE_HEADER = "x-test-owner-purge-race-gate";
-const RACE_GATE_VALUE = "insert";
 const RACE_GATE_ARRIVALS_HEADER = "x-test-owner-purge-race-gate-arrivals";
 const PURGE_OPERATION_INSERT =
 	"INSERT INTO purge_operations (operation_id_hash, request_digest, disposition, expires_at) VALUES (?, ?, 'retryable', ?) ON CONFLICT(operation_id_hash) DO NOTHING";
+const PURGE_OPERATION_CONFIRM =
+	"UPDATE purge_operations SET disposition = 'confirmed' WHERE operation_id_hash = ? AND disposition = 'complete' AND expires_at > ?";
+
+type RaceGateMode = "insert" | "confirm-expire";
 
 export default {
 	async fetch(request: Request, env: Env): Promise<Response> {
-		if (request.headers.get(RACE_GATE_HEADER) !== RACE_GATE_VALUE) {
+		const mode = request.headers.get(RACE_GATE_HEADER);
+		if (!isRaceGateMode(mode)) {
 			return relay.fetch(request, env);
 		}
 
 		const gate = new RaceGate();
-		const gatedEnv = { ...env, DB: gatedDatabase(env.DB, gate) };
+		const gatedEnv = { ...env, DB: gatedDatabase(env.DB, gate, mode) };
 		const responses = await Promise.all([
 			relay.fetch(request.clone(), gatedEnv),
 			relay.fetch(request, gatedEnv),
@@ -54,7 +58,7 @@ class RaceGate {
 	}
 }
 
-function gatedDatabase(database: D1Database, gate: RaceGate): D1Database {
+function gatedDatabase(database: D1Database, gate: RaceGate, mode: RaceGateMode): D1Database {
 	return new Proxy(database, {
 		get(target, property, receiver) {
 			if (property !== "prepare") {
@@ -63,22 +67,42 @@ function gatedDatabase(database: D1Database, gate: RaceGate): D1Database {
 			}
 			return (query: string): D1PreparedStatement => {
 				const statement = target.prepare(query);
-				return query === PURGE_OPERATION_INSERT ? gatedStatement(statement, gate) : statement;
+				if (mode === "insert" && query === PURGE_OPERATION_INSERT) {
+					return gatedStatement(statement, gate);
+				}
+				if (mode === "confirm-expire" && query === PURGE_OPERATION_CONFIRM) {
+					return gatedStatement(statement, gate, async ([operationHash, now]) => {
+						if (typeof operationHash !== "string" || typeof now !== "number") {
+							throw new Error("confirm race gate received invalid update bindings");
+						}
+						await database
+							.prepare("UPDATE purge_operations SET expires_at = ? WHERE operation_id_hash = ?")
+							.bind(now, operationHash)
+							.run();
+					});
+				}
+				return statement;
 			};
 		},
 	});
 }
 
-function gatedStatement(statement: D1PreparedStatement, gate: RaceGate): D1PreparedStatement {
+function gatedStatement(
+	statement: D1PreparedStatement,
+	gate: RaceGate,
+	beforeRun?: (values: unknown[]) => Promise<void>,
+	values: unknown[] = [],
+): D1PreparedStatement {
 	return new Proxy(statement, {
 		get(target, property, receiver) {
 			if (property === "bind") {
 				return (...values: unknown[]): D1PreparedStatement =>
-					gatedStatement(target.bind(...values), gate);
+					gatedStatement(target.bind(...values), gate, beforeRun, values);
 			}
 			if (property === "run") {
 				return async <T = Record<string, unknown>>(): Promise<D1Result<T>> => {
 					await gate.arrive();
+					if (beforeRun) await beforeRun(values);
 					return target.run<T>();
 				};
 			}
@@ -86,6 +110,10 @@ function gatedStatement(statement: D1PreparedStatement, gate: RaceGate): D1Prepa
 			return typeof value === "function" ? value.bind(target) : value;
 		},
 	});
+}
+
+function isRaceGateMode(value: string | null): value is RaceGateMode {
+	return value === "insert" || value === "confirm-expire";
 }
 
 async function responseWithGateArrivals(

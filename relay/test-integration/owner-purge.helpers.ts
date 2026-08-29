@@ -182,6 +182,13 @@ export function fixtureAttestation(name: string): SignedAttestation {
 	};
 }
 
+export function confirmationWrapper(
+	envelope: SignedRequest,
+	attestation: SignedAttestation,
+): { envelope: SignedRequest; attestation: SignedAttestation } {
+	return { envelope, attestation };
+}
+
 export function fixtureInstanceIds(request: SignedRequest): string[] {
 	const instanceIds = request.association_snapshot.instance_ids;
 	if (

@@ -12,6 +12,7 @@ import {
 	bindingCount,
 	bindingDisposition,
 	clearRows,
+	confirmationWrapper,
 	digest,
 	fixtureAttestation,
 	fixtureInstanceIds,
@@ -65,7 +66,11 @@ describe("owner-purge v1 admission boundaries", () => {
 		});
 		expect(
 			await response(
-				post(CONFIRM_ROUTE, fixtureAttestation(RELAY_V1_NAME), { bearer: env.GRANT_SECRET }),
+				post(
+					CONFIRM_ROUTE,
+					confirmationWrapper(requestEnvelope, fixtureAttestation(RELAY_V1_NAME)),
+					{ bearer: env.GRANT_SECRET },
+				),
 			),
 		).toEqual({
 			status: 401,
@@ -81,9 +86,10 @@ describe("owner-purge v1 admission boundaries", () => {
 
 	it("does not let a browser-shaped Origin header bypass the bearer gate", async () => {
 		const headers = { Origin: "https://browser.example.test" };
+		const requestEnvelope = fixtureRequest(RELAY_V1_NAME);
 		expect(
 			await response(
-				post(REQUEST_ROUTE, fixtureRequest(RELAY_V1_NAME), {
+				post(REQUEST_ROUTE, requestEnvelope, {
 					bearer: "wrong-purge-bearer",
 					headers,
 				}),
@@ -91,10 +97,14 @@ describe("owner-purge v1 admission boundaries", () => {
 		).toEqual({ status: 401, body: { error: "unauthorized" } });
 		expect(
 			await response(
-				post(CONFIRM_ROUTE, fixtureAttestation(RELAY_V1_NAME), {
-					bearer: "wrong-purge-bearer",
-					headers,
-				}),
+				post(
+					CONFIRM_ROUTE,
+					confirmationWrapper(requestEnvelope, fixtureAttestation(RELAY_V1_NAME)),
+					{
+						bearer: "wrong-purge-bearer",
+						headers,
+					},
+				),
 			),
 		).toEqual({ status: 401, body: { error: "unauthorized" } });
 		expect(await bindingCount()).toBe(0);
@@ -142,12 +152,18 @@ describe("owner-purge v1 admission boundaries", () => {
 	});
 
 	it("rejects malformed confirmation wrappers and attestation fields before binding", async () => {
+		const envelope = fixtureRequest(RELAY_V1_NAME);
 		const attestation = fixtureAttestation(RELAY_V1_NAME);
-		const wrapped = { attestation };
-		const unknown = { ...attestation, unexpected: true };
-		const wrongType = { ...attestation, state: 1 };
+		const missingEnvelope = { attestation };
+		const unknown = { ...confirmationWrapper(envelope, attestation), unexpected: true };
+		const wrongType = {
+			...confirmationWrapper(envelope, attestation),
+			attestation: { ...attestation, state: 1 },
+		};
+		const nonObjectEnvelope = { envelope: [], attestation };
+		const nonObjectAttestation = { envelope, attestation: null };
 
-		expect(await response(post(CONFIRM_ROUTE, wrapped))).toEqual({
+		expect(await response(post(CONFIRM_ROUTE, missingEnvelope))).toEqual({
 			status: 400,
 			body: { error: "bad request" },
 		});
@@ -155,7 +171,15 @@ describe("owner-purge v1 admission boundaries", () => {
 			status: 400,
 			body: { error: "bad request" },
 		});
-		expect(await response(post(CONFIRM_ROUTE, wrongType))).toEqual({
+		expect(await response(post(CONFIRM_ROUTE, wrongType))).toMatchObject({
+			status: 400,
+			body: { disposition: "refused" },
+		});
+		expect(await response(post(CONFIRM_ROUTE, nonObjectEnvelope))).toEqual({
+			status: 400,
+			body: { error: "bad request" },
+		});
+		expect(await response(post(CONFIRM_ROUTE, nonObjectAttestation))).toEqual({
 			status: 400,
 			body: { error: "bad request" },
 		});
@@ -163,17 +187,23 @@ describe("owner-purge v1 admission boundaries", () => {
 	});
 
 	it("rejects duplicate confirmation members in hand-crafted raw JSON", async () => {
+		const envelope = fixtureRequest(RELAY_V1_NAME);
 		const attestation = fixtureAttestation(RELAY_V1_NAME);
-		const raw = duplicateFieldJson(attestation, "expires_at", attestation.expires_at + 1);
-		expect(await response(postRaw(CONFIRM_ROUTE, raw))).toEqual({
+		const raw = duplicateFieldJson(confirmationWrapper(envelope, attestation), "attestation", {
+			...attestation,
+			state: "refused",
+		});
+		expect(await response(postRaw(CONFIRM_ROUTE, raw))).toMatchObject({
 			status: 401,
-			body: { error: "unauthorized" },
+			body: { disposition: "refused" },
 		});
 		expect(await bindingCount()).toBe(0);
 	});
 
 	it("rejects non-finite confirmation attestation numbers in hand-crafted raw JSON", async () => {
-		const raw = nonFiniteIssuedAtJson(fixtureAttestation(RELAY_V1_NAME));
+		const raw = nonFiniteIssuedAtJson(
+			confirmationWrapper(fixtureRequest(RELAY_V1_NAME), fixtureAttestation(RELAY_V1_NAME)),
+		);
 		expect(await response(postRaw(CONFIRM_ROUTE, raw))).toEqual({
 			status: 400,
 			body: { error: "bad request" },
@@ -201,6 +231,7 @@ describe("owner-purge v1 integrity separation", () => {
 	});
 
 	it("rejects wrong purpose, service-domain, and retained-key confirmation signatures before lookup", async () => {
+		const envelope = fixtureRequest(RELAY_V2_NAME);
 		const attestation = fixtureAttestation(RELAY_V2_NAME);
 		const supportService = transcript(SUPPORT_V2_NAME).service;
 
@@ -209,9 +240,11 @@ describe("owner-purge v1 integrity separation", () => {
 			await resignAttestation(attestation, { domainService: supportService }),
 			await resignAttestation(attestation, { signingKeyVersion: 1 }),
 		]) {
-			expect(await response(post(CONFIRM_ROUTE, altered))).toEqual({
+			expect(
+				await response(post(CONFIRM_ROUTE, confirmationWrapper(envelope, altered))),
+			).toMatchObject({
 				status: 401,
-				body: { error: "unauthorized" },
+				body: { disposition: "refused" },
 			});
 		}
 		expect(await bindingCount()).toBe(0);
@@ -221,69 +254,143 @@ describe("owner-purge v1 integrity separation", () => {
 describe("owner-purge v1 binding invariants", () => {
 	it("does not confirm a fixture attestation with no matching binding", async () => {
 		vi.setSystemTime(transcript(RELAY_V2_NAME).attestation_received_at);
+		const envelope = fixtureRequest(RELAY_V2_NAME);
+		for (const instanceId of fixtureInstanceIds(envelope)) await seedInstance(instanceId);
 		expect(
-			(await response(post(CONFIRM_ROUTE, fixtureAttestation(RELAY_V2_NAME)))).body.disposition,
+			(
+				await response(
+					post(CONFIRM_ROUTE, confirmationWrapper(envelope, fixtureAttestation(RELAY_V2_NAME))),
+				)
+			).body.disposition,
 		).toBe("refused");
 		expect(await bindingCount()).toBe(0);
+		for (const instanceId of fixtureInstanceIds(envelope)) {
+			expect(await rowCount("instances", instanceId)).toBe(1);
+			expect(await rowCount("devices", instanceId)).toBe(1);
+			expect(await rowCount("pending_grants", instanceId)).toBe(1);
+		}
+	});
+
+	it("does not confirm a retryable binding and leaves its target rows unchanged", async () => {
+		const { control, purgedInstanceIds, requestEnvelope } = await completeRelayV1Binding();
+		await env.DB.prepare("UPDATE purge_operations SET disposition = 'retryable'").run();
+
+		expect(
+			(
+				await response(
+					post(
+						CONFIRM_ROUTE,
+						confirmationWrapper(requestEnvelope, fixtureAttestation(RELAY_V1_NAME)),
+					),
+				)
+			).body.disposition,
+		).toBe("refused");
+		await expectRetainedBinding("retryable", control, purgedInstanceIds);
+	});
+
+	it("does not confirm an expired binding and leaves its target rows unchanged", async () => {
+		const { control, purgedInstanceIds, requestEnvelope } = await completeRelayV1Binding();
+		vi.setSystemTime(requestEnvelope.expires_at);
+
+		expect(
+			(
+				await response(
+					post(
+						CONFIRM_ROUTE,
+						confirmationWrapper(requestEnvelope, fixtureAttestation(RELAY_V1_NAME)),
+					),
+				)
+			).body.disposition,
+		).toBe("expired");
+		await expectRetainedCompleteBinding(control, purgedInstanceIds);
 	});
 
 	it("does not confirm an operation mismatch and retains the complete binding", async () => {
-		const { control, purgedInstanceIds } = await completeRelayV1Binding();
+		const { control, purgedInstanceIds, requestEnvelope } = await completeRelayV1Binding();
 		const original = fixtureAttestation(RELAY_V1_NAME);
 		const mismatch = await resignAttestation(original, {
 			operationId: `${original.operation_id}-other`,
 		});
 
-		expect((await response(post(CONFIRM_ROUTE, mismatch))).body.disposition).toBe("refused");
+		expect(
+			(await response(post(CONFIRM_ROUTE, confirmationWrapper(requestEnvelope, mismatch)))).body
+				.disposition,
+		).toBe("refused");
 		await expectRetainedCompleteBinding(control, purgedInstanceIds);
 	});
 
 	it("does not confirm a digest mismatch and retains the complete binding", async () => {
-		const { control, purgedInstanceIds } = await completeRelayV1Binding();
+		const { control, purgedInstanceIds, requestEnvelope } = await completeRelayV1Binding();
 		const mismatch = await resignAttestation(fixtureAttestation(RELAY_V1_NAME), {
 			requestDigest: fixtureRequest(RELAY_V2_NAME).request_digest,
 		});
 
-		expect((await response(post(CONFIRM_ROUTE, mismatch))).body.disposition).toBe("refused");
+		expect(
+			(await response(post(CONFIRM_ROUTE, confirmationWrapper(requestEnvelope, mismatch)))).body
+				.disposition,
+		).toBe("refused");
 		await expectRetainedCompleteBinding(control, purgedInstanceIds);
 	});
 
 	it("does not confirm a service mismatch and retains the complete binding", async () => {
-		const { control, purgedInstanceIds } = await completeRelayV1Binding();
+		const { control, purgedInstanceIds, requestEnvelope } = await completeRelayV1Binding();
 		const mismatch = await resignAttestation(fixtureAttestation(RELAY_V1_NAME), {
 			service: transcript(SUPPORT_V1_NAME).service,
 			domainService: transcript(SUPPORT_V1_NAME).service,
 		});
 
-		expect(await response(post(CONFIRM_ROUTE, mismatch))).toEqual({
+		expect(
+			await response(post(CONFIRM_ROUTE, confirmationWrapper(requestEnvelope, mismatch))),
+		).toMatchObject({
 			status: 400,
-			body: { error: "bad request" },
+			body: { disposition: "refused" },
 		});
 		await expectRetainedCompleteBinding(control, purgedInstanceIds);
 	});
 
 	it("does not confirm a declared key-version mismatch and retains the complete binding", async () => {
-		const { control, purgedInstanceIds } = await completeRelayV1Binding();
+		const { control, purgedInstanceIds, requestEnvelope } = await completeRelayV1Binding();
 		const original = fixtureAttestation(RELAY_V1_NAME);
-		const mismatch = { ...original, key_version: 2 };
+		const mismatch = { ...original, key_version: 2 as const };
 
-		expect(await response(post(CONFIRM_ROUTE, mismatch))).toEqual({
+		expect(
+			await response(post(CONFIRM_ROUTE, confirmationWrapper(requestEnvelope, mismatch))),
+		).toMatchObject({
 			status: 401,
-			body: { error: "unauthorized" },
+			body: { disposition: "refused" },
 		});
 		await expectRetainedCompleteBinding(control, purgedInstanceIds);
 	});
 
-	it("confirms a fixture-derived v1 operation using a different, still-retained key version", async () => {
-		await completeRelayV1Binding();
-		// Retained keys intentionally preserve confirmation continuity across key rotation.
+	it("refuses a fixture-derived v1 operation with a different attestation key version", async () => {
+		const { control, purgedInstanceIds, requestEnvelope } = await completeRelayV1Binding();
+		// Both retained keys validate independently, but a confirmation must match its request key version.
 		const confirmation = await resignAttestation(fixtureAttestation(RELAY_V1_NAME), {
 			keyVersion: 2,
 			signingKeyVersion: 2,
 		});
 
-		expect((await response(post(CONFIRM_ROUTE, confirmation))).body.disposition).toBe("confirmed");
-		expect(await bindingDisposition()).toBe("confirmed");
+		expect(
+			(await response(post(CONFIRM_ROUTE, confirmationWrapper(requestEnvelope, confirmation)))).body
+				.disposition,
+		).toBe("refused");
+		await expectRetainedCompleteBinding(control, purgedInstanceIds);
+	});
+
+	it("does not confirm an envelope whose expiry differs from the binding", async () => {
+		const { control, purgedInstanceIds, requestEnvelope } = await completeRelayV1Binding();
+		const envelope = await resignRequest(requestEnvelope, {
+			expiresAt: requestEnvelope.expires_at + 1,
+		});
+
+		expect(
+			(
+				await response(
+					post(CONFIRM_ROUTE, confirmationWrapper(envelope, fixtureAttestation(RELAY_V1_NAME))),
+				)
+			).body.disposition,
+		).toBe("refused");
+		await expectRetainedCompleteBinding(control, purgedInstanceIds);
 	});
 
 	it("refuses a fixture-derived immutable-expiry retry and retains the complete binding", async () => {
@@ -322,7 +429,11 @@ describe("owner-purge v1 binding invariants", () => {
 	});
 });
 
-async function completeRelayV1Binding(): Promise<{ control: string; purgedInstanceIds: string[] }> {
+async function completeRelayV1Binding(): Promise<{
+	requestEnvelope: ReturnType<typeof fixtureRequest>;
+	control: string;
+	purgedInstanceIds: string[];
+}> {
 	const requestEnvelope = fixtureRequest(RELAY_V1_NAME);
 	const purgedInstanceIds = fixtureInstanceIds(requestEnvelope);
 	for (const instanceId of purgedInstanceIds) await seedInstance(instanceId);
@@ -333,15 +444,23 @@ async function completeRelayV1Binding(): Promise<{ control: string; purgedInstan
 		body: fixtureResponse(RELAY_V1_NAME, "submit_response"),
 	});
 	vi.setSystemTime(transcript(RELAY_V1_NAME).attestation_received_at);
-	return { control, purgedInstanceIds };
+	return { requestEnvelope, control, purgedInstanceIds };
 }
 
 async function expectRetainedCompleteBinding(
 	control: string,
 	purgedInstanceIds: string[],
 ): Promise<void> {
+	return expectRetainedBinding("complete", control, purgedInstanceIds);
+}
+
+async function expectRetainedBinding(
+	disposition: "retryable" | "complete",
+	control: string,
+	purgedInstanceIds: string[],
+): Promise<void> {
 	expect(await bindingCount()).toBe(1);
-	expect(await bindingDisposition()).toBe("complete");
+	expect(await bindingDisposition()).toBe(disposition);
 	expect(await rowCount("instances", control)).toBe(1);
 	expect(await rowCount("devices", control)).toBe(1);
 	expect(await rowCount("pending_grants", control)).toBe(1);
@@ -439,6 +558,9 @@ function duplicateFieldJson<T extends object>(
 	);
 }
 
-function nonFiniteIssuedAtJson(value: { issued_at: number }): string {
-	return JSON.stringify(value).replace(`"issued_at":${value.issued_at}`, '"issued_at":NaN');
+function nonFiniteIssuedAtJson(
+	value: { issued_at: number } | { attestation: { issued_at: number } },
+): string {
+	const issuedAt = "attestation" in value ? value.attestation.issued_at : value.issued_at;
+	return JSON.stringify(value).replace(`"issued_at":${issuedAt}`, '"issued_at":NaN');
 }

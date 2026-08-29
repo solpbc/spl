@@ -12,6 +12,7 @@ import {
 	bindingDisposition,
 	clearRows,
 	cloneFixture,
+	confirmationWrapper,
 	fixtureAttestation,
 	fixtureDisposition,
 	fixtureInstanceIds,
@@ -79,11 +80,11 @@ describe("owner-purge v1 relay wire transcripts", () => {
 		const retained = transcript(RELAY_V1_NAME);
 		vi.setSystemTime(retained.attestation_received_at);
 		const attestation = fixtureAttestation(RELAY_V1_NAME);
-		expect(await response(post(CONFIRM_ROUTE, attestation))).toEqual({
+		expect(await response(post(CONFIRM_ROUTE, confirmationWrapper(request, attestation)))).toEqual({
 			status: 200,
 			body: fixtureResponse(RELAY_V1_NAME, "response"),
 		});
-		expect(await response(post(CONFIRM_ROUTE, attestation))).toEqual({
+		expect(await response(post(CONFIRM_ROUTE, confirmationWrapper(request, attestation)))).toEqual({
 			status: 200,
 			body: fixtureResponse(RELAY_V1_NAME, "response"),
 		});
@@ -97,7 +98,11 @@ describe("owner-purge v1 relay wire transcripts", () => {
 			body: fixtureResponse(RELAY_V2_NAME, "submit_response"),
 		});
 		vi.setSystemTime(transcript(RELAY_V2_NAME).attestation_received_at);
-		expect(await response(post(CONFIRM_ROUTE, fixtureAttestation(RELAY_V2_NAME)))).toEqual({
+		expect(
+			await response(
+				post(CONFIRM_ROUTE, confirmationWrapper(request, fixtureAttestation(RELAY_V2_NAME))),
+			),
+		).toEqual({
 			status: 200,
 			body: fixtureResponse(RELAY_V2_NAME, "response"),
 		});
@@ -123,6 +128,40 @@ describe("owner-purge v1 relay rejection vectors", () => {
 		});
 		expect(await bindingCount()).toBe(vector.expected_bindings);
 		for (const id of fixtureInstanceIds(request)) expect(await rowCount("instances", id)).toBe(0);
+	});
+
+	it("confirmation expiry during the conditional transition remains unconfirmed", async () => {
+		const request = fixtureRequest(RELAY_V1_NAME);
+		for (const id of fixtureInstanceIds(request)) await seedInstance(id);
+		const control = "00000000-0000-4000-8000-000000000096";
+		await seedInstance(control);
+		expect(await response(post(REQUEST_ROUTE, request))).toEqual({
+			status: 200,
+			body: fixtureResponse(RELAY_V1_NAME, "submit_response"),
+		});
+		vi.setSystemTime(transcript(RELAY_V1_NAME).attestation_received_at);
+		const gated = await post(
+			CONFIRM_ROUTE,
+			confirmationWrapper(request, fixtureAttestation(RELAY_V1_NAME)),
+			{ headers: { "x-test-owner-purge-race-gate": "confirm-expire" } },
+		);
+
+		expect(gated.headers.get("x-test-owner-purge-race-gate-arrivals")).toBe("2");
+		expect(await gated.json()).toMatchObject({
+			responses: [
+				{ status: 409, body: { disposition: "refused" } },
+				{ status: 409, body: { disposition: "refused" } },
+			],
+		});
+		expect(await bindingDisposition()).toBe("complete");
+		for (const id of fixtureInstanceIds(request)) {
+			expect(await rowCount("instances", id)).toBe(0);
+			expect(await rowCount("devices", id)).toBe(0);
+			expect(await rowCount("pending_grants", id)).toBe(0);
+		}
+		expect(await rowCount("instances", control)).toBe(1);
+		expect(await rowCount("devices", control)).toBe(1);
+		expect(await rowCount("pending_grants", control)).toBe(1);
 	});
 
 	it("same_operation_different_digest_is_refused_before_lookup", async () => {
@@ -185,9 +224,10 @@ describe("owner-purge v1 relay rejection vectors", () => {
 			operationId: request.operation_id,
 			requestDigest: request.request_digest,
 		});
-		expect((await response(post(CONFIRM_ROUTE, attestation))).body.disposition).toBe(
-			fixtureDisposition(vector),
-		);
+		expect(
+			(await response(post(CONFIRM_ROUTE, confirmationWrapper(request, attestation)))).body
+				.disposition,
+		).toBe(fixtureDisposition(vector));
 		expect(await bindingCount()).toBe(0);
 	});
 
@@ -303,9 +343,10 @@ describe("owner-purge v1 relay rejection vectors", () => {
 			issuedAt: fixtureNumber(vector, "issued_at"),
 			expiresAt: fixtureNumber(vector, "expires_at"),
 		});
-		expect((await response(post(CONFIRM_ROUTE, attestation))).body.disposition).toBe(
-			fixtureDisposition(vector),
-		);
+		expect(
+			(await response(post(CONFIRM_ROUTE, confirmationWrapper(request, attestation)))).body
+				.disposition,
+		).toBe(fixtureDisposition(vector));
 	});
 
 	it("attestation_future_or_overlong_is_refused_without_state_change", async () => {
@@ -329,9 +370,10 @@ describe("owner-purge v1 relay rejection vectors", () => {
 				issuedAt: timing.issued_at,
 				expiresAt: timing.expires_at,
 			});
-			expect((await response(post(CONFIRM_ROUTE, attestation))).body.disposition).toBe(
-				fixtureDisposition(vector),
-			);
+			expect(
+				(await response(post(CONFIRM_ROUTE, confirmationWrapper(request, attestation)))).body
+					.disposition,
+			).toBe(fixtureDisposition(vector));
 		}
 		expect(await bindingDisposition()).toBe("complete");
 	});
