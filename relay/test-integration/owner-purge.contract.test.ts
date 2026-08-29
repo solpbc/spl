@@ -432,7 +432,7 @@ function withoutIntegrity<T extends { integrity: string }>(value: T): Omit<T, "i
 	return unsigned;
 }
 
-function duplicateFieldJson<T extends Record<string, unknown>>(
+function duplicateFieldJson<T extends object>(
 	value: T,
 	field: string,
 	duplicateValue: unknown,
