@@ -306,8 +306,14 @@ async function verifyCompactEdDsaJwt(
 	const jwk = jwks.keys.find((key) => key.kid === header.kid);
 	if (!jwk) return { ok: false, reason: "untrusted" };
 
-	let key: CryptoKey;
 	let signature: Uint8Array;
+	try {
+		signature = base64UrlDecode(signatureB64);
+	} catch {
+		return { ok: false, reason: "malformed" };
+	}
+
+	let key: CryptoKey;
 	try {
 		key = await crypto.subtle.importKey(
 			"jwk",
@@ -316,7 +322,6 @@ async function verifyCompactEdDsaJwt(
 			false,
 			["verify"],
 		);
-		signature = base64UrlDecode(signatureB64);
 	} catch {
 		return { ok: false, reason: "unavailable" };
 	}

@@ -332,8 +332,10 @@ describe("portal purge routes", () => {
 		const firstAttempt = await handlePurge(request, flakyEnv(handlerEnv()), now());
 		expect(await outcome(firstAttempt)).toEqual({ status: 503, disposition: "retryable" });
 		const [processedFirst, untouchedSecond] = [first, second].sort();
-		expect(await rowCount("instances", processedFirst)).toBe(0);
-		expect(await rowCount("instances", untouchedSecond)).toBe(1);
+		for (const table of ["instances", "devices", "pending_grants"] as const) {
+			expect(await rowCount(table, processedFirst)).toBe(0);
+			expect(await rowCount(table, untouchedSecond)).toBe(1);
+		}
 
 		expect(await outcome(await post("/internal/purge", envelope))).toEqual({
 			status: 200,
@@ -341,6 +343,62 @@ describe("portal purge routes", () => {
 		});
 		expect(await rowCount("instances", untouchedSecond)).toBe(0);
 		expect(await purgeBinding(operation)).toMatchObject({ state: "complete" });
+	});
+
+	it("does not extend an expired retryable binding with a fresh envelope", async () => {
+		const first = newId();
+		const second = newId();
+		await seedInstance(first);
+		await seedInstance(second);
+		const operation = `stored-expiry-${crypto.randomUUID()}`;
+		const startedAt = 2_000_000_000;
+		const originalExpiry = startedAt + 60;
+		const originalEnvelope = await signClaims(env.PORTAL_TEST_SIGNING_JWK, {
+			iss: "spl-portal",
+			aud: "spl-relay-purge",
+			ver: "1",
+			typ: "purge",
+			op: operation,
+			instances: [first, second],
+			iat: startedAt,
+			exp: originalExpiry,
+		});
+
+		expect(
+			await outcome(
+				await handlePurge(
+					serviceRequest("/internal/purge", originalEnvelope),
+					flakyEnv(handlerEnv()),
+					startedAt,
+				),
+			),
+		).toEqual({ status: 503, disposition: "retryable" });
+		const [, untouchedSecond] = [first, second].sort();
+
+		const retriedAt = originalExpiry + 1;
+		const freshEnvelope = await signClaims(env.PORTAL_TEST_SIGNING_JWK, {
+			iss: "spl-portal",
+			aud: "spl-relay-purge",
+			ver: "1",
+			typ: "purge",
+			op: operation,
+			instances: [first, second],
+			iat: retriedAt,
+			exp: retriedAt + 300,
+		});
+		expect(
+			await outcome(
+				await handlePurge(
+					serviceRequest("/internal/purge", freshEnvelope),
+					handlerEnv(),
+					retriedAt,
+				),
+			),
+		).toEqual({ status: 409, disposition: "expired" });
+		for (const table of ["instances", "devices", "pending_grants"] as const) {
+			expect(await rowCount(table, untouchedSecond)).toBe(1);
+		}
+		expect(await purgeBinding(operation)).toMatchObject({ state: "retryable" });
 	});
 
 	it("deletes a complete binding before replying to confirmation and preserves retryable bindings", async () => {
@@ -369,10 +427,18 @@ describe("portal purge routes", () => {
 		expect(await purgeBinding(retryOperation)).toMatchObject({ state: "retryable" });
 	});
 
-	it("refuses tampered and expired confirmations before changing a complete binding", async () => {
+	it("refuses malformed, tampered, and expired confirmations before changing a complete binding", async () => {
 		const operation = `confirm-refusal-${crypto.randomUUID()}`;
 		await seedBinding(operation, "complete", now() + 300, now());
 		const confirmation = await signConfirm(operation);
+		const [header, payload] = confirmation.split(".");
+		const malformedSignature = `${header}.${payload}.!`;
+		expect(await outcome(await post("/internal/purge/confirm", malformedSignature))).toEqual({
+			status: 400,
+			disposition: "refused",
+		});
+		expect(await purgeBinding(operation)).toMatchObject({ state: "complete" });
+
 		const tampered = tamperCompactJwsSignature(confirmation);
 		expect(tampered).not.toBe(confirmation);
 		expect(await outcome(await post("/internal/purge/confirm", tampered))).toEqual({
