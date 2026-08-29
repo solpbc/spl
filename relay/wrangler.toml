@@ -37,8 +37,8 @@ tag = "v1"
 new_sqlite_classes = ["InstanceDO"]
 
 # Non-secret configuration. Secrets (SIGNING_JWK, JWKS_PUBLIC, GRANT_SECRET,
-# PORTAL_JWKS_PUBLIC, PURGE_SECRET) are set via `wrangler secret put` and are
-# NEVER committed here. ISSUER is the JWT `iss` claim the Worker enforces on
+# PURGE_SECRET, OWNER_PURGE_HMAC_KEY_V1, OWNER_PURGE_HMAC_KEY_V2) are set via
+# `wrangler secret put` and are NEVER committed here. ISSUER is the JWT `iss` claim the Worker enforces on
 # every verify; self-hosters override in their env block. ENTITLEMENT_REQUIRED
 # is unset in this block, and only the exact string "true" enables the session
 # gate — but [env.production] below sets it "true", and that is the env `make
