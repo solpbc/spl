@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) 2026 sol pbc
 
-import { SELF, env } from "cloudflare:test";
+import { SELF, createExecutionContext, createScheduledController, env } from "cloudflare:test";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import fixture from "../../proto/purge-v1-fixtures.json";
 import type { Env } from "../src/env";
+import worker from "../src/index";
 import {
 	canonicalizeInstances,
 	handlePurge,
@@ -13,6 +14,7 @@ import {
 } from "../src/purge";
 import { signClaims, tamperCompactJwsSignature } from "../test/fixtures";
 import { applyRelayD1Migrations } from "./apply-migrations";
+import { migrations } from "./migrations";
 
 declare module "cloudflare:test" {
 	interface ProvidedEnv {
@@ -37,6 +39,7 @@ interface FixtureVector {
 	control?: string;
 	op?: string;
 	confirmation?: string;
+	binding_state?: "retryable" | "complete" | "confirmed";
 }
 
 const vectors = fixture.vectors as FixtureVector[];
@@ -237,32 +240,39 @@ async function rowCount(
 	return row?.count ?? 0;
 }
 
-async function purgeBinding(
-	operation: string,
-): Promise<{ state: string; completed_at: number | null } | null> {
+async function purgeBinding(operation: string): Promise<{
+	operation_id_hash: string;
+	snapshot_digest: string;
+	state: "retryable" | "complete" | "confirmed";
+	expires_at: number;
+} | null> {
 	const hash = await sha256FingerprintText(operation);
 	return env.DB.prepare(
-		"SELECT state, completed_at FROM purge_operations WHERE operation_id_hash = ?",
+		"SELECT operation_id_hash, snapshot_digest, state, expires_at FROM purge_operations WHERE operation_id_hash = ?",
 	)
 		.bind(hash)
-		.first<{ state: string; completed_at: number | null }>();
+		.first<{
+			operation_id_hash: string;
+			snapshot_digest: string;
+			state: "retryable" | "complete" | "confirmed";
+			expires_at: number;
+		}>();
 }
 
 async function seedBinding(
 	op: string,
 	instances: string[],
-	state: "retryable" | "complete",
+	state: "retryable" | "complete" | "confirmed",
 	expiresAt: number,
-	completedAt: number | null,
 ): Promise<void> {
 	const hash = await sha256FingerprintText(op);
 	const canonical = canonicalizeInstances(instances);
 	if (!canonical.ok) throw new Error("seed binding instances must be canonicalizable");
 	const snapshotDigest = await sha256FingerprintText(JSON.stringify(canonical.instances));
 	await env.DB.prepare(
-		"INSERT INTO purge_operations (operation_id_hash, snapshot_digest, state, expires_at, completed_at) VALUES (?, ?, ?, ?, ?)",
+		"INSERT INTO purge_operations (operation_id_hash, snapshot_digest, state, expires_at) VALUES (?, ?, ?, ?)",
 	)
-		.bind(hash, snapshotDigest, state, expiresAt, completedAt)
+		.bind(hash, snapshotDigest, state, expiresAt)
 		.run();
 }
 
@@ -275,6 +285,44 @@ function flakyEnv(base: Env): Env {
 					batchCount += 1;
 					if (batchCount === 2) throw new Error("purge-batch-failure-canary");
 					return target.batch(statements);
+				};
+			}
+			const value = Reflect.get(target, property, receiver);
+			return typeof value === "function" ? value.bind(target) : value;
+		},
+	});
+	return { ...base, DB: database };
+}
+
+function sweepFailureEnv(base: Env): Env {
+	const database = new Proxy(base.DB, {
+		get(target, property, receiver) {
+			if (property === "prepare") {
+				return (query: string) => {
+					const statement = target.prepare(query);
+					if (query !== "DELETE FROM purge_operations WHERE expires_at <= ?") return statement;
+					return new Proxy(statement, {
+						get(statementTarget, statementProperty, statementReceiver) {
+							if (statementProperty === "bind") {
+								return (...values: unknown[]) => {
+									const bound = statementTarget.bind(...values);
+									return new Proxy(bound, {
+										get(boundTarget, boundProperty, boundReceiver) {
+											if (boundProperty === "run") {
+												return async () => {
+													throw new Error("purge-sweep-failure-canary");
+												};
+											}
+											const value = Reflect.get(boundTarget, boundProperty, boundReceiver);
+											return typeof value === "function" ? value.bind(boundTarget) : value;
+										},
+									});
+								};
+							}
+							const value = Reflect.get(statementTarget, statementProperty, statementReceiver);
+							return typeof value === "function" ? value.bind(statementTarget) : value;
+						},
+					});
 				};
 			}
 			const value = Reflect.get(target, property, receiver);
@@ -451,39 +499,138 @@ describe("portal purge routes", () => {
 		expect(await purgeBinding(operation)).toMatchObject({ state: "retryable" });
 	});
 
-	it("garbage-collects a stale complete binding before a submit replay", async () => {
-		const operation = `stale-complete-${crypto.randomUUID()}`;
-		const instances = [newId(), newId()];
-		const requestNow = 2_000_000_000;
-		const expiresAt = requestNow + 300;
-
-		for (const instanceId of instances) {
-			await seedInstance(instanceId);
+	it("sweeps expired bindings in every state", async () => {
+		const expiredAt = now() - 1;
+		const bindings = [
+			{ operation: `sweep-retryable-${crypto.randomUUID()}`, state: "retryable" as const },
+			{ operation: `sweep-complete-${crypto.randomUUID()}`, state: "complete" as const },
+			{ operation: `sweep-confirmed-${crypto.randomUUID()}`, state: "confirmed" as const },
+		];
+		for (const binding of bindings) {
+			await seedBinding(binding.operation, [], binding.state, expiredAt);
 		}
-		await seedBinding(operation, instances, "complete", expiresAt, requestNow - 7 * DAY - 1);
-		const envelope = await signPurge(instances, {
-			op: operation,
-			iat: requestNow,
-			exp: expiresAt,
-		});
 
-		expect(
-			await outcome(
-				await handlePurge(serviceRequest("/internal/purge", envelope), handlerEnv(), requestNow),
-			),
-		).toEqual({ status: 200, disposition: "complete" });
-		for (const instanceId of instances) {
-			expect(await rowCount("instances", instanceId)).toBe(0);
-			expect(await rowCount("devices", instanceId)).toBe(0);
-			expect(await rowCount("pending_grants", instanceId)).toBe(0);
+		await worker.scheduled(createScheduledController(), handlerEnv(), createExecutionContext());
+
+		for (const binding of bindings) {
+			expect(await purgeBinding(binding.operation)).toBeNull();
 		}
-		expect(await purgeBinding(operation)).toEqual({
-			state: "complete",
-			completed_at: requestNow,
-		});
 	});
 
-	it("deletes a complete binding before replying to confirmation and preserves retryable bindings", async () => {
+	it("surfaces an expiry sweep D1 failure without changing its binding", async () => {
+		const operation = `sweep-failure-${crypto.randomUUID()}`;
+		const expiresAt = now() - 1;
+		await seedBinding(operation, [], "complete", expiresAt);
+		const spy = vi.spyOn(console, "log").mockImplementation(() => {});
+
+		await expect(
+			worker.scheduled(
+				createScheduledController(),
+				sweepFailureEnv(handlerEnv()),
+				createExecutionContext(),
+			),
+		).rejects.toThrow("purge expiry sweep failed");
+		expect(await purgeBinding(operation)).toMatchObject({
+			state: "complete",
+			expires_at: expiresAt,
+		});
+		const records = spy.mock.calls
+			.map(([line]) => line)
+			.filter((line): line is string => typeof line === "string")
+			.map((line) => JSON.parse(line) as Record<string, unknown>);
+		expect(records).toContainEqual(
+			expect.objectContaining({ event: "purge_expiry_sweep", reason: "purge_database_error" }),
+		);
+
+		await worker.scheduled(createScheduledController(), handlerEnv(), createExecutionContext());
+		expect(await purgeBinding(operation)).toBeNull();
+	});
+
+	it("rebuilds pre-existing purge bindings without fabricating rows", async () => {
+		const table = "purge_operations_0009_migration_test";
+		const nextTable = `${table}_next`;
+		const migration = migrations.find(
+			(candidate) => candidate.name === "0009_purge_operations_confirmed",
+		);
+		if (!migration) throw new Error("missing 0009 purge migration mirror");
+		const rows = [
+			{
+				operation_id_hash: `sha256:${"a".repeat(64)}`,
+				snapshot_digest: `sha256:${"b".repeat(64)}`,
+				state: "retryable",
+				expires_at: 2_000_000_100,
+				completed_at: null,
+			},
+			{
+				operation_id_hash: `sha256:${"c".repeat(64)}`,
+				snapshot_digest: `sha256:${"d".repeat(64)}`,
+				state: "complete",
+				expires_at: 2_000_000_200,
+				completed_at: 2_000_000_000,
+			},
+		] as const;
+
+		await env.DB.prepare(`DROP TABLE IF EXISTS ${table}`).run();
+		await env.DB.prepare(
+			`CREATE TABLE ${table} (
+				operation_id_hash TEXT PRIMARY KEY,
+				snapshot_digest TEXT NOT NULL,
+				state TEXT NOT NULL CHECK (state IN ('retryable', 'complete')),
+				expires_at INTEGER NOT NULL,
+				completed_at INTEGER,
+				CHECK (
+					(state = 'retryable' AND completed_at IS NULL) OR
+					(state = 'complete' AND completed_at IS NOT NULL)
+				)
+			)`,
+		).run();
+
+		try {
+			for (const row of rows) {
+				await env.DB.prepare(
+					`INSERT INTO ${table} (operation_id_hash, snapshot_digest, state, expires_at, completed_at) VALUES (?, ?, ?, ?, ?)`,
+				)
+					.bind(
+						row.operation_id_hash,
+						row.snapshot_digest,
+						row.state,
+						row.expires_at,
+						row.completed_at,
+					)
+					.run();
+			}
+			for (const query of migration.queries) {
+				const shadowed = query
+					.replaceAll("purge_operations_0009", "__NEXT_PURGE_OPERATIONS_TABLE__")
+					.replaceAll("purge_operations", table)
+					.replaceAll("__NEXT_PURGE_OPERATIONS_TABLE__", nextTable);
+				await env.DB.prepare(shadowed).run();
+			}
+			const rebuilt = await env.DB.prepare(
+				`SELECT operation_id_hash, snapshot_digest, state, expires_at FROM ${table} ORDER BY operation_id_hash`,
+			).all<{
+				operation_id_hash: string;
+				snapshot_digest: string;
+				state: string;
+				expires_at: number;
+			}>();
+			expect(rebuilt.results).toEqual(
+				rows
+					.map(({ completed_at: _completedAt, ...row }) => row)
+					.sort((left, right) => left.operation_id_hash.localeCompare(right.operation_id_hash)),
+			);
+			const absent = await env.DB.prepare(
+				`SELECT COUNT(*) AS count FROM ${table} WHERE operation_id_hash = ?`,
+			)
+				.bind(`sha256:${"e".repeat(64)}`)
+				.first<{ count: number }>();
+			expect(absent).toEqual({ count: 0 });
+		} finally {
+			await env.DB.prepare(`DROP TABLE IF EXISTS ${table}`).run();
+		}
+	});
+
+	it("transitions a complete binding to confirmed and preserves retryable bindings", async () => {
 		const target = newId();
 		const targetInstances = [target];
 		await seedInstance(target);
@@ -495,12 +642,23 @@ describe("portal purge routes", () => {
 
 		expect(await outcome(await postConfirm(envelope, confirmation))).toEqual({
 			status: 200,
-			disposition: "complete",
+			disposition: "confirmed",
 		});
-		expect(await purgeBinding(operation)).toBeNull();
+		expect(await purgeBinding(operation)).toMatchObject({ state: "confirmed" });
 		expect(await outcome(await postConfirm(envelope, confirmation))).toEqual({
 			status: 200,
-			disposition: "confirmed_absent",
+			disposition: "confirmed",
+		});
+		expect(
+			await env.DB.prepare(
+				"SELECT COUNT(*) AS count FROM purge_operations WHERE operation_id_hash = ?",
+			)
+				.bind(await sha256FingerprintText(operation))
+				.first<{ count: number }>(),
+		).toEqual({ count: 1 });
+		expect(await outcome(await post("/internal/purge", envelope))).toEqual({
+			status: 200,
+			disposition: "confirmed",
 		});
 
 		const retryOperation = `retryable-confirm-${crypto.randomUUID()}`;
@@ -513,7 +671,7 @@ describe("portal purge routes", () => {
 			exp: retryExpiry,
 		});
 		const retryDigest = await sha256FingerprintText(JSON.stringify(retryInstances));
-		await seedBinding(retryOperation, retryInstances, "retryable", retryExpiry, null);
+		await seedBinding(retryOperation, retryInstances, "retryable", retryExpiry);
 		expect(
 			await outcome(
 				await postConfirm(
@@ -534,7 +692,7 @@ describe("portal purge routes", () => {
 		const issuedAt = now();
 		const expiry = issuedAt + 300;
 		const digest = await sha256FingerprintText(JSON.stringify(instances));
-		await seedBinding(operation, instances, "complete", expiry, issuedAt);
+		await seedBinding(operation, instances, "complete", expiry);
 		const envelope = await signPurge(instances, { op: operation, iat: issuedAt, exp: expiry });
 		const confirmation = await signConfirm(operation, digest, { iat: issuedAt, exp: expiry });
 		const assertBindingIntact = async (): Promise<void> => {
@@ -598,14 +756,14 @@ describe("portal purge routes", () => {
 		await assertBindingIntact();
 	});
 
-	it("refuses an expired original before touching a hard-delete-eligible complete binding", async () => {
+	it("refuses an expired original before touching an expired complete binding", async () => {
 		const operation = `expired-original-${crypto.randomUUID()}`;
 		const then = 2_000_000_000;
 		const instances: string[] = [];
 		const originalIssuedAt = then - 8 * DAY;
 		const originalExpiry = originalIssuedAt + 7 * DAY;
 		const digest = await sha256FingerprintText(JSON.stringify(instances));
-		await seedBinding(operation, instances, "complete", originalExpiry, then - 7 * DAY - 1);
+		await seedBinding(operation, instances, "complete", originalExpiry);
 		const envelope = await signPurge(instances, {
 			op: operation,
 			iat: originalIssuedAt,
@@ -621,19 +779,19 @@ describe("portal purge routes", () => {
 		expect(await purgeBinding(operation)).toMatchObject({ state: "complete" });
 	});
 
-	it("refuses a fresh envelope that mismatches a stale retryable binding expiry", async () => {
+	it("refuses a fresh envelope once a retryable binding reaches expiry", async () => {
 		const operation = `stale-confirm-${crypto.randomUUID()}`;
 		const instances = [newId()];
 		const issuedAt = now();
 		const freshExpiry = issuedAt + 300;
 		const digest = await sha256FingerprintText(JSON.stringify(instances));
-		await seedBinding(operation, instances, "retryable", issuedAt - 1, null);
+		await seedBinding(operation, instances, "retryable", issuedAt - 1);
 		const envelope = await signPurge(instances, { op: operation, iat: issuedAt, exp: freshExpiry });
 		const confirmation = await signConfirm(operation, digest, { iat: issuedAt, exp: freshExpiry });
 
 		expect(await outcome(await postConfirm(envelope, confirmation))).toEqual({
 			status: 409,
-			disposition: "altered_replay",
+			disposition: "expired",
 		});
 		expect(await purgeBinding(operation)).toMatchObject({ state: "retryable" });
 	});
@@ -699,6 +857,21 @@ describe("portal purge v1 fixture", () => {
 				disposition: vector.expected.disposition,
 			});
 		};
+		const expectExpiredBinding = async (name: string): Promise<void> => {
+			const vector = fixtureVector(name);
+			if (!vector.op || !vector.instances || !vector.binding_state) {
+				throw new Error(`expired binding fixture setup missing: ${name}`);
+			}
+			await seedBinding(vector.op, vector.instances, vector.binding_state, fixture.now);
+			await expectVector(vector, await invoke(vector));
+			expect(await purgeBinding(vector.op)).toMatchObject({
+				state: vector.binding_state,
+				expires_at: fixture.now,
+			});
+			await env.DB.prepare("DELETE FROM purge_operations WHERE operation_id_hash = ?")
+				.bind(await sha256FingerprintText(vector.op))
+				.run();
+		};
 
 		await expectVector(valid, await invoke(valid));
 		for (const instanceId of valid.instances)
@@ -730,13 +903,28 @@ describe("portal purge v1 fixture", () => {
 			await invoke(fixtureVector("legacy_confirm_refused")),
 		);
 		await expectVector(
+			fixtureVector("confirm_purge_typed_attestation_refused"),
+			await invoke(fixtureVector("confirm_purge_typed_attestation_refused")),
+		);
+		await expectVector(
 			fixtureVector("valid_confirm"),
 			await invoke(fixtureVector("valid_confirm")),
 		);
-		expect(await purgeBinding("fixture-complete-op")).toBeNull();
+		expect(await purgeBinding("fixture-complete-op")).toMatchObject({ state: "confirmed" });
+		expect(
+			await env.DB.prepare(
+				"SELECT COUNT(*) AS count FROM purge_operations WHERE operation_id_hash = ?",
+			)
+				.bind(await sha256FingerprintText("fixture-complete-op"))
+				.first<{ count: number }>(),
+		).toEqual({ count: 1 });
 		await expectVector(
 			fixtureVector("confirm_replay"),
 			await invoke(fixtureVector("confirm_replay")),
+		);
+		await expectVector(
+			fixtureVector("confirmed_submit_replay"),
+			await invoke(fixtureVector("confirmed_submit_replay")),
 		);
 
 		const retryableConfirm = fixtureVector("confirm_retryable");
@@ -748,9 +936,21 @@ describe("portal purge v1 fixture", () => {
 			retryableConfirm.instances,
 			"retryable",
 			fixture.now + 300,
-			null,
 		);
 		await expectVector(retryableConfirm, await invoke(retryableConfirm));
+
+		await expectExpiredBinding("purge_retryable_binding_expired");
+		await expectExpiredBinding("purge_complete_binding_expired");
+		await expectExpiredBinding("purge_confirmed_binding_expired");
+		await expectExpiredBinding("confirm_retryable_binding_expired");
+		await expectExpiredBinding("confirm_complete_binding_expired");
+		await expectExpiredBinding("confirm_confirmed_binding_expired");
+
+		const absent = fixtureVector("confirm_absent_not_complete");
+		if (!absent.op) throw new Error("absent fixture setup missing");
+		expect(await purgeBinding(absent.op)).toBeNull();
+		await expectVector(absent, await invoke(absent));
+		expect(await purgeBinding(absent.op)).toBeNull();
 
 		const expiredOriginal = fixtureVector("confirm_original_expired");
 		if (!expiredOriginal.op) throw new Error("expired fixture setup missing");
@@ -812,7 +1012,7 @@ describe("portal purge log hygiene", () => {
 						now(),
 					),
 				),
-			).toEqual({ status: 200, disposition: "complete" });
+			).toEqual({ status: 200, disposition: "confirmed" });
 
 			const records = spy.mock.calls
 				.map(([line]) => line)

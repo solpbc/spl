@@ -176,8 +176,17 @@ describe("portal purge compact EdDSA JWT validation", () => {
 			"legacy_confirm_refused",
 			"valid_confirm",
 			"confirm_replay",
+			"confirmed_submit_replay",
+			"confirm_purge_typed_attestation_refused",
 			"confirm_retryable",
 			"confirm_original_expired",
+			"purge_retryable_binding_expired",
+			"purge_complete_binding_expired",
+			"purge_confirmed_binding_expired",
+			"confirm_retryable_binding_expired",
+			"confirm_complete_binding_expired",
+			"confirm_confirmed_binding_expired",
+			"confirm_absent_not_complete",
 			"fault_then_retry",
 		]);
 
@@ -211,7 +220,10 @@ describe("portal purge compact EdDSA JWT validation", () => {
 				fixture.portal_jwks_public,
 				fixture.now,
 			);
-			if (vector.name === "legacy_confirm_refused") {
+			if (
+				vector.name === "legacy_confirm_refused" ||
+				vector.name === "confirm_purge_typed_attestation_refused"
+			) {
 				expect(original).toMatchObject({ ok: true });
 				expect(confirmation).toEqual({ ok: false, reason: "untrusted" });
 			} else if (vector.name === "confirm_original_expired") {

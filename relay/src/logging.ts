@@ -53,7 +53,7 @@ export type LogEvent =
 	| "purge_rejected"
 	| "purge_expired"
 	| "purge_confirmed"
-	| "purge_confirmed_absent"
+	| "purge_expiry_sweep"
 	| "purge_not_complete"
 	| "not_entitled"
 	| "internal_error";

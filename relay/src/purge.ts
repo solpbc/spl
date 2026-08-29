@@ -18,7 +18,6 @@ const MAX_OPERATION_ID_BYTES = 256;
 const MAX_INSTANCE_IDS = 100;
 const MAX_PURGE_LIFETIME_SECONDS = 7 * 24 * 60 * 60;
 const MAX_CONFIRM_LIFETIME_SECONDS = 5 * 60;
-const COMPLETED_BINDING_RETENTION_SECONDS = 7 * 24 * 60 * 60;
 
 const PORTAL_ISSUER = "spl-portal";
 const PURGE_AUDIENCE = "spl-relay-purge";
@@ -67,12 +66,20 @@ interface JwksEnvelope {
 	keys: PublicJwk[];
 }
 
+type PurgeOperationState = "retryable" | "complete" | "confirmed";
+type PurgeDisposition =
+	| "complete"
+	| "confirmed"
+	| "retryable"
+	| "expired"
+	| "altered_replay"
+	| "not_complete";
+
 interface PurgeOperation {
 	operation_id_hash: string;
 	snapshot_digest: string;
-	state: "retryable" | "complete";
+	state: PurgeOperationState;
 	expires_at: number;
-	completed_at: number | null;
 }
 
 type VerifyFailure = "malformed" | "untrusted" | "expired" | "unavailable";
@@ -112,14 +119,14 @@ export async function handlePurge(request: Request, env: Env, now = unixNow()): 
 
 	let binding: PurgeOperation | null;
 	try {
-		binding = await loadPurgeOperation(operationIdHash, now, env);
+		binding = await loadPurgeOperation(operationIdHash, env);
 		if (!binding) {
 			await env.DB.prepare(
-				"INSERT INTO purge_operations (operation_id_hash, snapshot_digest, state, expires_at, completed_at) VALUES (?, ?, 'retryable', ?, NULL) ON CONFLICT(operation_id_hash) DO NOTHING",
+				"INSERT INTO purge_operations (operation_id_hash, snapshot_digest, state, expires_at) VALUES (?, ?, 'retryable', ?) ON CONFLICT(operation_id_hash) DO NOTHING",
 			)
 				.bind(operationIdHash, snapshotDigest, verified.claims.exp)
 				.run();
-			binding = await loadPurgeOperation(operationIdHash, now, env);
+			binding = await loadPurgeOperation(operationIdHash, env);
 		}
 	} catch {
 		return retryable(0);
@@ -129,9 +136,10 @@ export async function handlePurge(request: Request, env: Env, now = unixNow()): 
 	// delete did, no deletion has been attempted and the portal can retry.
 	if (!binding) return retryable(0);
 
-	if (binding.snapshot_digest !== snapshotDigest) return alteredReplay();
-	if (binding.state === "complete") return complete(canonical.instances.length);
 	if (now >= binding.expires_at) return expired(canonical.instances.length);
+	if (binding.snapshot_digest !== snapshotDigest) return alteredReplay();
+	if (binding.state === "confirmed") return confirmed();
+	if (binding.state === "complete") return complete(canonical.instances.length);
 
 	let completed = 0;
 	for (const instanceId of canonical.instances) {
@@ -149,13 +157,16 @@ export async function handlePurge(request: Request, env: Env, now = unixNow()): 
 
 	try {
 		const result = await env.DB.prepare(
-			"UPDATE purge_operations SET state = 'complete', completed_at = ? WHERE operation_id_hash = ? AND state = 'retryable' AND completed_at IS NULL",
+			"UPDATE purge_operations SET state = 'complete' WHERE operation_id_hash = ? AND state = 'retryable'",
 		)
-			.bind(now, operationIdHash)
+			.bind(operationIdHash)
 			.run();
 		if (result.meta.changes === 0) {
-			binding = await loadPurgeOperation(operationIdHash, now, env);
-			if (!binding || binding.snapshot_digest !== snapshotDigest) return retryable(completed);
+			binding = await loadPurgeOperation(operationIdHash, env);
+			if (!binding) return retryable(completed);
+			if (now >= binding.expires_at) return expired(canonical.instances.length);
+			if (binding.snapshot_digest !== snapshotDigest) return alteredReplay();
+			if (binding.state === "confirmed") return confirmed();
 			if (binding.state === "complete") return complete(canonical.instances.length);
 			return retryable(completed);
 		}
@@ -210,33 +221,47 @@ export async function handlePurgeConfirm(
 
 	let binding: PurgeOperation | null;
 	try {
-		binding = await loadPurgeOperation(operationIdHash, now, env);
+		binding = await loadPurgeOperation(operationIdHash, env);
 	} catch {
 		return retryable(0);
 	}
 
 	if (!binding) {
-		log({ event: "purge_confirmed_absent" });
-		return protocol("confirmed_absent");
+		return notComplete();
 	}
+	if (now >= binding.expires_at) return expired(0);
 	if (binding.snapshot_digest !== snapshotDigest || binding.expires_at !== original.claims.exp) {
 		return alteredReplay();
 	}
 	if (binding.state === "retryable") {
-		log({ event: "purge_not_complete", reason: "purge_not_complete" });
-		return protocol("not_complete", 409);
+		return notComplete();
 	}
+	if (binding.state === "confirmed") return confirmed();
 
 	try {
-		await env.DB.prepare("DELETE FROM purge_operations WHERE operation_id_hash = ?")
+		const result = await env.DB.prepare(
+			"UPDATE purge_operations SET state = 'confirmed' WHERE operation_id_hash = ? AND state = 'complete'",
+		)
 			.bind(operationIdHash)
 			.run();
+		if (result.meta.changes === 0) {
+			binding = await loadPurgeOperation(operationIdHash, env);
+			if (!binding || now >= binding.expires_at) return expired(0);
+			if (
+				binding.snapshot_digest !== snapshotDigest ||
+				binding.expires_at !== original.claims.exp
+			) {
+				return alteredReplay();
+			}
+			if (binding.state === "confirmed") return confirmed();
+			if (binding.state === "retryable") return notComplete();
+			return retryable(0);
+		}
 	} catch {
 		return retryable(0);
 	}
 
-	log({ event: "purge_confirmed" });
-	return protocol("complete");
+	return confirmed();
 }
 
 export async function verifyPurgeEnvelope(
@@ -482,31 +507,24 @@ function claimsExpired(claims: CommonClaims, now: number): boolean {
 
 async function loadPurgeOperation(
 	operationIdHash: string,
-	now: number,
 	env: Env,
 ): Promise<PurgeOperation | null> {
 	const row = await env.DB.prepare(
-		"SELECT operation_id_hash, snapshot_digest, state, expires_at, completed_at FROM purge_operations WHERE operation_id_hash = ?",
+		"SELECT operation_id_hash, snapshot_digest, state, expires_at FROM purge_operations WHERE operation_id_hash = ?",
 	)
 		.bind(operationIdHash)
 		.first<PurgeOperation>();
-	if (!row) return null;
-	if (
-		row.state === "complete" &&
-		row.completed_at !== null &&
-		now > row.completed_at + COMPLETED_BINDING_RETENTION_SECONDS
-	) {
-		await env.DB.prepare(
-			"DELETE FROM purge_operations WHERE operation_id_hash = ? AND state = 'complete' AND completed_at = ?",
-		)
-			.bind(operationIdHash, row.completed_at)
-			.run();
-		return null;
-	}
-	return row;
+	return row ?? null;
 }
 
-function protocol(disposition: string, status = 200): Response {
+export async function purgeExpiredOperations(env: Env, now = unixNow()): Promise<number> {
+	const result = await env.DB.prepare("DELETE FROM purge_operations WHERE expires_at <= ?")
+		.bind(now)
+		.run();
+	return result.meta.changes;
+}
+
+function protocol(disposition: PurgeDisposition, status = 200): Response {
 	return json({ ver: PROTOCOL_VERSION, disposition }, status);
 }
 
@@ -537,6 +555,16 @@ function untrusted(): Response {
 function complete(count: number): Response {
 	log({ event: "purge_complete", count });
 	return protocol("complete");
+}
+
+function confirmed(): Response {
+	log({ event: "purge_confirmed" });
+	return protocol("confirmed");
+}
+
+function notComplete(): Response {
+	log({ event: "purge_not_complete", reason: "purge_not_complete" });
+	return protocol("not_complete", 409);
 }
 
 function retryable(count: number): Response {

@@ -15,6 +15,9 @@ workers_dev = false
 #   { pattern = "link.solstone.app", custom_domain = true }
 # ]
 
+[triggers]
+crons = ["*/5 * * * *"]
+
 [observability]
 enabled = true
 
@@ -72,6 +75,9 @@ routes = [{ pattern = "link.solstone.app", custom_domain = true }]
 # /session/dial is HELD open (hibernating) and brokered when the home appears, instead of 503.
 # Only the exact string "true" enables it; revert = set "false" (or remove) + redeploy.
 vars = { ENVIRONMENT = "production", ISSUER = "link.solstone.app", ENTITLEMENT_REQUIRED = "true", PRESENCE_HOLD_ENABLED = "true" }
+
+[env.production.triggers]
+crons = ["*/5 * * * *"]
 
 [env.production.observability]
 enabled = true

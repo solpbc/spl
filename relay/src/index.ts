@@ -29,7 +29,8 @@ import { handleEnrollDevice, handleEnrollHome } from "./enroll";
 import { handleListInstances, handleSetEntitlement, handleShowInstance } from "./entitlement";
 import type { Env } from "./env";
 import { unauthorizedResponse } from "./instance-do";
-import { handlePurge, handlePurgeConfirm } from "./purge";
+import { log } from "./logging";
+import { handlePurge, handlePurgeConfirm, purgeExpiredOperations } from "./purge";
 import { handleTokenRefresh } from "./refresh";
 
 export { InstanceDO } from "./instance-do";
@@ -133,6 +134,20 @@ export default {
 			});
 		}
 		return response;
+	},
+
+	async scheduled(
+		_controller: ScheduledController,
+		env: Env,
+		_ctx: ExecutionContext,
+	): Promise<void> {
+		try {
+			const count = await purgeExpiredOperations(env);
+			if (count > 0) log({ event: "purge_expiry_sweep", count });
+		} catch {
+			log({ event: "purge_expiry_sweep", reason: "purge_database_error" });
+			throw new Error("purge expiry sweep failed");
+		}
 	},
 } satisfies ExportedHandler<Env>;
 

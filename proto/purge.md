@@ -109,11 +109,11 @@ portal creates a new operation ID rather than inferring success. Refused is used
 for malformed, untrusted, or too-many input and makes no mutation.
 
 The relay’s only replay binding stores the operation hash, snapshot digest,
-retryable/complete state, immutable original exp, and first completed_at. The
-expiry is never extended/replaced. A completed binding is lazily deleted when
-accessed more than seven days after first completion. Because purge JWT lifetime
-is at most seven days and iat is never future, the original purge JWT is expired
-before that deletion can occur.
+retryable/complete/confirmed state, and immutable original exp. The expiry is
+never extended/replaced. Both request routes reject a binding when relay_now is
+at or after that expiry regardless of its state. A scheduled relay task also
+sweeps every state at or after its immutable expiry, deleting the binding without
+a request.
 
 ## completion confirmation
 
@@ -126,23 +126,21 @@ rules, including that it is independently unexpired now.
 
 Before looking up a binding, the relay requires the envelopes to agree on the
 operation ID and canonical snapshot digest; confirmation state is always
-"complete". When a binding exists, its snapshot digest and immutable expiry
-must exactly match the original purge envelope, or the relay returns
-altered_replay without mutation. A matching retryable binding returns
-not_complete without deletion. Its expiry cannot separately have lapsed here:
-it matches an original envelope that was already verified unexpired. For a
-genuine fresh confirmation, a matching complete binding is deleted before the
-relay returns complete.
-
-confirmed_absent is an idempotent outcome only when no binding exists after
-both envelopes have been verified unexpired and have agreed on operation,
-canonical snapshot digest, and complete state. It resolves a lost confirmation
-response. The relay intentionally retains no tombstone and does not infer a
-portal outcome from absence.
+"complete". No binding returns not_complete without mutation. When a binding
+exists, the relay checks its immutable expiry before inspecting state. Its
+snapshot digest and immutable expiry must then exactly match the original purge
+envelope, or the relay returns altered_replay without mutation. A matching
+retryable binding returns not_complete without mutation. A matching complete
+binding atomically transitions to confirmed while preserving operation hash,
+snapshot digest, and expiry, then returns confirmed. A matching confirmed
+binding returns confirmed without mutation, resolving a lost confirmation
+response. A duplicate original purge submit against an unexpired confirmed
+binding also returns confirmed without re-deleting relay rows.
 
 ## privacy and logging
 
 The relay logs only coarse event names, counts, and dispositions. It never logs
 an instance ID, operation ID/hash, snapshot digest, receipt, fingerprint, label,
 ticket, portal-account identifier, or D1 error text. It creates no
-portal-owner association and no completion ledger.
+portal-owner association or completion ledger beyond the expiry-bounded replay
+binding.
