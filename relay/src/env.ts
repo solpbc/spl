@@ -7,7 +7,7 @@ export interface Env {
 	// Durable Object namespace — one DO instance per home.
 	INSTANCE: DurableObjectNamespace;
 
-	// D1 database — token metadata (instances, devices, revocation). Never
+	// D1 database — instance admission, entitlement and purge receipts. Never
 	// payload bytes.
 	DB: D1Database;
 
@@ -18,6 +18,9 @@ export interface Env {
 	// Self-hosted: operator's domain. Tokens whose `iss` claim does not match
 	// are rejected.
 	ISSUER: string;
+
+	// Pause only device enrollment while draining old issuance attempts.
+	ENROLLMENT_PAUSED?: string;
 
 	// JWT signing layer secrets — provisioned via `wrangler secret put`.
 	// See ../docs/signing-keys.md for the lifecycle and ../proto/tokens.md

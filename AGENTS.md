@@ -34,7 +34,7 @@ These are architectural, not aspirational. A PR that violates any of them is dec
 
 ### no payload in logs, ever
 
-- Every log statement that touches tunnel data must log metadata only: `timestamp`, `tunnel_id`, `direction`, `byte_count`. Never a payload byte. Never a header. Never a token value. Never a TLS handshake message.
+- Do not log successful enrollment, refresh, session activity or forwarded frames. Error diagnostics accept only fixed `event`, `reason` and route classifications. No instance, tunnel, device or token identifiers, traffic sizes, durations, payloads, headers or TLS messages. The logging helper enforces the field boundary; retained Workers Logs and traces are disabled.
 - No analytics libraries. No tracking pixels. No behavioral telemetry. No third-party error-reporting SDK that could capture a payload on a stack trace. Adding one is a fail-stop change — cut it in code review.
 - Operational error tracking for `spl-relay` bugs is fine *if* it captures Worker stack traces that do not include user frames. Be specific about what goes upstream; default-deny anything ambiguous.
 

@@ -141,7 +141,6 @@ export async function handlePurge(request: Request, env: Env, now = unixNow()): 
 	for (const instanceId of new Set(validated.instanceIds)) {
 		try {
 			await env.DB.batch([
-				env.DB.prepare("DELETE FROM devices WHERE instance_id = ?").bind(instanceId),
 				env.DB.prepare("DELETE FROM pending_grants WHERE instance_id = ?").bind(instanceId),
 				env.DB.prepare("DELETE FROM instances WHERE instance_id = ?").bind(instanceId),
 			]);
@@ -514,32 +513,30 @@ async function signedResponse(
 async function complete(
 	context: ResponseContext,
 	keys: PurgeKeys,
-	count: number,
+	_count: number,
 ): Promise<Response> {
-	log({ event: "owner_purge_complete", count });
 	return signedResponse(context, keys, "complete", 200);
 }
 
 async function confirmed(context: ResponseContext, keys: PurgeKeys): Promise<Response> {
-	log({ event: "owner_purge_confirmed" });
 	return signedResponse(context, keys, "confirmed", 200);
 }
 
 async function retryable(
 	context: ResponseContext,
 	keys: PurgeKeys,
-	count: number,
+	_count: number,
 ): Promise<Response> {
-	log({ event: "owner_purge_retryable", count, reason: "owner_purge_database_error" });
+	log({ event: "owner_purge_retryable", reason: "owner_purge_database_error" });
 	return signedResponse(context, keys, "retryable", 503);
 }
 
 async function expired(
 	context: ResponseContext,
 	keys: PurgeKeys,
-	count: number,
+	_count: number,
 ): Promise<Response> {
-	log({ event: "owner_purge_expired", count });
+	log({ event: "owner_purge_expired" });
 	return signedResponse(context, keys, "expired", 409);
 }
 

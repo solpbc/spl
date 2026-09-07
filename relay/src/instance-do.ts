@@ -21,7 +21,6 @@ interface Attachment {
 	role: "listen" | "pair_window" | "tunnel_home" | "tunnel_mobile";
 	tunnel_id?: string;
 	instance_id: string;
-	opened_at: number;
 	listener_generation?: number;
 	// Pair-window consumption flag; unrelated to recoverable held-dial ownership.
 	signaled?: boolean;
@@ -107,19 +106,18 @@ export class InstanceDO extends DurableObject<Env> {
 
 	private async handleListen(request: Request, url: URL, instanceId: string): Promise<Response> {
 		const token = extractToken(request, url);
-		if (!token) return unauthorizedWithLog("/session/listen", "missing_token", instanceId);
+		if (!token) return unauthorizedWithLog("/session/listen", "missing_token");
 
 		const result = await verifyToken(token, {
 			jwksRaw: this.env.JWKS_PUBLIC,
 			expectedIssuer: this.env.ISSUER,
 			expectedScope: "session.listen",
 		});
-		if (!result.ok) return unauthorizedWithLog("/session/listen", result.reason, instanceId);
+		if (!result.ok) return unauthorizedWithLog("/session/listen", result.reason);
 		if (result.claims.instance_id !== instanceId) {
-			return unauthorizedWithLog("/session/listen", "instance_mismatch", instanceId);
+			return unauthorizedWithLog("/session/listen", "instance_mismatch");
 		}
 		if (this.env.ENTITLEMENT_REQUIRED === "true" && !(await this.isEntitled(instanceId))) {
-			log({ event: "not_entitled", route: "/session/listen", instance_id: instanceId });
 			return notEntitledResponse();
 		}
 		const listenerGeneration = await this.nextListenerGeneration();
@@ -137,23 +135,16 @@ export class InstanceDO extends DurableObject<Env> {
 			try {
 				ws.close(CLOSE_CODE_NORMAL, "replaced");
 			} catch {}
-			log({
-				event: "cardinality_violation",
-				instance_id: instanceId,
-				reason: "listen_replaced",
-			});
 		}
 
 		const { client, server } = newPair();
 		const att: Attachment = {
 			role: "listen",
 			instance_id: instanceId,
-			opened_at: Date.now(),
 			listener_generation: listenerGeneration,
 		};
 		server.serializeAttachment(att);
 		this.ctx.acceptWebSocket(server, [tagListen(instanceId)]);
-		log({ event: "listen_open", instance_id: instanceId });
 
 		if (this.env.PRESENCE_HOLD_ENABLED === "true") {
 			this.offerWaitingDials(server, instanceId, listenerGeneration);
@@ -164,19 +155,18 @@ export class InstanceDO extends DurableObject<Env> {
 
 	private async handleDial(request: Request, url: URL, instanceId: string): Promise<Response> {
 		const token = extractToken(request, url);
-		if (!token) return unauthorizedWithLog("/session/dial", "missing_token", instanceId);
+		if (!token) return unauthorizedWithLog("/session/dial", "missing_token");
 
 		const result = await verifyToken(token, {
 			jwksRaw: this.env.JWKS_PUBLIC,
 			expectedIssuer: this.env.ISSUER,
 			expectedScope: "session.dial",
 		});
-		if (!result.ok) return unauthorizedWithLog("/session/dial", result.reason, instanceId);
+		if (!result.ok) return unauthorizedWithLog("/session/dial", result.reason);
 		if (result.claims.instance_id !== instanceId) {
-			return unauthorizedWithLog("/session/dial", "instance_mismatch", instanceId);
+			return unauthorizedWithLog("/session/dial", "instance_mismatch");
 		}
 		if (this.env.ENTITLEMENT_REQUIRED === "true" && !(await this.isEntitled(instanceId))) {
-			log({ event: "not_entitled", route: "/session/dial", instance_id: instanceId });
 			return notEntitledResponse();
 		}
 
@@ -184,26 +174,20 @@ export class InstanceDO extends DurableObject<Env> {
 		const recoverable = this.env.PRESENCE_HOLD_ENABLED === "true";
 		if (recoverable) {
 			const listener = this.highestOfferableListener(listeners);
-			return this.brokerTunnel(listener, instanceId, "dial_open", true);
+			return this.brokerTunnel(listener, instanceId, true);
 		}
 		if (listeners.length === 0) {
 			return new Response("no home listening", { status: 503 });
 		}
 
-		return this.brokerTunnel(listeners[0], instanceId, "dial_open", false);
+		return this.brokerTunnel(listeners[0], instanceId, false);
 	}
 
 	override async alarm(): Promise<void> {
 		for (const ws of this.ctx.getWebSockets(tagPairWindow())) {
-			const att = ws.deserializeAttachment() as Attachment | null;
 			try {
 				ws.close(CLOSE_CODE_NORMAL, "window_expired");
 			} catch {}
-			log({
-				event: "pair_window_close",
-				instance_id: att?.instance_id,
-				reason: "ttl_expired",
-			});
 		}
 	}
 
@@ -223,35 +207,28 @@ export class InstanceDO extends DurableObject<Env> {
 			.bind(instanceId)
 			.first<{ revoked_at: number | null }>();
 		if (!row) {
-			return unauthorizedWithLog("/session/pair-window", "not_enrolled", instanceId);
+			return unauthorizedWithLog("/session/pair-window", "not_enrolled");
 		}
 		if (row.revoked_at !== null) {
-			return unauthorizedWithLog("/session/pair-window", "revoked", instanceId);
+			return unauthorizedWithLog("/session/pair-window", "revoked");
 		}
 
 		for (const ws of this.ctx.getWebSockets(tagPairWindow())) {
-			const existing = ws.deserializeAttachment() as Attachment | null;
 			try {
 				ws.close(CLOSE_CODE_NORMAL, "replaced");
 			} catch {}
-			log({
-				event: "cardinality_violation",
-				instance_id: existing?.instance_id ?? instanceId,
-				reason: "pair_window_replaced",
-			});
 		}
 
 		const { client, server } = newPair();
 		const att: Attachment = {
 			role: "pair_window",
 			instance_id: instanceId,
-			opened_at: Date.now(),
 		};
 		server.serializeAttachment(att);
 		this.ctx.acceptWebSocket(server, [tagPairWindow()]);
 		this.failedDials = 0;
 		await this.ctx.storage.setAlarm(Date.now() + PAIR_WINDOW_TTL_MS);
-		log({ event: "pair_window_open", instance_id: instanceId });
+
 		return new Response(null, { status: 101, webSocket: client });
 	}
 
@@ -277,11 +254,11 @@ export class InstanceDO extends DurableObject<Env> {
 		}
 		if (watt.signaled) {
 			this.failedDials++;
-			log({ event: "pair_dial_rejected", instance_id: watt.instance_id, reason: "consumed" });
+			log({ event: "pair_dial_rejected", reason: "consumed" });
 			return unauthorizedResponse();
 		}
 
-		const resp = this.brokerTunnel(window, watt.instance_id, "pair_dial_open", false);
+		const resp = this.brokerTunnel(window, watt.instance_id, false);
 		if (resp.status === 101) {
 			watt.signaled = true;
 			window.serializeAttachment(watt);
@@ -289,7 +266,7 @@ export class InstanceDO extends DurableObject<Env> {
 		}
 
 		this.failedDials++;
-		log({ event: "pair_dial_rejected", instance_id: watt.instance_id, reason: "home_dropped" });
+		log({ event: "pair_dial_rejected", reason: "home_dropped" });
 		return unauthorizedResponse();
 	}
 
@@ -300,16 +277,16 @@ export class InstanceDO extends DurableObject<Env> {
 		tunnelId: string,
 	): Promise<Response> {
 		const token = extractToken(request, url);
-		if (!token) return unauthorizedWithLog("/tunnel", "missing_token", instanceId, tunnelId);
+		if (!token) return unauthorizedWithLog("/tunnel", "missing_token");
 
 		const result = await verifyToken(token, {
 			jwksRaw: this.env.JWKS_PUBLIC,
 			expectedIssuer: this.env.ISSUER,
 			expectedScope: "session.listen",
 		});
-		if (!result.ok) return unauthorizedWithLog("/tunnel", result.reason, instanceId, tunnelId);
+		if (!result.ok) return unauthorizedWithLog("/tunnel", result.reason);
 		if (result.claims.instance_id !== instanceId) {
-			return unauthorizedWithLog("/tunnel", "instance_mismatch", instanceId, tunnelId);
+			return unauthorizedWithLog("/tunnel", "instance_mismatch");
 		}
 
 		return this.attachHomeTunnel(tunnelId, instanceId);
@@ -321,30 +298,25 @@ export class InstanceDO extends DurableObject<Env> {
 		tunnelId: string,
 	): Promise<Response> {
 		const token = extractToken(request, url);
-		if (!token) return unauthorizedWithLog("/tunnel", "missing_token", undefined, tunnelId);
+		if (!token) return unauthorizedWithLog("/tunnel", "missing_token");
 
 		const result = await verifyToken(token, {
 			jwksRaw: this.env.JWKS_PUBLIC,
 			expectedIssuer: this.env.ISSUER,
 			expectedScope: "session.listen",
 		});
-		if (!result.ok) return unauthorizedWithLog("/tunnel", result.reason, undefined, tunnelId);
+		if (!result.ok) return unauthorizedWithLog("/tunnel", result.reason);
 
 		const windows = this.ctx.getWebSockets(tagPairWindow());
 		if (windows.length === 0) {
-			return unauthorizedWithLog("/tunnel", "no_window", undefined, tunnelId);
+			return unauthorizedWithLog("/tunnel", "no_window");
 		}
 		const watt = windows[0].deserializeAttachment() as Attachment | null;
 		if (!watt || watt.role !== "pair_window") {
-			return unauthorizedWithLog("/tunnel", "no_window", undefined, tunnelId);
+			return unauthorizedWithLog("/tunnel", "no_window");
 		}
 		if (result.claims.instance_id !== watt.instance_id) {
-			return unauthorizedWithLog(
-				"/tunnel",
-				"instance_mismatch",
-				result.claims.instance_id,
-				tunnelId,
-			);
+			return unauthorizedWithLog("/tunnel", "instance_mismatch");
 		}
 
 		return this.attachHomeTunnel(tunnelId, result.claims.instance_id);
@@ -377,12 +349,6 @@ export class InstanceDO extends DurableObject<Env> {
 			try {
 				ws.close(CLOSE_CODE_NORMAL, "replaced");
 			} catch {}
-			log({
-				event: "cardinality_violation",
-				instance_id: instanceId,
-				tunnel_id: tunnelId,
-				reason: "tunnel_home_replaced",
-			});
 		}
 
 		const { client, server } = newPair();
@@ -390,11 +356,10 @@ export class InstanceDO extends DurableObject<Env> {
 			role: "tunnel_home",
 			tunnel_id: tunnelId,
 			instance_id: instanceId,
-			opened_at: Date.now(),
 		};
 		server.serializeAttachment(att);
 		this.ctx.acceptWebSocket(server, [tagTunnelHome(tunnelId)]);
-		if (!this.drainPending(tunnelId, tagTunnelHome(tunnelId), server, instanceId)) {
+		if (!this.drainPending(tunnelId, tagTunnelHome(tunnelId), server)) {
 			return new Response("pending drain failed", { status: 500 });
 		}
 		if (mobileAttachment?.paired === false) {
@@ -402,18 +367,6 @@ export class InstanceDO extends DurableObject<Env> {
 			mobile.serializeAttachment(mobileAttachment);
 		}
 		this.clearAttachLease(tunnelId);
-
-		log({
-			event: "tunnel_home_open",
-			instance_id: instanceId,
-			tunnel_id: tunnelId,
-		});
-		log({
-			event: "pair",
-			instance_id: instanceId,
-			tunnel_id: tunnelId,
-			direction: "meta",
-		});
 
 		return new Response(null, { status: 101, webSocket: client });
 	}
@@ -441,15 +394,7 @@ export class InstanceDO extends DurableObject<Env> {
 			// Peer not yet attached — buffer, enforcing the cap.
 			const buf = this.pending.get(peerTag) ?? { frames: [], bytes: 0 };
 			if (buf.bytes + byteCount > PENDING_BUFFER_CAP_BYTES) {
-				log({
-					event: "pending_buffer_overflow",
-					tunnel_id: tunnelId,
-					instance_id: att.instance_id,
-					direction,
-					byte_count: byteCount,
-					queued_bytes: buf.bytes,
-					queued_frames: buf.frames.length,
-				});
+				log({ event: "pending_buffer_overflow" });
 				this.closeTunnel(tunnelId, CLOSE_CODE_MESSAGE_TOO_BIG, "pending_buffer_overflow");
 				this.pending.delete(peerTag);
 				return;
@@ -464,15 +409,7 @@ export class InstanceDO extends DurableObject<Env> {
 			) {
 				this.startAttachLease(tunnelId, ws);
 			}
-			log({
-				event: "pending_buffer",
-				tunnel_id: tunnelId,
-				instance_id: att.instance_id,
-				direction,
-				byte_count: byteCount,
-				queued_bytes: buf.bytes,
-				queued_frames: buf.frames.length,
-			});
+
 			return;
 		}
 
@@ -483,14 +420,6 @@ export class InstanceDO extends DurableObject<Env> {
 			// both sides. Do NOT retry — the peer is gone.
 			return;
 		}
-
-		log({
-			event: "fwd",
-			tunnel_id: tunnelId,
-			instance_id: att.instance_id,
-			direction,
-			byte_count: byteCount,
-		});
 	}
 
 	override async webSocketClose(
@@ -502,16 +431,6 @@ export class InstanceDO extends DurableObject<Env> {
 		const att = ws.deserializeAttachment() as Attachment | null;
 		if (!att) return;
 		if (att.retired) return;
-
-		const durationMs = Date.now() - att.opened_at;
-		log({
-			event: this.closeEventForRole(att.role),
-			instance_id: att.instance_id,
-			tunnel_id: att.tunnel_id,
-			close_code: code,
-			reason: "peer_closed",
-			duration_ms: durationMs,
-		});
 
 		if (att.role === "tunnel_home" || att.role === "tunnel_mobile") {
 			const tunnelId = att.tunnel_id;
@@ -529,13 +448,7 @@ export class InstanceDO extends DurableObject<Env> {
 			ws.serializeAttachment(att);
 			if (att.tunnel_id) this.clearAttachLease(att.tunnel_id);
 		}
-		log({
-			event: this.closeEventForRole(att.role),
-			instance_id: att.instance_id,
-			tunnel_id: att.tunnel_id,
-			close_code: 1006,
-			reason: "ws_error",
-		});
+		log({ event: "internal_error", reason: "ws_error" });
 		if (att.role === "tunnel_home" || att.role === "tunnel_mobile") {
 			const tunnelId = att.tunnel_id;
 			if (!tunnelId) return;
@@ -590,7 +503,6 @@ export class InstanceDO extends DurableObject<Env> {
 		instanceId: string,
 		tunnelId: string,
 		tags: string[],
-		openEvent: "dial_open" | "pair_dial_open",
 		recoverable: boolean,
 	): { client: WebSocket; server: WebSocket } {
 		const { client, server } = newPair();
@@ -598,12 +510,11 @@ export class InstanceDO extends DurableObject<Env> {
 			role: "tunnel_mobile",
 			tunnel_id: tunnelId,
 			instance_id: instanceId,
-			opened_at: Date.now(),
 			paired: recoverable ? false : undefined,
 		};
 		server.serializeAttachment(att);
 		this.ctx.acceptWebSocket(server, tags);
-		log({ event: openEvent, instance_id: instanceId, tunnel_id: tunnelId });
+
 		return { client, server };
 	}
 
@@ -619,20 +530,13 @@ export class InstanceDO extends DurableObject<Env> {
 	private brokerTunnel(
 		listener: WebSocket | undefined,
 		instanceId: string,
-		openEvent: "dial_open" | "pair_dial_open",
 		recoverable: boolean,
 	): Response {
 		const tunnelId = crypto.randomUUID();
 		const tags = recoverable
 			? [tagWaiting(instanceId), tagTunnelMobile(tunnelId)]
 			: [tagTunnelMobile(tunnelId)];
-		const { client, server } = this.acceptMobileTunnel(
-			instanceId,
-			tunnelId,
-			tags,
-			openEvent,
-			recoverable,
-		);
+		const { client, server } = this.acceptMobileTunnel(instanceId, tunnelId, tags, recoverable);
 
 		const listenerAttachment = listener?.deserializeAttachment() as Attachment | null;
 		const generation = recoverable ? listenerAttachment?.listener_generation : undefined;
@@ -697,7 +601,7 @@ export class InstanceDO extends DurableObject<Env> {
 		return true;
 	}
 
-	private drainPending(tunnelId: string, tag: string, ws: WebSocket, instanceId: string): boolean {
+	private drainPending(tunnelId: string, tag: string, ws: WebSocket): boolean {
 		const buf = this.pending.get(tag);
 		if (!buf || buf.frames.length === 0) {
 			this.pending.delete(tag);
@@ -709,20 +613,7 @@ export class InstanceDO extends DurableObject<Env> {
 			} catch {
 				this.pending.delete(tag);
 				this.clearAttachLease(tunnelId);
-				log({
-					event: "tunnel_home_close",
-					instance_id: instanceId,
-					tunnel_id: tunnelId,
-					close_code: CLOSE_CODE_INTERNAL_ERROR,
-					reason: "pending_drain_failed",
-				});
-				log({
-					event: "tunnel_mobile_close",
-					instance_id: instanceId,
-					tunnel_id: tunnelId,
-					close_code: CLOSE_CODE_INTERNAL_ERROR,
-					reason: "pending_drain_failed",
-				});
+				log({ event: "internal_error", reason: "pending_drain_failed" });
 				this.closeTunnel(tunnelId, CLOSE_CODE_INTERNAL_ERROR, "pending_drain_failed");
 				return false;
 			}
@@ -787,39 +678,13 @@ export class InstanceDO extends DurableObject<Env> {
 			this.attachLeases.delete(tunnelId);
 			this.pending.delete(tagTunnelHome(tunnelId));
 			this.pending.delete(tagTunnelMobile(tunnelId));
-			log({
-				event: "tunnel_mobile_close",
-				instance_id: att.instance_id,
-				tunnel_id: tunnelId,
-				close_code: CLOSE_CODE_TRY_AGAIN_LATER,
-				reason: "attach_timeout",
-				duration_ms: Date.now() - att.opened_at,
-			});
+			log({ event: "internal_error", reason: "attach_timeout" });
 			try {
 				target.close(CLOSE_CODE_TRY_AGAIN_LATER, "home attach timeout");
 			} catch {}
 		});
 	}
-
-	private closeEventForRole(role: Attachment["role"]): CloseEvent {
-		switch (role) {
-			case "listen":
-				return "listen_close";
-			case "pair_window":
-				return "pair_window_close";
-			case "tunnel_home":
-				return "tunnel_home_close";
-			case "tunnel_mobile":
-				return "tunnel_mobile_close";
-		}
-	}
 }
-
-type CloseEvent =
-	| "listen_close"
-	| "pair_window_close"
-	| "tunnel_home_close"
-	| "tunnel_mobile_close";
 
 interface PendingBuffer {
 	frames: Array<string | ArrayBuffer>;
@@ -840,19 +705,8 @@ function extractToken(request: Request, url: URL): string | null {
 	return q?.trim() || null;
 }
 
-function unauthorizedWithLog(
-	route: string,
-	reason: NonNullable<LogFields["reason"]>,
-	instanceId?: string,
-	tunnelId?: string,
-): Response {
-	log({
-		event: "unauthorized",
-		route,
-		reason,
-		instance_id: instanceId,
-		tunnel_id: tunnelId,
-	});
+function unauthorizedWithLog(route: string, reason: NonNullable<LogFields["reason"]>): Response {
+	log({ event: "unauthorized", route, reason });
 	return unauthorizedResponse();
 }
 

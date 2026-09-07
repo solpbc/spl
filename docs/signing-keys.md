@@ -4,6 +4,8 @@ This document is the public-facing operational guide for the JWT signing keys us
 
 `spl-relay` uses one signing keypair to mint and verify the JWTs that authorize WebSocket establishment with the relay. Lose the private key and every home has to enroll again; the old *public* key is still in `JWKS_PUBLIC` and on the transparency endpoint, so you can keep publishing it and let devices carry themselves across. **Leak** it and you have to trim the old key immediately, which forces every paired device to re-pair as well. See *key compromise*.
 
+Before a routine signing-key change, pause device enrollment and drain the accepted attestation window for at least 360 seconds. Keep dial and refresh available, publish the new public key first, switch the issuer key only after the drain, then unpause. The [stateless enrollment contract](../proto/tokens.md#stateless-enrollment-transition) defines retry and migration behavior. Emergency compromise retirement takes precedence over retry stability.
+
 ## the two key layers — do not conflate
 
 `spl` has two cryptographic layers, with different keys, different algorithms, and different concerns. Mixing them up is the most common conceptual mistake.

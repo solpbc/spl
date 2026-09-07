@@ -552,7 +552,7 @@ describe("presence-hold /session/dial", () => {
 		home.close(1000, "test_done");
 	});
 
-	it("emits one dial_open across re-offers without logging sensitive values", async () => {
+	it("does not retain session activity across re-offers", async () => {
 		const instanceId = newInstanceId();
 		const listenToken = await mintService(instanceId);
 		const dialToken = await mintDevice(instanceId);
@@ -580,7 +580,7 @@ describe("presence-hold /session/dial", () => {
 			replacement.accept();
 			expect(parseIncoming(await reoffer)).toBe(tunnelId);
 			const raw = logLines(spy);
-			expect(raw.match(/"event":"dial_open"/g)).toHaveLength(1);
+			expect(raw).toBe("");
 			expect(raw).not.toContain(dialToken);
 			expect(raw).not.toContain("jti");
 			expect(raw).not.toContain("?instance=");
@@ -696,7 +696,7 @@ describe("presence-hold /session/dial", () => {
 				paired: false,
 			});
 			expect(logLines(spy)).toContain("pending_drain_failed");
-			expect(logLines(spy).match(/pending_drain_failed/g)).toHaveLength(2);
+			expect(logLines(spy).match(/pending_drain_failed/g)).toHaveLength(1);
 
 			const home = await wsConnect(
 				`http://spl.test/session/listen?instance=${instanceId}`,

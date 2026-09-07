@@ -10,8 +10,7 @@ import { log } from "./logging";
 const ROUTE = "/admin/entitlement";
 const INSTANCES_ROUTE = "/admin/instances";
 const MAX_ENTITLEMENT_BYTES = 2 * 1024;
-const INSTANCE_COLUMNS =
-	"instance_id, ca_fp, home_label, created_at, rotated_at, revoked_at, entitled_until";
+const INSTANCE_COLUMNS = "instance_id, ca_fp, created_at, rotated_at, revoked_at, entitled_until";
 export const INSTANCE_ID_RE = /^[0-9a-fA-F-]{10,64}$/;
 
 interface EntitlementBody {
@@ -22,7 +21,6 @@ interface EntitlementBody {
 interface InstanceRow {
 	instance_id: string;
 	ca_fp: string;
-	home_label: string | null;
 	created_at: number;
 	rotated_at: number | null;
 	revoked_at: number | null;
@@ -69,7 +67,7 @@ export async function handleSetEntitlement(request: Request, env: Env): Promise<
 			await env.DB.prepare("DELETE FROM pending_grants WHERE instance_id = ?")
 				.bind(body.instance_id)
 				.run();
-			log({ event: "entitlement_revoke", instance_id: body.instance_id });
+
 			return json({ ok: true });
 		}
 		const now = Math.floor(Date.now() / 1000);
@@ -78,14 +76,10 @@ export async function handleSetEntitlement(request: Request, env: Env): Promise<
 		)
 			.bind(body.instance_id, resolved.entitledUntil, now)
 			.run();
-		log({ event: "entitlement_pending", instance_id: body.instance_id });
+
 		return json({ ok: true, pending: true });
 	}
 
-	log({
-		event: resolved.entitledUntil === null ? "entitlement_revoke" : "entitlement_set",
-		instance_id: body.instance_id,
-	});
 	return json({ ok: true });
 }
 
@@ -102,7 +96,7 @@ export async function handleListInstances(request: Request, env: Env): Promise<R
 		`SELECT ${INSTANCE_COLUMNS} FROM instances ORDER BY created_at DESC`,
 	).all<InstanceRow>();
 	const instances = results.map((r) => toInstanceView(r, now));
-	log({ event: "admin_instances_list", count: instances.length });
+
 	return json({ instances });
 }
 
@@ -127,7 +121,6 @@ export async function handleShowInstance(
 		.first<InstanceRow>();
 	if (!row) return json({ error: "unknown instance_id" }, 404);
 
-	log({ event: "admin_instance_show", instance_id: id });
 	return json(toInstanceView(row, Math.floor(Date.now() / 1000)));
 }
 

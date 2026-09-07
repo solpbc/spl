@@ -10,11 +10,11 @@
 // See proto/tokens.md §issuance for the on-the-wire payloads and TTL rules.
 
 import { fingerprintDer, importCaPublicKey, pemToDer, verifyAttestation } from "./attestation";
+import { enrollmentIds } from "./enrollment-ids";
 import type { Env } from "./env";
 import { json, readJson } from "./http";
 import { log } from "./logging";
 import { mintDeviceToken, mintServiceToken } from "./tokens";
-import { uuidv7 } from "./uuid";
 
 // 365 days / 60 days per proto/tokens.md §TTLs.
 const SERVICE_TOKEN_TTL_SECONDS = 365 * 24 * 60 * 60;
@@ -25,7 +25,6 @@ const MAX_ENROLL_DEVICE_BYTES = 16 * 1024;
 interface EnrollHomeBody {
 	instance_id?: string;
 	ca_pubkey?: string;
-	home_label?: string;
 }
 
 interface EnrollDeviceBody {
@@ -46,7 +45,12 @@ export async function handleEnrollHome(request: Request, env: Env): Promise<Resp
 		return json({ error: "instance_id and ca_pubkey required" }, 400);
 	}
 	const body = read.value;
-	if (!body.instance_id || !body.ca_pubkey) {
+	if (
+		typeof body.instance_id !== "string" ||
+		!body.instance_id ||
+		typeof body.ca_pubkey !== "string" ||
+		!body.ca_pubkey
+	) {
 		log({ event: "enroll_rejected", route: "/enroll/home", reason: "missing_fields" });
 		return json({ error: "instance_id and ca_pubkey required" }, 400);
 	}
@@ -90,33 +94,20 @@ export async function handleEnrollHome(request: Request, env: Env): Promise<Resp
 
 	if (existing) {
 		if (existing.ca_pubkey_pem.trim() !== body.ca_pubkey.trim()) {
-			log({
-				event: "enroll_rejected",
-				route: "/enroll/home",
-				reason: "ca_mismatch",
-				instance_id: body.instance_id,
-			});
+			log({ event: "enroll_rejected", route: "/enroll/home", reason: "ca_mismatch" });
 			return json({ error: "ca_pubkey mismatch — rotation not supported in v1" }, 409);
 		}
 		await env.DB.prepare(
-			"UPDATE instances SET ca_fp = ?, home_label = ?, service_token_jti = ?, rotated_at = ? WHERE instance_id = ?",
+			"UPDATE instances SET ca_fp = ?, service_token_jti = ?, rotated_at = ? WHERE instance_id = ?",
 		)
-			.bind(caFp, body.home_label ?? null, minted.jti, minted.iat, body.instance_id)
+			.bind(caFp, minted.jti, minted.iat, body.instance_id)
 			.run();
-		log({ event: "enroll_home_rotate", instance_id: body.instance_id, jti: minted.jti });
 	} else {
 		try {
 			await env.DB.prepare(
-				"INSERT INTO instances (instance_id, ca_fp, ca_pubkey_pem, home_label, created_at, service_token_jti) VALUES (?, ?, ?, ?, ?, ?)",
+				"INSERT INTO instances (instance_id, ca_fp, ca_pubkey_pem, created_at, service_token_jti) VALUES (?, ?, ?, ?, ?)",
 			)
-				.bind(
-					body.instance_id,
-					caFp,
-					body.ca_pubkey,
-					body.home_label ?? null,
-					minted.iat,
-					minted.jti,
-				)
+				.bind(body.instance_id, caFp, body.ca_pubkey, minted.iat, minted.jti)
 				.run();
 		} catch (err) {
 			// instance_id PK can't collide here — we just SELECTed and found none.
@@ -125,15 +116,9 @@ export async function handleEnrollHome(request: Request, env: Env): Promise<Resp
 			// other instance's id.
 			const msg = err instanceof Error ? err.message : String(err);
 			if (!/UNIQUE/.test(msg)) throw err;
-			log({
-				event: "enroll_rejected",
-				route: "/enroll/home",
-				reason: "ca_fp_conflict",
-				instance_id: body.instance_id,
-			});
+			log({ event: "enroll_rejected", route: "/enroll/home", reason: "ca_fp_conflict" });
 			return json({ error: "ca_pubkey already registered to another instance" }, 409);
 		}
-		log({ event: "enroll_home", instance_id: body.instance_id, jti: minted.jti });
 	}
 
 	// Claim any grant that arrived before this enroll (grant-before-enroll
@@ -152,7 +137,6 @@ export async function handleEnrollHome(request: Request, env: Env): Promise<Resp
 		await env.DB.prepare("DELETE FROM pending_grants WHERE instance_id = ?")
 			.bind(body.instance_id)
 			.run();
-		log({ event: "pending_grant_claimed", instance_id: body.instance_id });
 	}
 
 	return json({
@@ -162,6 +146,14 @@ export async function handleEnrollHome(request: Request, env: Env): Promise<Resp
 }
 
 export async function handleEnrollDevice(request: Request, env: Env): Promise<Response> {
+	// Drain the accepted attestation window before a signing-key/issuer change
+	// or the transition from row-backed issuance. Dial and refresh stay live.
+	if (env.ENROLLMENT_PAUSED === "true") {
+		return new Response(JSON.stringify({ error: "enrollment temporarily paused" }), {
+			status: 503,
+			headers: { "Content-Type": "application/json", "Retry-After": "360" },
+		});
+	}
 	if (!env.SIGNING_JWK) return json({ error: "relay not provisioned" }, 503);
 
 	const read = await readJson<EnrollDeviceBody>(request, MAX_ENROLL_DEVICE_BYTES);
@@ -170,20 +162,17 @@ export async function handleEnrollDevice(request: Request, env: Env): Promise<Re
 			log({ event: "enroll_rejected", route: "/enroll/device", reason: "body_too_large" });
 			return json({ error: "request body too large" }, 413);
 		}
-		log({
-			event: "enroll_rejected",
-			route: "/enroll/device",
-			reason: "missing_fields",
-		});
+		log({ event: "enroll_rejected", route: "/enroll/device", reason: "missing_fields" });
 		return json({ error: "instance_id and home_attestation required" }, 400);
 	}
 	const body = read.value;
-	if (!body.instance_id || !body.home_attestation) {
-		log({
-			event: "enroll_rejected",
-			route: "/enroll/device",
-			reason: "missing_fields",
-		});
+	if (
+		typeof body.instance_id !== "string" ||
+		!body.instance_id ||
+		typeof body.home_attestation !== "string" ||
+		!body.home_attestation
+	) {
+		log({ event: "enroll_rejected", route: "/enroll/device", reason: "missing_fields" });
 		return json({ error: "instance_id and home_attestation required" }, 400);
 	}
 
@@ -194,21 +183,11 @@ export async function handleEnrollDevice(request: Request, env: Env): Promise<Re
 		.first<{ ca_pubkey_pem: string; revoked_at: number | null }>();
 
 	if (!instance) {
-		log({
-			event: "enroll_rejected",
-			route: "/enroll/device",
-			reason: "unknown_instance",
-			instance_id: body.instance_id,
-		});
+		log({ event: "enroll_rejected", route: "/enroll/device", reason: "unknown_instance" });
 		return json({ error: "unknown instance_id" }, 404);
 	}
 	if (instance.revoked_at !== null) {
-		log({
-			event: "enroll_rejected",
-			route: "/enroll/device",
-			reason: "instance_revoked",
-			instance_id: body.instance_id,
-		});
+		log({ event: "enroll_rejected", route: "/enroll/device", reason: "instance_revoked" });
 		return json({ error: "instance revoked" }, 403);
 	}
 
@@ -222,94 +201,21 @@ export async function handleEnrollDevice(request: Request, env: Env): Promise<Re
 			event: "enroll_rejected",
 			route: "/enroll/device",
 			reason: `attestation_${result.reason}`,
-			instance_id: body.instance_id,
 		});
 		return json({ error: `attestation invalid: ${result.reason}` }, 401);
 	}
-	const deviceFp = result.claims.device_fp;
-
-	// Each enroll generates a fresh device_id (the token's sub). We persist
-	// it so a retried request whose response was lost can re-mint the
-	// byte-identical device token instead of failing replay defense.
-	const device_id = uuidv7();
+	// Canonical verified claims, not the nondeterministic ES256 signature,
+	// determine retries. No device or replay record is written.
+	const ids = await enrollmentIds(result.claims);
 	const minted = await mintDeviceToken(env.SIGNING_JWK, {
 		instance_id: body.instance_id,
-		device_id,
-		device_fp: deviceFp,
+		device_id: ids.deviceId,
+		device_fp: result.claims.device_fp,
 		issuer: env.ISSUER,
 		ttlSeconds: DEVICE_TOKEN_TTL_SECONDS,
+		now: result.claims.iat,
+		jti: ids.jti,
 	});
-
-	try {
-		await env.DB.prepare(
-			"INSERT INTO devices (device_jti, device_id, instance_id, device_fp, device_label, created_at, attestation_jti) VALUES (?, ?, ?, ?, ?, ?, ?)",
-		)
-			.bind(minted.jti, device_id, body.instance_id, deviceFp, null, minted.iat, result.claims.jti)
-			.run();
-	} catch (err) {
-		// UNIQUE(attestation_jti) means this attestation was already consumed.
-		// If a prior *successful* enroll of the same (instance_id, device_fp)
-		// consumed it, this is a retry whose response was lost — re-mint the
-		// byte-identical device token from the stored row (idempotent).
-		// Anything else (different instance/fp, or a pre-migration row with no
-		// device_id to reconstruct sub from) is a genuine replay → 409.
-		const msg = err instanceof Error ? err.message : String(err);
-		if (!/UNIQUE/.test(msg)) throw err;
-
-		const existing = await env.DB.prepare(
-			"SELECT device_jti, device_id, instance_id, device_fp, created_at FROM devices WHERE attestation_jti = ?",
-		)
-			.bind(result.claims.jti)
-			.first<{
-				device_jti: string;
-				device_id: string | null;
-				instance_id: string;
-				device_fp: string;
-				created_at: number;
-			}>();
-
-		if (
-			existing &&
-			existing.device_id !== null &&
-			existing.instance_id === body.instance_id &&
-			existing.device_fp === deviceFp
-		) {
-			const reminted = await mintDeviceToken(env.SIGNING_JWK, {
-				instance_id: existing.instance_id,
-				device_id: existing.device_id,
-				device_fp: existing.device_fp,
-				issuer: env.ISSUER,
-				ttlSeconds: DEVICE_TOKEN_TTL_SECONDS,
-				now: existing.created_at,
-				jti: existing.device_jti,
-			});
-			log({
-				event: "enroll_device_remint",
-				instance_id: body.instance_id,
-				jti: existing.device_jti,
-			});
-			return json({
-				device_token: reminted.jwt,
-				expires_at: new Date(reminted.exp * 1000).toISOString(),
-			});
-		}
-
-		log({
-			event: "enroll_rejected",
-			route: "/enroll/device",
-			reason: "attestation_replay",
-			instance_id: body.instance_id,
-			jti: result.claims.jti,
-		});
-		return json({ error: "attestation already consumed" }, 409);
-	}
-
-	log({
-		event: "enroll_device",
-		instance_id: body.instance_id,
-		jti: minted.jti,
-	});
-
 	return json({
 		device_token: minted.jwt,
 		expires_at: new Date(minted.exp * 1000).toISOString(),

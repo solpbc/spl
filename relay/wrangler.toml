@@ -19,13 +19,19 @@ workers_dev = false
 crons = ["*/5 * * * *"]
 
 [observability]
-enabled = true
+enabled = false
 
 [observability.logs]
-# Invocation logs include the fetch method and URL. WebSocket clients may use
-# `?token=` when they cannot set Authorization headers, so keep custom JSON
-# application logs but do not store request URLs in Workers Logs.
+# No retained request or application log stream.
+enabled = false
+persist = false
 invocation_logs = false
+destinations = []
+
+[observability.traces]
+enabled = false
+persist = false
+destinations = []
 
 [durable_objects]
 bindings = [
@@ -80,12 +86,19 @@ vars = { ENVIRONMENT = "production", ISSUER = "link.solstone.app", ENTITLEMENT_R
 crons = ["*/5 * * * *"]
 
 [env.production.observability]
-enabled = true
+enabled = false
 
 [env.production.observability.logs]
-# Production must not emit request URL invocation logs because WebSocket query
-# tokens are valid bearer credentials for clients without header support.
+# No retained request or application log stream.
+enabled = false
+persist = false
 invocation_logs = false
+destinations = []
+
+[env.production.observability.traces]
+enabled = false
+persist = false
+destinations = []
 
 [[env.production.d1_databases]]
 binding = "DB"

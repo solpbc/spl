@@ -142,10 +142,9 @@ export default {
 		_ctx: ExecutionContext,
 	): Promise<void> {
 		try {
-			const count = await purgeExpiredOperations(env);
-			if (count > 0) log({ event: "owner_purge_expiry_sweep", count });
+			await purgeExpiredOperations(env);
 		} catch {
-			log({ event: "owner_purge_expiry_sweep", reason: "owner_purge_database_error" });
+			log({ event: "internal_error", reason: "owner_purge_database_error" });
 			throw new Error("purge expiry sweep failed");
 		}
 	},

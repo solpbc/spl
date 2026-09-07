@@ -18,12 +18,20 @@ function tomlSection(name: string): string {
 }
 
 describe("Worker logging config", () => {
-	it("keeps Workers Logs custom logs on but disables URL-bearing invocation logs", () => {
-		expect(tomlSection("observability")).toMatch(/\benabled\s*=\s*true\b/);
+	it("disables retained logs, traces, and URL-bearing invocation logs", () => {
+		expect(tomlSection("observability")).toMatch(/\benabled\s*=\s*false\b/);
 		expect(tomlSection("observability.logs")).toMatch(/\binvocation_logs\s*=\s*false\b/);
-		expect(tomlSection("env.production.observability")).toMatch(/\benabled\s*=\s*true\b/);
+		expect(tomlSection("env.production.observability")).toMatch(/\benabled\s*=\s*false\b/);
 		expect(tomlSection("env.production.observability.logs")).toMatch(
 			/\binvocation_logs\s*=\s*false\b/,
 		);
+		for (const prefix of ["", "env.production."]) {
+			for (const kind of ["logs", "traces"]) {
+				const section = tomlSection(`${prefix}observability.${kind}`);
+				expect(section).toMatch(/\benabled\s*=\s*false\b/);
+				expect(section).toMatch(/\bpersist\s*=\s*false\b/);
+				expect(section).toMatch(/\bdestinations\s*=\s*\[\s*\]/);
+			}
+		}
 	});
 });

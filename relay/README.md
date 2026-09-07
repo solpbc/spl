@@ -12,14 +12,14 @@ MVP build — Worker + Durable Object implement the full v1 protocol surface:
 - `/session/listen`, `/session/dial`, `/tunnel/<id>` WebSocket routes with JWT verify, WS-tag cardinality, and 16 MiB pending-buffer cap with 1009 close on overflow
 - `/.well-known/jwks.json` transparency mirror
 - `/internal/deletion/purge` and `/internal/deletion/purge/confirm` service-to-service owner-purge v1 controls, separately bearer- and HMAC-authenticated; they retain no portal-owner association
-- D1 schema (`migrations/0001_init.sql`) for instance + device metadata — no payload bytes, ever
+- D1 schema (`migrations/`) for instance admission, entitlement and bounded purge receipts — no payload bytes, ever
 - Blind forwarding: the DO holds `ArrayBuffer`s and forwards them without parsing; no code path reads a relayed frame
 
 **Endpoint implementations live in their own repositories** — see the root README's implementations table. This repository holds the protocol and the relay only.
 
 ## what it is
 
-A Cloudflare Worker (TypeScript, Hono) that routes `/session/listen`, `/session/dial`, and `/tunnel/<id>` WebSocket upgrades into an `InstanceDO` Durable Object. The DO pairs a home-side listen WS with a mobile-side dial WS and forwards opaque frames between them. It does not parse frames. It does not store frames. It logs tunnel metadata and nothing else.
+A Cloudflare Worker (TypeScript) that routes `/session/listen`, `/session/dial`, and `/tunnel/<id>` WebSocket upgrades into an `InstanceDO` Durable Object. The DO pairs a home-side listen WS with a mobile-side dial WS and forwards opaque frames between them. It does not parse application frames. It buffers frames only while the peer attaches, and discards that buffer on delivery or disconnect. It keeps connection state for routing, including hibernating socket attachments, but no device roster or session history.
 
 See [`../README.md`](../README.md#architecture) for the diagram and [`../AGENTS.md`](../AGENTS.md) §3 for the invariants this component must preserve.
 
@@ -119,6 +119,8 @@ Run `npm run gen-key` to mint a self-host keypair — it writes to `~/.spl/signi
 
 ## logging policy
 
-Every log statement that touches tunnel data logs metadata only: `timestamp`, `tunnel_id`, `direction`, `byte_count`. No payload byte ever. No token value ever. This is enforced by code review, not by a library — be deliberate about what you log.
+Successful enrollment, refresh, session activity and forwarded frames produce no application logs. Errors use fixed event/reason/route classifications, without identifiers, traffic sizes, durations, payloads or credentials. Workers Logs persistence, invocation logs and traces are disabled. This configuration does not remove older provider-retained copies or hide routing, addresses and traffic patterns from the network.
+
+Upgrading an existing relay requires the enrollment drain before migration 0011; follow [the token migration procedure](../proto/tokens.md#stateless-enrollment-transition).
 
 See [`../AGENTS.md`](../AGENTS.md) §3 for the full policy.

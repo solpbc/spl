@@ -18,44 +18,14 @@ import type { AttestationFailReason } from "./attestation";
 import type { VerifyFailReason } from "./tokens";
 
 export type LogEvent =
-	| "listen_open"
-	| "listen_close"
-	| "dial_open"
-	| "dial_close"
-	| "tunnel_home_open"
-	| "tunnel_home_close"
-	| "tunnel_mobile_open"
-	| "tunnel_mobile_close"
-	| "pair"
-	| "fwd"
-	| "pending_buffer"
-	| "pending_buffer_overflow"
-	| "unauthorized"
-	| "cardinality_violation"
-	| "enroll_home"
-	| "enroll_device"
-	| "enroll_device_remint"
-	| "device_refresh"
-	| "enroll_home_rotate"
 	| "enroll_rejected"
-	| "pair_window_open"
-	| "pair_window_close"
-	| "pair_dial_open"
-	| "pair_dial_rejected"
-	| "entitlement_set"
-	| "entitlement_pending"
-	| "entitlement_revoke"
-	| "pending_grant_claimed"
-	| "admin_instances_list"
-	| "admin_instance_show"
-	| "owner_purge_complete"
-	| "owner_purge_retryable"
-	| "owner_purge_refused"
+	| "internal_error"
 	| "owner_purge_expired"
-	| "owner_purge_confirmed"
-	| "owner_purge_expiry_sweep"
-	| "not_entitled"
-	| "internal_error";
+	| "owner_purge_refused"
+	| "owner_purge_retryable"
+	| "pair_dial_rejected"
+	| "pending_buffer_overflow"
+	| "unauthorized";
 
 export type Direction = "home_to_mobile" | "mobile_to_home" | "meta";
 
@@ -111,25 +81,11 @@ type AuthorizedReason =
 
 export interface LogFields {
 	event: LogEvent;
-	tunnel_id?: string;
-	instance_id?: string;
-	direction?: Direction;
-	byte_count?: number;
-	count?: number;
-	close_code?: number;
-	duration_ms?: number;
 	reason?: AuthorizedReason;
 	route?: string;
-	jti?: string;
-	queued_frames?: number;
-	queued_bytes?: number;
 }
 
 export function log(fields: LogFields): void {
-	console.log(
-		JSON.stringify({
-			timestamp: Date.now(),
-			...fields,
-		}),
-	);
+	// Construct explicitly even if a caller circumvents static typing.
+	console.log(JSON.stringify({ event: fields.event, reason: fields.reason, route: fields.route }));
 }

@@ -73,7 +73,7 @@ Sec-Pair-Key: <RK hex>
 Sec-WebSocket-Key: ...
 ```
 
-`RK` is accepted in the `Sec-Pair-Key` header only, never `?rk=`, and there is no `?instance=`. The relay routes to the RK-addressed DO; the DO records the `instance_id` from the service token for admission/logging.
+`RK` is accepted in the `Sec-Pair-Key` header only, never `?rk=`, and there is no `?instance=`. The relay routes to the RK-addressed DO; the DO records the `instance_id` from the service token for connection admission.
 
 ### pair-dial — mobile → spl-relay
 
@@ -342,7 +342,7 @@ Except where § 7 says to stop retrying, the mobile reconnects on next owner-vis
 
 ### waiting-dial lifecycle (presence-hold)
 
-Presence-hold is flag-gated and default-off. When `PRESENCE_HOLD_ENABLED` is enabled, the relay accepts a mobile dial as a waiting dialer (`101 Switching Protocols`) and tags it for both waiting-dial discovery and its tunnel. An idle held dial has no timer and no alarm. The first buffered mobile-to-home byte starts one in-memory, per-tunnel 20-second home-attach lease. Successful attach and drain clear the lease; expiry frees pending state, logs the existing `tunnel_mobile_close` event with `attach_timeout`, and closes the mobile with 1013 / `home attach timeout`.
+Presence-hold is flag-gated and default-off. When `PRESENCE_HOLD_ENABLED` is enabled, the relay accepts a mobile dial as a waiting dialer (`101 Switching Protocols`) and tags it for both waiting-dial discovery and its tunnel. An idle held dial has no timer and no alarm. The first buffered mobile-to-home byte starts one in-memory, per-tunnel 20-second home-attach lease. Successful attach and drain clear the lease; expiry frees pending state, emits the fixed `internal_error` / `attach_timeout` classification, and closes the mobile with 1013 / `home attach timeout`.
 
 When a home listen WS appears, the relay sends the existing `incoming` control message once for each unpaired, non-retired waiting dial in that listener generation. A later listener generation may re-offer the same still-unpaired tunnel ID; a paired tunnel is never re-offered. A `retired` attachment is an error-cleanup marker, distinct from `paired` ownership, and is never eligible for another offer. Presence-hold adds no new WS-layer message type. The home then opens `/tunnel/<tunnel_id>` exactly as in the normal session flow, and any pending mobile bytes drain through the existing pending-buffer path.
 
@@ -381,7 +381,7 @@ Between the moment one tunnel side has attached (e.g., mobile dial completed, `t
 
 The buffer is **capped at 16 MiB per tunnel**. If the cap is exceeded:
 
-- The relay logs a structured `pending_buffer_overflow` event with `tunnel_id`, `direction`, and `byte_count`. **No payload bytes.**
+- The relay emits only a fixed `pending_buffer_overflow` classification, without identifiers, counts or payloads.
 - The relay closes both sides of the (incomplete) tunnel with WebSocket close code `1009` (message too big).
 - The DO frees the buffer and the `tunnel_id` is retired.
 
@@ -400,22 +400,11 @@ The listen WS closing does **not** close active tunnel WSes — those continue u
 
 ## what `spl-relay` logs about a session
 
-For audit and debugging, the Worker emits structured log events at session boundaries. Logged fields are an exhaustive list:
+Successful session setup, forwarding, buffering, reconnect and closure produce no application logs. Enrollment, refresh and successful admin operations are silent too.
 
-- `tunnel_id` (uuid)
-- `instance_id` (uuid)
-- `direction` (one of `home_to_mobile`, `mobile_to_home`, or `meta`)
-- `event` (one of `listen_open`, `listen_close`, `dial_open`, `dial_close`, `tunnel_home_open`, `tunnel_home_close`, `tunnel_mobile_open`, `tunnel_mobile_close`, `pair`, `fwd`, `pending_buffer`, `pending_buffer_overflow`, `unauthorized`, `cardinality_violation`, `enroll_home`, `enroll_device`, `enroll_device_remint`, `device_refresh`, `enroll_home_rotate`, `enroll_rejected`, `pair_window_open`, `pair_window_close`, `pair_dial_open`, `pair_dial_rejected`, `entitlement_set`, `entitlement_pending`, `entitlement_revoke`, `pending_grant_claimed`, `admin_instances_list`, `admin_instance_show`, `not_entitled`, `internal_error`)
-- `byte_count` (when applicable)
-- `close_code` (when applicable)
-- `reason` (on close/error events; a relay-authored classification drawn from a fixed closed set)
-- `duration_ms` (on close events)
-- `timestamp`
+Operational failures may emit only `event`, a fixed `reason`, and a fixed route classification. The typed helper constructs these fields explicitly; instance/tunnel/device/token identifiers, traffic counts, durations and peer-supplied close text are excluded. `attach_timeout`, `pending_drain_failed` and `ws_error` remain fixed classifications, with no session identifier.
 
-**Never** a payload byte. **Never** a token claim. **Never** a TLS handshake message. **Never** an `Authorization` header value. **Never** `S`, `RK`, the pair-link fragment, a token value, or the home-side nonce. This is enforced by code review; the framework does not protect us from a sloppy `console.log`.
-The peer-supplied WebSocket close-reason string is never logged and cannot select
-the relay-authored close classification.
-Server-driven attach expiry uses `attach_timeout`; a failed pending drain uses `pending_drain_failed`. Both are fixed relay-authored classifications, and the relay explicitly emits their close events because server-initiated closes do not invoke the close callback.
+Retained Workers Logs, invocation logs and traces are disabled in the supplied configuration. Operators must treat any temporary live debugging session as a separate data-handling action: platform log envelopes may contain request context. Disabling collection does not delete historical provider copies. The relay still observes routing and connection timing while forwarding, and retains socket routing attachments across hibernation; this is data minimization, not network anonymity.
 
 ## related
 

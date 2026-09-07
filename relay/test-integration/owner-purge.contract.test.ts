@@ -80,7 +80,6 @@ describe("owner-purge v1 admission boundaries", () => {
 		expect(await bindingCount()).toBe(0);
 		for (const instanceId of fixtureInstanceIds(requestEnvelope)) {
 			expect(await rowCount("instances", instanceId)).toBe(1);
-			expect(await rowCount("devices", instanceId)).toBe(1);
 			expect(await rowCount("pending_grants", instanceId)).toBe(1);
 		}
 	});
@@ -265,7 +264,6 @@ describe("owner-purge v1 binding invariants", () => {
 		expect(await bindingCount()).toBe(0);
 		for (const instanceId of fixtureInstanceIds(envelope)) {
 			expect(await rowCount("instances", instanceId)).toBe(1);
-			expect(await rowCount("devices", instanceId)).toBe(1);
 			expect(await rowCount("pending_grants", instanceId)).toBe(1);
 		}
 	});
@@ -517,11 +515,9 @@ async function expectRetainedBinding(
 	expect(await bindingCount()).toBe(1);
 	expect(await bindingDisposition()).toBe(disposition);
 	expect(await rowCount("instances", control)).toBe(1);
-	expect(await rowCount("devices", control)).toBe(1);
 	expect(await rowCount("pending_grants", control)).toBe(1);
 	for (const instanceId of purgedInstanceIds) {
 		expect(await rowCount("instances", instanceId)).toBe(0);
-		expect(await rowCount("devices", instanceId)).toBe(0);
 		expect(await rowCount("pending_grants", instanceId)).toBe(0);
 	}
 }

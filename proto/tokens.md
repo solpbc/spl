@@ -86,7 +86,7 @@ JWT payload, device token:
 | `device_fp` | device only | SHA-256 of the mobile client cert. Required for `session.dial`, must match `^sha256:[0-9a-f]{64}$`, and is bound to a specific paired device. |
 | `iat` | yes | issued-at, seconds since epoch. |
 | `exp` | yes | expiration, seconds since epoch. |
-| `jti` | yes | unique token id; UUIDv7. Recorded at issuance so a future revocation list would have something to key on. Nothing looks it up today — see *storage*. Attestation replay defense is separate and keys on `devices.attestation_jti`. |
+| `jti` | yes | token id; UUIDv7. Device enrollment derives it deterministically for retries; refresh replaces it. No device issuance or replay record is retained. Service-token issuance metadata remains instance-scoped. |
 
 Workers MUST reject any token missing a required claim or carrying an unexpected `scope` for the requested route.
 
@@ -94,7 +94,7 @@ Workers MUST reject any token missing a required claim or carrying an unexpected
 
 | token | TTL | rotation |
 |---|---|---|
-| service token | 365 days | no automatic re-issue. The token is replaced when **the home** calls `POST /enroll/home` again, carrying its existing `instance_id`, `ca_pubkey` and `home_label` |
+| service token | 365 days | no automatic re-issue. The token is replaced when **the home** calls `POST /enroll/home` again, carrying its existing `instance_id` and `ca_pubkey` |
 | device token | 60 days | re-issued by the mobile via `POST /token/refresh` (presenting the current token) when age > 80% of TTL, with a 30-day post-expiry grace |
 
 **The two rows are not symmetric, and the difference is load-bearing.** A device carries itself: `POST /token/refresh` exists and the mobile calls it. A home does not. `spl-relay` publishes no endpoint that re-issues a service token, mints one in exactly one place (`POST /enroll/home`), and runs no timer that touches token lifetime. A service token is therefore rotated only when something outside the protocol makes that call: an owner re-enabling the tunnel, or an operator running it. Nothing here notices that a service token is nearing expiry.
@@ -120,14 +120,13 @@ Called once at solstone first run. Body:
 ```json
 {
   "instance_id": "<the home's jid, derived from its CA>",
-  "ca_pubkey": "<PEM>",
-  "home_label": "<owner-named home>"
+  "ca_pubkey": "<PEM>"
 }
 ```
 
 Bodies over 32 KiB are rejected with 413 before parsing. A `ca_fp` backs at most one instance: a new enroll whose `ca_fp` matches a different instance is rejected with 409, distinct from the `ca_mismatch` 409 for an `instance_id` trying to change its own CA.
 
-`spl-relay` records (`instance_id`, `ca_fp`, the `ca_pubkey` PEM itself, `home_label`, `created_at`) in D1 and issues a service token.
+`spl-relay` records (`instance_id`, `ca_fp`, the `ca_pubkey` PEM itself, `created_at`) in D1 and issues a service token.
 
 `ca_fp` is **SHA-256 over the DER `SubjectPublicKeyInfo`**: the bytes carried inside the PEM armor, not the armored text, and not a certificate. `spl-relay` strips the BEGIN/END lines and all whitespace, base64-decodes the body, and digests exactly the bytes it then imports as an ECDSA-P256 SPKI public key. The result is rendered `sha256:<64 lowercase hex>`. Every fingerprint in this protocol is taken over DER; [`identity.md`](identity.md) enumerates them and says which input each one covers.
 
@@ -142,7 +141,7 @@ Response:
 
 **A repeat call is the rotation path.** `/enroll/home` is idempotent on `instance_id`: a second call carrying the same `ca_pubkey`, compared as text after trimming surrounding whitespace, mints a fresh 365-day service token with a new `jti`, replaces the recorded `service_token_jti`, stamps `rotated_at`, and returns the new token. No paired device has to re-pair. This is the only path by which a service token is ever replaced.
 
-⚠ **A home re-enrolling must send its stored `home_label` along with the other two fields.** The re-enroll branch writes the label from the request body and the field is optional, so a call that omits it stores `NULL` and the instance silently loses its label in `GET /admin/instances`. This is a home-implementation requirement: only the home holds both the `ca_pubkey` this call must match and the label it should preserve.
+Home labels remain local to the home. Legacy `home_label` request fields are ignored and are absent from storage and admin projections.
 
 In v1, `/enroll/home` is **neither gated nor rate-limited**: no waitlist, no payment gate, and no per-endpoint request limit anywhere in the Worker. ⚠ A deployment that needs one has to put it in front of the Worker, because nothing in this repository provides it. Self-hosted deployments will replace this endpoint or its policy as appropriate.
 
@@ -191,7 +190,7 @@ Claims:
 | `device_fp` | yes | `sha256:<64 lowercase hex>` fingerprint of the mobile client cert, asserted by the home in the attestation. `spl-relay` validates the claim's shape (`^sha256:[0-9a-f]{64}$`) and treats the verified claim as the device identity — it never receives or recomputes the client cert. |
 | `iat` | yes | issued-at, seconds since epoch. |
 | `exp` | yes | expiration, seconds since epoch. Must satisfy `exp > now` and `exp - iat ≤ 300` (5 min, matching the LAN pair nonce TTL). |
-| `jti` | yes | unique id (UUIDv7). Stored in D1 as `devices.attestation_jti UNIQUE`; a repeated still-valid attestation can re-mint only if the stored row matches `(instance_id, device_fp)` and has `device_id`, otherwise it is rejected as replay. |
+| `jti` | yes | home-issued request identifier. It participates in deterministic issuance but is never stored. Different verified claims sharing this identifier are independent authorizations. |
 
 Signature algorithm is ES256 (ECDSA-P256 / SHA-256), in either JOSE raw (r||s, 64 bytes, preferred) or DER-encoded form. `spl-relay` accepts both — home implementations may differ in whichever their local library emits, and the cost of supporting both is trivial.
 
@@ -201,7 +200,7 @@ Signature algorithm is ES256 (ECDSA-P256 / SHA-256), in either JOSE raw (r||s, 6
 2. Parse the `home_attestation` header; reject if `alg ≠ ES256` or `typ ≠ home-attest`.
 3. Verify the ECDSA signature against the home's CA public key.
 4. Check claims per the table above, including the 5-minute lifetime cap and the `device_fp` shape (`^sha256:[0-9a-f]{64}$`).
-5. Attempt to INSERT the attestation's `jti` into `devices.attestation_jti`. A UNIQUE collision means the attestation was already consumed: if the stored row matches this request's `(instance_id, device_fp)` and carries a `device_id`, re-mint the **byte-identical** device token (idempotent retry, 200); otherwise reject as replay (409).
+5. Derive the device subject and token ID from canonical verified claims, using the attestation issue time for the token issue time, and sign the response deterministically. Write no device or replay state.
 6. On success, mint a device token (see below).
 
 **Why this shape.** An open design question asked what proves a client cert was legitimately paired with a specific home before `spl-relay` will mint a device token. The alternatives considered:
@@ -221,7 +220,9 @@ Response (on success):
 }
 ```
 
-Re-issuance: a fresh `home_attestation` per pair ceremony mints a new device token; its `jti` is consumed once via `devices.attestation_jti UNIQUE`. Idempotency: if a successful enroll's HTTP response is lost and the mobile retries with the **same still-valid** attestation, `spl-relay` re-mints the **byte-identical** device token from the stored row rather than rejecting. A consumed `jti` re-presented with a different `(instance_id, device_fp)` — or one whose stored row predates the `device_id` column — is rejected as replay (409). The old device token's `jti` is what a revocation list would key on, if one existed; none does today.
+Retries of the same still-valid verified attestation produce byte-identical responses while the issuer and signing key remain fixed. Canonical input is the JSON array `[iss, aud, scope, instance_id, device_fp, iat, exp, jti]`, encoded as UTF-8. For each identifier, hash a domain string, a zero byte and that array with SHA-256: `spl-enroll-device-v1` for the subject and `spl-enroll-token-v1` for the token ID. Take the first 16 digest bytes, replace bytes 0–5 with the attestation's `iat * 1000` as a big-endian timestamp, and set UUIDv7 version/variant bits. Token `iat` is attestation `iat`; TTL and JSON claim ordering are fixed by this implementation. ES256 signature randomness, JSON property order and unrecognized extensions do not affect issuance.
+
+This deliberately replaces the former cross-payload `jti` collision ledger. Another validly home-signed claim set sharing a `jti` gets a different response; the home already has authority to authorize devices. This identifier is not the owner's one-shot pairing nonce. Expired or invalid attestations still reject on every attempt.
 
 ### POST `/token/refresh`
 
@@ -270,11 +271,11 @@ On every token-authenticated WebSocket upgrade request to `/session/listen` or `
 
 `/session/pair-window` always reads D1, gate or no gate: it refuses a token whose `instance_id` has no row, and one whose row carries `revoked_at`. With the gate off that makes it the stricter of the two paths; with the gate on it is the weaker, since it never checks entitlement.
 
-**What this does not do is enforce revocation.** There is no revocation table and no `jti` lookup. Revoking an *instance* sets `instances.revoked_at`. `/enroll/device`, `/token/refresh` and `/session/pair-window` all honor it; it reaches `/session/listen` and `/session/dial` only through the entitlement gate above; and ⚠ **`/enroll/home` does not check it at all**, so a revoked instance that re-enrolls is issued a fresh 365-day service token and gets `rotated_at` stamped. It cannot use that token — every route that would carry it refuses the instance — but it is why a rotation sweep counts only non-revoked instances. Revoking a *device* does not reach `spl-relay` at all: `devices.revoked_at` exists as a column and nothing in the relay writes or reads it. A revoked device keeps a working rendezvous until its device token expires; what stops it is the home refusing its client cert inside the inner TLS handshake, which is where [`pairing.md`](pairing.md) § revocation puts the authoritative check. That placement is deliberate: the inner TLS session terminates on the home, so the relay only ever forwards bytes it holds no key for. What that bounds is content. The relay still sees which instance, when, and how much, and a revoked device holding a live token still gets a working rendezvous. So the relay is not a second line of defense here, and this document should not be read as promising one.
+**What this does not do is enforce revocation.** There is no revocation table and no `jti` lookup. Revoking an *instance* sets `instances.revoked_at`. `/enroll/device`, `/token/refresh` and `/session/pair-window` all honor it; it reaches `/session/listen` and `/session/dial` only through the entitlement gate above; and ⚠ **`/enroll/home` does not check it at all**, so a revoked instance that re-enrolls is issued a fresh 365-day service token and gets `rotated_at` stamped. It cannot use that token — every route that would carry it refuses the instance — but it is why a rotation sweep counts only non-revoked instances. Revoking a device is enforced by the home; the relay holds no per-device revocation row. A revoked device keeps a working rendezvous until its device token expires; what stops it is the home refusing its client cert inside the inner TLS handshake, which is where [`pairing.md`](pairing.md) § revocation puts the authoritative check. That placement is deliberate: the inner TLS session terminates on the home, so the relay only ever forwards bytes it holds no key for. What that bounds is content. The relay still sees which instance, when, and how much, and a revoked device holding a live token still gets a working rendezvous. So the relay is not a second line of defense here, and this document should not be read as promising one.
 
 Off-LAN pair-window admission, including the anonymous `/session/pair-dial`, is specified in [`pair-window.md`](pair-window.md). Pair-vs-dial selection is by request path, never by reading an unverified `scope`.
 
-If any check fails, the Worker refuses the upgrade rather than accepting a socket. Checks 1–5 answer `401` with an `x-close-code: 4401` header; **check 6 answers `402` with `x-close-code: 4402`**, and a client that treats only 401/4401 as a refusal will mis-handle every entitlement rejection. ⚠ In both cases the upgrade never completes, so no WebSocket is accepted and **no close frame is sent** — a client waiting for a 4401 or 4402 close code will wait forever, and must read the header on the failed upgrade response instead. The Worker logs `event`, `route`, `reason`, `instance_id`, and `tunnel_id` when available. It does not log `jti` or any other token claim on failed authorization. **Never the token bytes, never claims-as-payload.**
+If any check fails, the Worker refuses the upgrade rather than accepting a socket. Checks 1–5 answer `401` with an `x-close-code: 4401` header; **check 6 answers `402` with `x-close-code: 4402`**, and a client that treats only 401/4401 as a refusal will mis-handle every entitlement rejection. ⚠ In both cases the upgrade never completes, so no WebSocket is accepted and **no close frame is sent** — a client waiting for a 4401 or 4402 close code will wait forever, and must read the header on the failed upgrade response instead. The Worker emits only fixed `event`, `route` and `reason` classifications for authorization failures. It does not log `jti` or any other token claim on failed authorization. **Never the token bytes, never claims-as-payload.**
 
 `spl-relay` does **not** issue or refresh tokens on the WebSocket path. Issuance is HTTPS-only via the control-plane endpoints.
 
@@ -350,61 +351,17 @@ The endpoint is unauthenticated, served `Cache-Control: max-age=300` (5 minutes 
 
 ## storage
 
-Workers store no token bytes. Token validation is stateless: signature and claim checks, with no D1 read of the token itself. A `jti` minted at `/enroll/home` or `/enroll/device` is recorded, so that token can be traced and a future revocation list would have something to key on. ⚠ **`POST /token/refresh` records nothing**, deliberately — it mints a new `jti` and writes no row, so once devices have refreshed, the `devices` table holds original `jti`s that match no token in circulation. Nothing looks any of them up today (see *validation in `spl-relay`* above).
+The relay stores instance admission state: ID, CA public key/fingerprint, service-token issuance metadata, revocation and entitlement. It also holds bounded purge-operation receipts and pending instance grants. The authoritative schema is `relay/migrations/`.
 
-The D1 shape, after every migration in `relay/migrations/` has been applied (informative; that directory owns it):
+There is no device table, device label, home label, certificate-fingerprint history or attestation replay ledger. Enrollment and refresh write no per-device state. Legacy bearer tokens still reveal their device subject and fingerprint transiently when presented; removing those claims requires a separately versioned admission contract. Socket routing attachments survive Durable Object hibernation for live connections, and the instance listener-generation counter is persistent.
 
-```sql
-CREATE TABLE instances (
-  instance_id       TEXT    PRIMARY KEY,
-  ca_fp             TEXT    NOT NULL,
-  ca_pubkey_pem     TEXT    NOT NULL,
-  home_label        TEXT,
-  created_at        INTEGER NOT NULL,
-  service_token_jti TEXT    NOT NULL,
-  rotated_at        INTEGER,
-  revoked_at        INTEGER,
-  entitled_until    INTEGER
-);
+### Stateless enrollment transition
 
-CREATE UNIQUE INDEX idx_instances_ca_fp ON instances(ca_fp);
+1. Deploy row-free writers with `ENROLLMENT_PAUSED=true`. Confirm every serving version has stopped device enrollment; do not mix it with the old writer. Dial and refresh continue, although a Durable Object deployment may disconnect sockets and require reconnect.
+2. Wait at least 360 seconds after the last old writer can serve, covering the maximum accepted attestation lifetime and clock skew. Existing randomly issued credentials remain valid; interrupted enrollment attempts may need fresh ceremony material after expiry.
+3. Apply migration 0011 to drop `devices` and the `instances.home_label` column. Do not create a device-table export for rollback. Verify schema absence and test old credential dial/refresh with the remaining instance state.
+4. Unpause enrollment. Rollback may use only versions compatible with the minimized schema and logging policy; never restore the old writers or identifying logs.
 
-CREATE TABLE devices (
-  device_jti      TEXT    PRIMARY KEY,
-  instance_id     TEXT    NOT NULL,
-  device_fp       TEXT    NOT NULL,
-  device_label    TEXT,
-  created_at      INTEGER NOT NULL,
-  revoked_at      INTEGER,
-  attestation_jti TEXT    NOT NULL UNIQUE,
-  device_id       TEXT,
-  FOREIGN KEY (instance_id) REFERENCES instances(instance_id)
-);
+Use the same enrollment pause and 360-second drain before routine changes to the signing key, issuer, TTL or canonical issuance algorithm. Publish new verification keys before switching the signing key and retain verification overlap as described in [signing keys](../docs/signing-keys.md). Emergency key retirement takes precedence over byte-identical retries: retire compromised keys immediately and record that exception.
 
-CREATE INDEX idx_devices_instance ON devices(instance_id);
-CREATE INDEX idx_devices_fp ON devices(instance_id, device_fp);
-```
-
-`attestation_jti` is what consumes a `home_attestation` exactly once. `device_id` is nullable only because it was added after the first deployment: a row written before that migration reads back `NULL` and cannot be re-minted idempotently, which is the case `/enroll/device` rejects as replay.
-
-`relay/migrations/` also creates a small `pending_grants` holding table so an entitlement grant can arrive before its home enrolls. It carries an instance id and a grant expiry, holds no token material, and is not part of this contract.
-
-D1 is for non-payload metadata only — never for tunnel bytes, never for keys, never for `authorized_clients.json` content (that lives only on the home).
-
-## what tokens do not authorize
-
-Stated to make the trust boundary unambiguous:
-
-- **Tokens do not decrypt anything.** TLS material lives only on the home and the mobile device.
-- **Tokens do not name a fingerprint that the TLS layer trusts.** Adding a fingerprint to `authorized_clients.json` happens during pairing on the home, not via any token operation.
-- **Tokens do not bind a session to a user.** They bind a WebSocket to an `instance_id` for `spl-relay`'s rendezvous purposes. There is no concept of a "user" in `spl-relay`.
-- **Possession of a token is not possession of access.** A device token without the matching client cert is useless. A leaked service token without the home's CA private key cannot be turned into a working home install.
-
-This is the load-bearing trust statement: tokens are the rendezvous, not the data.
-
-## related
-
-- [`../docs/signing-keys.md`](../docs/signing-keys.md) — the signing-key lifecycle (generation, vault storage, provisioning, compromise response), and the operator runbook for the rotation § rotation specifies.
-- [`session.md`](session.md) — the WebSocket lifecycle these tokens authorize.
-- [`pairing.md`](pairing.md) — how a device first becomes eligible to be issued a device token.
-- [`framing.md`](framing.md) — the multiplex inside the tunnel that token validation makes reachable.
+Active-store deletion is not historical-copy erasure. D1 Time Travel, provider log retention and any prior exports have separate lifetimes. Verify those copies and their expiry/deletion before making a no-retention claim; deployment or database recreation alone does not establish provider erasure.

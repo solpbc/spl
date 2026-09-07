@@ -106,4 +106,8 @@ export const migrations = [
 			"ALTER TABLE purge_operations_0010 RENAME TO purge_operations",
 		],
 	},
+	{
+		name: "0011_relay_minimization",
+		queries: ["DROP TABLE devices", "ALTER TABLE instances DROP COLUMN home_label"],
+	},
 ];

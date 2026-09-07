@@ -377,7 +377,6 @@ describe("GET /admin/instances", () => {
 			[
 				"instance_id",
 				"ca_fp",
-				"home_label",
 				"created_at",
 				"rotated_at",
 				"revoked_at",
@@ -387,7 +386,7 @@ describe("GET /admin/instances", () => {
 		);
 		expect(row).not.toHaveProperty("ca_pubkey_pem");
 		expect(row).not.toHaveProperty("service_token_jti");
-		expect(row.home_label).toBeNull();
+		expect(row).not.toHaveProperty("home_label");
 		expect(typeof row.ca_fp).toBe("string");
 		expect(row.ca_fp).toMatch(/^sha256:/);
 

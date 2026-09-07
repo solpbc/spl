@@ -3,11 +3,13 @@
 
 // Integration tests for the /enroll/* control plane. Runs under Miniflare
 // with real DB + SIGNING_JWK + JWKS_PUBLIC bindings. These are the tests
-// that exercise attestation-replay defense and D1 idempotency.
+// that exercise stateless retry issuance and minimized D1 persistence.
 
 import { SELF, env } from "cloudflare:test";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { fingerprintDer } from "../src/attestation";
+import { handleEnrollDevice } from "../src/enroll";
+import type { Env } from "../src/env";
 import { base64UrlDecode, verifyToken } from "../src/tokens";
 import { genCaKeypair, genClientCertDer, mintAttestation } from "../test/fixtures";
 import { applyRelayD1Migrations } from "./apply-migrations";
@@ -290,6 +292,55 @@ describe("POST /enroll/device", () => {
 		expect(payload(t2.device_token)).toEqual(payload(t1.device_token));
 	});
 
+	it("retries concurrently and after re-signing without retaining device metadata", async () => {
+		const { instanceId, ca } = await setupEnrolled();
+		const input = {
+			caPrivateKey: ca.privateKey,
+			instanceId,
+			deviceFp: await fingerprintDer(await genClientCertDer()),
+			now: Math.floor(Date.now() / 1000),
+			overrideJti: crypto.randomUUID(),
+		};
+		const original = await mintAttestation(input);
+		const resigned = await mintAttestation(input);
+		const send = async (attestation: string) => {
+			const response = await SELF.fetch("http://spl.test/enroll/device", {
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({ instance_id: instanceId, home_attestation: attestation }),
+			});
+			expect(response.status).toBe(200);
+			return response.text();
+		};
+		const spy = vi.spyOn(console, "log").mockImplementation(() => {});
+		try {
+			const responses = await Promise.all([send(original), send(original), send(resigned)]);
+			expect(new Set(responses).size).toBe(1);
+			expect(
+				await env.DB.prepare(
+					"SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'devices'",
+				).first(),
+			).toBeNull();
+			const columns = await env.DB.prepare("PRAGMA table_info(instances)").all<{ name: string }>();
+			expect(columns.results.map((c) => c.name)).not.toContain("home_label");
+			expect(spy.mock.calls).toEqual([]);
+		} finally {
+			spy.mockRestore();
+		}
+	});
+
+	it("pauses enrollment before parsing during key and writer drains", async () => {
+		const response = await handleEnrollDevice(
+			new Request("http://spl.test/enroll/device", {
+				method: "POST",
+				body: "malformed",
+			}),
+			{ ...env, ENROLLMENT_PAUSED: "true" } as Env,
+		);
+		expect(response.status).toBe(503);
+		expect(response.headers.get("Retry-After")).toBe("360");
+	});
+
 	it("rejects a device enroll missing home_attestation", async () => {
 		const { instanceId } = await setupEnrolled();
 		const res = await SELF.fetch("http://spl.test/enroll/device", {
@@ -371,7 +422,7 @@ describe("POST /enroll/device", () => {
 		expect(res.status).toBe(401);
 	});
 
-	it("rejects a consumed attestation_jti re-presented with a different device_fp (M5)", async () => {
+	it("treats different home-authorized claims sharing a jti as independent issuance", async () => {
 		const { instanceId, ca } = await setupEnrolled();
 		const jti = `jti-collide-${instanceId}`;
 		const fp1 = await fingerprintDer(await genClientCertDer("a"));
@@ -399,7 +450,15 @@ describe("POST /enroll/device", () => {
 			headers: { "content-type": "application/json" },
 			body: JSON.stringify({ instance_id: instanceId, home_attestation: a2 }),
 		});
-		expect(r2.status).toBe(409);
+		expect(r2.status).toBe(200);
+		expect(((await r1.json()) as { device_token: string }).device_token).not.toBe(
+			((await r2.json()) as { device_token: string }).device_token,
+		);
+		expect(
+			await env.DB.prepare(
+				"SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'devices'",
+			).first(),
+		).toBeNull();
 	});
 
 	it("ignores a legacy client_cert field and still succeeds", async () => {

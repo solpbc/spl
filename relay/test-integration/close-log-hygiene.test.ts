@@ -87,29 +87,18 @@ function records(spy: ReturnType<typeof vi.spyOn>): LogRecord[] {
 		.map((line) => JSON.parse(line) as LogRecord);
 }
 
-async function waitForCloseLog(
-	spy: ReturnType<typeof vi.spyOn>,
-	tunnelId: string,
-	closeCode: number,
-): Promise<LogRecord> {
-	await vi.waitFor(() => {
-		expect(
-			records(spy).some(
-				(record) =>
-					record.event === "tunnel_mobile_close" &&
-					record.tunnel_id === tunnelId &&
-					record.close_code === closeCode,
-			),
-		).toBe(true);
+function onClose(ws: WebSocket): Promise<void> {
+	return new Promise((resolve, reject) => {
+		const timer = setTimeout(() => reject(new Error("close timeout")), 5000);
+		ws.addEventListener(
+			"close",
+			() => {
+				clearTimeout(timer);
+				resolve();
+			},
+			{ once: true },
+		);
 	});
-	const record = records(spy).find(
-		(item) =>
-			item.event === "tunnel_mobile_close" &&
-			item.tunnel_id === tunnelId &&
-			item.close_code === closeCode,
-	);
-	if (!record) throw new Error("close log disappeared after waitFor");
-	return record;
 }
 
 describe("close log hygiene", () => {
@@ -118,9 +107,10 @@ describe("close log hygiene", () => {
 		const spy = vi.spyOn(console, "log").mockImplementation(() => {});
 		const secret = "leak-canary-8f3a2c-do-not-log";
 		try {
+			const closed = onClose(homeTunnel);
 			mobile.close(4321, secret);
-			const closeLog = await waitForCloseLog(spy, tunnelId, 4321);
-			expect(closeLog).toMatchObject({ close_code: 4321, reason: "peer_closed" });
+			await closed;
+			expect(spy.mock.calls).toEqual([]);
 			const raw = spy.mock.calls.map(([arg]) => String(arg)).join("\n");
 			expect(raw).not.toContain(secret);
 			expect(raw).not.toContain("leak-canary");
@@ -136,9 +126,10 @@ describe("close log hygiene", () => {
 		const { home, mobile, homeTunnel, tunnelId } = await pairedTunnel();
 		const spy = vi.spyOn(console, "log").mockImplementation(() => {});
 		try {
+			const closed = onClose(homeTunnel);
 			mobile.close(4322, "ws_error");
-			const closeLog = await waitForCloseLog(spy, tunnelId, 4322);
-			expect(closeLog.reason).toBe("peer_closed");
+			await closed;
+			expect(spy.mock.calls).toEqual([]);
 		} finally {
 			spy.mockRestore();
 			homeTunnel.close(1000, "test_done");

@@ -27,8 +27,7 @@
 //     The relay trusts this verified claim as the device identity — it
 //     never receives or recomputes a client cert.
 //   * signature verifies against the CA public key stored at /enroll/home
-//   * jti is recorded in devices.attestation_jti. A matching retry may
-//     re-mint from the stored device row; mismatched or legacy-null rows reject.
+//   * verified claims determine stateless retry issuance; jti is not stored.
 //
 // Why a home-signed JWT and not "client cert chains to registered CA" alone:
 // chain validity only proves the home issued the cert at some point. The
@@ -93,6 +92,7 @@ export async function verifyAttestation(input: VerifyInput): Promise<Attestation
 		return { ok: false, reason: "malformed" };
 	}
 
+	if (!header || !claims || typeof claims !== "object") return { ok: false, reason: "malformed" };
 	if (header.alg !== "ES256") return { ok: false, reason: "malformed" };
 	if (header.typ !== "home-attest") return { ok: false, reason: "malformed" };
 
@@ -116,12 +116,14 @@ export async function verifyAttestation(input: VerifyInput): Promise<Attestation
 		return { ok: false, reason: "wrong_issuer" };
 	if (claims.instance_id !== input.expectedInstanceId)
 		return { ok: false, reason: "wrong_instance" };
-	if (typeof claims.exp !== "number" || claims.exp <= now) return { ok: false, reason: "expired" };
-	if (typeof claims.iat !== "number" || claims.iat > now + 60)
+	if (!Number.isSafeInteger(claims.exp) || claims.exp <= now)
+		return { ok: false, reason: "expired" };
+	if (!Number.isSafeInteger(claims.iat) || claims.iat < 0 || claims.iat > now + 60)
 		return { ok: false, reason: "issued_future" };
-	if (claims.exp - claims.iat > MAX_ATTESTATION_LIFETIME_SECONDS)
+	if (claims.exp <= claims.iat || claims.exp - claims.iat > MAX_ATTESTATION_LIFETIME_SECONDS)
 		return { ok: false, reason: "too_long_lived" };
 	if (
+		typeof claims.jti !== "string" ||
 		!claims.jti ||
 		typeof claims.device_fp !== "string" ||
 		!/^sha256:[0-9a-f]{64}$/.test(claims.device_fp)

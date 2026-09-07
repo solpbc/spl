@@ -70,11 +70,9 @@ describe("owner-purge v1 relay wire transcripts", () => {
 		});
 		for (const id of fixtureInstanceIds(request)) {
 			expect(await rowCount("instances", id)).toBe(0);
-			expect(await rowCount("devices", id)).toBe(0);
 			expect(await rowCount("pending_grants", id)).toBe(0);
 		}
 		expect(await rowCount("instances", control)).toBe(1);
-		expect(await rowCount("devices", control)).toBe(1);
 		expect(await rowCount("pending_grants", control)).toBe(1);
 
 		const retained = transcript(RELAY_V1_NAME);
@@ -156,11 +154,9 @@ describe("owner-purge v1 relay rejection vectors", () => {
 		expect(await bindingDisposition()).toBe("complete");
 		for (const id of fixtureInstanceIds(request)) {
 			expect(await rowCount("instances", id)).toBe(0);
-			expect(await rowCount("devices", id)).toBe(0);
 			expect(await rowCount("pending_grants", id)).toBe(0);
 		}
 		expect(await rowCount("instances", control)).toBe(1);
-		expect(await rowCount("devices", control)).toBe(1);
 		expect(await rowCount("pending_grants", control)).toBe(1);
 	});
 

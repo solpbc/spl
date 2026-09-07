@@ -370,14 +370,9 @@ function canonicalJson(value: unknown): string {
 export async function seedInstance(instanceId: string): Promise<void> {
 	const suffix = crypto.randomUUID();
 	await env.DB.prepare(
-		"INSERT INTO instances (instance_id, ca_fp, ca_pubkey_pem, home_label, created_at, service_token_jti) VALUES (?, ?, ?, ?, ?, ?)",
+		"INSERT INTO instances (instance_id, ca_fp, ca_pubkey_pem, created_at, service_token_jti) VALUES (?, ?, ?, ?, ?)",
 	)
-		.bind(instanceId, `sha256:${suffix.replace(/-/g, "")}`, "fixture-ca", null, NOW, suffix)
-		.run();
-	await env.DB.prepare(
-		"INSERT INTO devices (device_jti, instance_id, device_fp, device_label, created_at, attestation_jti) VALUES (?, ?, ?, ?, ?, ?)",
-	)
-		.bind(`device-${suffix}`, instanceId, "sha256:fixture", null, NOW, `attestation-${suffix}`)
+		.bind(instanceId, `sha256:${suffix.replace(/-/g, "")}`, "fixture-ca", NOW, suffix)
 		.run();
 	await env.DB.prepare(
 		"INSERT INTO pending_grants (instance_id, entitled_until, updated_at) VALUES (?, ?, ?)",
@@ -388,13 +383,12 @@ export async function seedInstance(instanceId: string): Promise<void> {
 
 export async function clearRows(): Promise<void> {
 	await env.DB.prepare("DELETE FROM purge_operations").run();
-	await env.DB.prepare("DELETE FROM devices").run();
 	await env.DB.prepare("DELETE FROM pending_grants").run();
 	await env.DB.prepare("DELETE FROM instances").run();
 }
 
 export async function rowCount(
-	table: "instances" | "devices" | "pending_grants",
+	table: "instances" | "pending_grants",
 	instanceId: string,
 ): Promise<number> {
 	const row = await env.DB.prepare(`SELECT COUNT(*) AS count FROM ${table} WHERE instance_id = ?`)

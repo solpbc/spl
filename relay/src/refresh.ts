@@ -8,7 +8,6 @@
 import { DEVICE_TOKEN_TTL_SECONDS } from "./enroll";
 import type { Env } from "./env";
 import { json, readJson } from "./http";
-import { log } from "./logging";
 import { mintDeviceToken, verifyToken } from "./tokens";
 
 const MAX_REFRESH_BYTES = 16 * 1024;
@@ -49,11 +48,7 @@ export async function handleTokenRefresh(request: Request, env: Env): Promise<Re
 	const { instance_id, device_fp } = result.claims;
 	const device_id = result.claims.sub.slice("device:".length);
 
-	// Deliberately do NOT read or write `devices`: /session/dial verification
-	// (instance-do.ts handleDial) authenticates by signature alone and never
-	// consults `devices`, so a refreshed token dials with no row. Adding a row
-	// here would only worsen the known unbounded device-row accrual (G6).
-	// Statelessness is the point.
+	// Admission is instance-bound; no per-device issuance state exists.
 	const instance = await env.DB.prepare("SELECT revoked_at FROM instances WHERE instance_id = ?")
 		.bind(instance_id)
 		.first<{ revoked_at: number | null }>();
@@ -68,7 +63,6 @@ export async function handleTokenRefresh(request: Request, env: Env): Promise<Re
 		ttlSeconds: DEVICE_TOKEN_TTL_SECONDS,
 	});
 
-	log({ event: "device_refresh", instance_id, jti: minted.jti });
 	return json({
 		device_token: minted.jwt,
 		expires_at: new Date(minted.exp * 1000).toISOString(),

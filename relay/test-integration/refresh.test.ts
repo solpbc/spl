@@ -41,13 +41,12 @@ function randomFp(): string {
 async function insertInstance(instanceId: string): Promise<void> {
 	const now = Math.floor(Date.now() / 1000);
 	await env.DB.prepare(
-		"INSERT INTO instances (instance_id, ca_fp, ca_pubkey_pem, home_label, created_at, service_token_jti) VALUES (?, ?, ?, ?, ?, ?)",
+		"INSERT INTO instances (instance_id, ca_fp, ca_pubkey_pem, created_at, service_token_jti) VALUES (?, ?, ?, ?, ?)",
 	)
 		.bind(
 			instanceId,
 			randomFp(),
 			"-----BEGIN PUBLIC KEY-----\ntest\n-----END PUBLIC KEY-----\n",
-			null,
 			now,
 			crypto.randomUUID(),
 		)
@@ -142,10 +141,10 @@ function onMessage(ws: WebSocket): Promise<string | ArrayBuffer> {
 	});
 }
 
-async function devicesCount(instanceId: string): Promise<number> {
-	const row = await env.DB.prepare("SELECT COUNT(*) AS count FROM devices WHERE instance_id = ?")
-		.bind(instanceId)
-		.first<{ count: number }>();
+async function deviceTableCount(): Promise<number> {
+	const row = await env.DB.prepare(
+		"SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name = 'devices'",
+	).first<{ count: number }>();
 	return row?.count ?? 0;
 }
 
@@ -335,15 +334,15 @@ describe("POST /token/refresh", () => {
 		home.close(1000, "test_done");
 	});
 
-	it("does not insert devices rows while refreshing", async () => {
+	it("refreshes with no device table before or after the request", async () => {
 		const instanceId = newInstanceId();
 		await insertInstance(instanceId);
-		const before = await devicesCount(instanceId);
+		const before = await deviceTableCount();
 		const input = await mintCurrentDeviceToken(instanceId);
 
 		const res = await postRefresh(input.jwt);
 		expect(res.status).toBe(200);
-		const after = await devicesCount(instanceId);
+		const after = await deviceTableCount();
 		expect(before).toBe(0);
 		expect(after).toBe(before);
 	});
@@ -363,15 +362,7 @@ describe("POST /token/refresh", () => {
 				expect(line).not.toContain(input.jwt);
 				expect(line).not.toContain(body.device_token);
 			}
-			expect(
-				lines.some((line) => {
-					try {
-						return (JSON.parse(line) as { event?: string }).event === "device_refresh";
-					} catch {
-						return false;
-					}
-				}),
-			).toBe(true);
+			expect(lines).toEqual([]);
 		} finally {
 			spy.mockRestore();
 		}
