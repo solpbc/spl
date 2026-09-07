@@ -14,7 +14,7 @@ import { enrollmentIds } from "./enrollment-ids";
 import type { Env } from "./env";
 import { json, readJson } from "./http";
 import { log } from "./logging";
-import { mintDeviceToken, mintServiceToken } from "./tokens";
+import { mintDeviceToken, mintInstanceToken, mintServiceToken } from "./tokens";
 
 // 365 days / 60 days per proto/tokens.md §TTLs.
 const SERVICE_TOKEN_TTL_SECONDS = 365 * 24 * 60 * 60;
@@ -28,6 +28,7 @@ interface EnrollHomeBody {
 }
 
 interface EnrollDeviceBody {
+	protocol_version?: number;
 	instance_id?: string;
 	home_attestation?: string;
 }
@@ -38,26 +39,44 @@ export async function handleEnrollHome(request: Request, env: Env): Promise<Resp
 	const read = await readJson<EnrollHomeBody>(request, MAX_ENROLL_HOME_BYTES);
 	if (!read.ok) {
 		if (read.reason === "too_large") {
-			log({ event: "enroll_rejected", route: "/enroll/home", reason: "body_too_large" });
+			log({
+				event: "enroll_rejected",
+				route: "/enroll/home",
+				reason: "body_too_large",
+			});
 			return json({ error: "request body too large" }, 413);
 		}
-		log({ event: "enroll_rejected", route: "/enroll/home", reason: "missing_fields" });
+		log({
+			event: "enroll_rejected",
+			route: "/enroll/home",
+			reason: "missing_fields",
+		});
 		return json({ error: "instance_id and ca_pubkey required" }, 400);
 	}
 	const body = read.value;
+	if (!body || typeof body !== "object" || Array.isArray(body))
+		return json({ error: "invalid request" }, 400);
 	if (
 		typeof body.instance_id !== "string" ||
 		!body.instance_id ||
 		typeof body.ca_pubkey !== "string" ||
 		!body.ca_pubkey
 	) {
-		log({ event: "enroll_rejected", route: "/enroll/home", reason: "missing_fields" });
+		log({
+			event: "enroll_rejected",
+			route: "/enroll/home",
+			reason: "missing_fields",
+		});
 		return json({ error: "instance_id and ca_pubkey required" }, 400);
 	}
 
 	// Reject obviously bad instance_id shapes to keep D1 primary-key safe.
 	if (!/^[0-9a-fA-F-]{10,64}$/.test(body.instance_id)) {
-		log({ event: "enroll_rejected", route: "/enroll/home", reason: "bad_instance_id" });
+		log({
+			event: "enroll_rejected",
+			route: "/enroll/home",
+			reason: "bad_instance_id",
+		});
 		return json({ error: "bad instance_id" }, 400);
 	}
 
@@ -67,12 +86,20 @@ export async function handleEnrollHome(request: Request, env: Env): Promise<Resp
 	// attestation. This is also the only algorithm verifyAttestation() knows.
 	const caKey = await importCaPublicKey(body.ca_pubkey);
 	if (!caKey) {
-		log({ event: "enroll_rejected", route: "/enroll/home", reason: "bad_ca_pubkey" });
+		log({
+			event: "enroll_rejected",
+			route: "/enroll/home",
+			reason: "bad_ca_pubkey",
+		});
 		return json({ error: "ca_pubkey must be ECDSA-P256 SPKI PEM" }, 400);
 	}
 	const caDer = pemToDer(body.ca_pubkey);
 	if (!caDer) {
-		log({ event: "enroll_rejected", route: "/enroll/home", reason: "bad_ca_pubkey" });
+		log({
+			event: "enroll_rejected",
+			route: "/enroll/home",
+			reason: "bad_ca_pubkey",
+		});
 		return json({ error: "ca_pubkey must be PEM" }, 400);
 	}
 	const caFp = await fingerprintDer(caDer);
@@ -94,7 +121,11 @@ export async function handleEnrollHome(request: Request, env: Env): Promise<Resp
 
 	if (existing) {
 		if (existing.ca_pubkey_pem.trim() !== body.ca_pubkey.trim()) {
-			log({ event: "enroll_rejected", route: "/enroll/home", reason: "ca_mismatch" });
+			log({
+				event: "enroll_rejected",
+				route: "/enroll/home",
+				reason: "ca_mismatch",
+			});
 			return json({ error: "ca_pubkey mismatch — rotation not supported in v1" }, 409);
 		}
 		await env.DB.prepare(
@@ -116,7 +147,11 @@ export async function handleEnrollHome(request: Request, env: Env): Promise<Resp
 			// other instance's id.
 			const msg = err instanceof Error ? err.message : String(err);
 			if (!/UNIQUE/.test(msg)) throw err;
-			log({ event: "enroll_rejected", route: "/enroll/home", reason: "ca_fp_conflict" });
+			log({
+				event: "enroll_rejected",
+				route: "/enroll/home",
+				reason: "ca_fp_conflict",
+			});
 			return json({ error: "ca_pubkey already registered to another instance" }, 409);
 		}
 	}
@@ -159,20 +194,36 @@ export async function handleEnrollDevice(request: Request, env: Env): Promise<Re
 	const read = await readJson<EnrollDeviceBody>(request, MAX_ENROLL_DEVICE_BYTES);
 	if (!read.ok) {
 		if (read.reason === "too_large") {
-			log({ event: "enroll_rejected", route: "/enroll/device", reason: "body_too_large" });
+			log({
+				event: "enroll_rejected",
+				route: "/enroll/device",
+				reason: "body_too_large",
+			});
 			return json({ error: "request body too large" }, 413);
 		}
-		log({ event: "enroll_rejected", route: "/enroll/device", reason: "missing_fields" });
+		log({
+			event: "enroll_rejected",
+			route: "/enroll/device",
+			reason: "missing_fields",
+		});
 		return json({ error: "instance_id and home_attestation required" }, 400);
 	}
 	const body = read.value;
+	if (!body || typeof body !== "object" || Array.isArray(body))
+		return json({ error: "invalid request" }, 400);
+	if (body.protocol_version !== undefined && body.protocol_version !== 2)
+		return json({ error: "unsupported protocol_version" }, 400);
 	if (
 		typeof body.instance_id !== "string" ||
 		!body.instance_id ||
 		typeof body.home_attestation !== "string" ||
 		!body.home_attestation
 	) {
-		log({ event: "enroll_rejected", route: "/enroll/device", reason: "missing_fields" });
+		log({
+			event: "enroll_rejected",
+			route: "/enroll/device",
+			reason: "missing_fields",
+		});
 		return json({ error: "instance_id and home_attestation required" }, 400);
 	}
 
@@ -183,11 +234,19 @@ export async function handleEnrollDevice(request: Request, env: Env): Promise<Re
 		.first<{ ca_pubkey_pem: string; revoked_at: number | null }>();
 
 	if (!instance) {
-		log({ event: "enroll_rejected", route: "/enroll/device", reason: "unknown_instance" });
+		log({
+			event: "enroll_rejected",
+			route: "/enroll/device",
+			reason: "unknown_instance",
+		});
 		return json({ error: "unknown instance_id" }, 404);
 	}
 	if (instance.revoked_at !== null) {
-		log({ event: "enroll_rejected", route: "/enroll/device", reason: "instance_revoked" });
+		log({
+			event: "enroll_rejected",
+			route: "/enroll/device",
+			reason: "instance_revoked",
+		});
 		return json({ error: "instance revoked" }, 403);
 	}
 
@@ -206,17 +265,25 @@ export async function handleEnrollDevice(request: Request, env: Env): Promise<Re
 	}
 	// Canonical verified claims, not the nondeterministic ES256 signature,
 	// determine retries. No device or replay record is written.
-	const ids = await enrollmentIds(result.claims);
-	const minted = await mintDeviceToken(env.SIGNING_JWK, {
+	const v2 = body.protocol_version === 2;
+	const ids = await enrollmentIds(result.claims, v2 ? 2 : 1);
+	const input = {
 		instance_id: body.instance_id,
-		device_id: ids.deviceId,
-		device_fp: result.claims.device_fp,
 		issuer: env.ISSUER,
 		ttlSeconds: DEVICE_TOKEN_TTL_SECONDS,
 		now: result.claims.iat,
 		jti: ids.jti,
-	});
+	};
+	const minted = v2
+		? await mintInstanceToken(env.SIGNING_JWK, input)
+		: await mintDeviceToken(env.SIGNING_JWK, {
+				...input,
+				device_id: ids.deviceId,
+				device_fp: result.claims.device_fp,
+			});
+
 	return json({
+		...(v2 ? { protocol_version: 2 } : {}),
 		device_token: minted.jwt,
 		expires_at: new Date(minted.exp * 1000).toISOString(),
 	});

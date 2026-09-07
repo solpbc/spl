@@ -388,3 +388,67 @@ describe("base64url round-trip", () => {
 		for (let i = 0; i < bytes.length; i++) expect(decoded[i]).toBe(bytes[i]);
 	});
 });
+
+describe("v2 instance admission", () => {
+	it("validates version, instance subject, privacy claim allowlist and expiry", async () => {
+		const k = await genSigningKeypair();
+		const claims = {
+			iss: ISSUER,
+			aud: "spl-relay",
+			scope: "session.dial",
+			ver: 2,
+			sub: "instance:inst-1",
+			instance_id: "inst-1",
+			iat: 1000,
+			exp: 2000,
+			jti: "fresh",
+		};
+		const options = {
+			jwksRaw: k.jwksPublicRaw,
+			expectedIssuer: ISSUER,
+			expectedScope: "session.dial" as const,
+			now: 1500,
+		};
+		expect((await verifyToken(await signClaims(k.privateJwkRaw, claims), options)).ok).toBe(true);
+		for (const delta of [
+			{ ver: 3 },
+			{ ver: null },
+			{ sub: "instance:inst-2" },
+			{ sub: "device:legacy" },
+			{ device_fp: VALID_FP },
+			{ ca_fp: VALID_FP },
+			{ previous_jti: "legacy" },
+			{ exp: 1000 },
+			{ exp: 1500 },
+			{ iat: 1601 },
+			{ exp: 2000.5 },
+		]) {
+			expect(
+				(await verifyToken(await signClaims(k.privateJwkRaw, { ...claims, ...delta }), options)).ok,
+			).toBe(false);
+		}
+		const expired = await signClaims(k.privateJwkRaw, { ...claims, exp: 1499 });
+		expect((await verifyToken(expired, { ...options, graceSeconds: 30 })).ok).toBe(true);
+		expect((await verifyToken(expired, { ...options, now: 1529, graceSeconds: 30 })).ok).toBe(
+			false,
+		);
+		const signed = await signClaims(k.privateJwkRaw, claims);
+		expect(
+			(await verifyToken(`${signed.substring(0, signed.lastIndexOf(".") + 1)}!`, options)).ok,
+		).toBe(false);
+	});
+	it("refuses null and non-object JWT envelopes without throwing", async () => {
+		const k = await genSigningKeypair();
+		for (const token of ["bnVsbA.e30.AA", "e30.bnVsbA.AA", "W10.W10.AA"]) {
+			expect(
+				(
+					await verifyToken(token, {
+						jwksRaw: k.jwksPublicRaw,
+						expectedIssuer: ISSUER,
+						expectedScope: "session.dial",
+					})
+				).ok,
+			).toBe(false);
+		}
+	});
+});

@@ -25,6 +25,7 @@
 // or forwards the payload of a relayed frame. The DO holds ArrayBuffers;
 // it does not inspect them. See AGENTS.md §3.
 
+import { handleTokenAccess } from "./access";
 import { handleEnrollDevice, handleEnrollHome } from "./enroll";
 import { handleListInstances, handleSetEntitlement, handleShowInstance } from "./entitlement";
 import type { Env } from "./env";
@@ -68,6 +69,9 @@ async function routeRequest(request: Request, env: Env): Promise<Response> {
 	}
 	if (request.method === "POST" && url.pathname === "/internal/deletion/purge/confirm") {
 		return handlePurgeConfirm(request, env);
+	}
+	if (request.method === "POST" && url.pathname === "/token/access") {
+		return handleTokenAccess(request, env);
 	}
 	if (request.method === "POST" && url.pathname === "/token/refresh") {
 		return handleTokenRefresh(request, env);

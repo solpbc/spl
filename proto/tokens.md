@@ -25,7 +25,7 @@ Authorizes a home to open a `/session/listen` WebSocket to `spl-relay`. Long-liv
 
 ### device token
 
-Authorizes a paired mobile device to open a `/session/dial` WebSocket to `spl-relay`, naming a specific home `instance_id`. Bound to (`instance_id`, client cert fingerprint). One per paired device.
+Authorizes a paired mobile device to open a `/session/dial` WebSocket to `spl-relay`, naming a specific home `instance_id`. V2 is scoped to the instance alone. The home shares an instance capability with its authenticated clients; it contains no device identity. Legacy unversioned tokens retain a device subject and certificate fingerprint during rollout.
 
 The service and device tokens are JWTs with the same shell; the differences are in claims and TTL.
 
@@ -59,7 +59,7 @@ JWT payload, service token:
 }
 ```
 
-JWT payload, device token:
+JWT payload, legacy unversioned device token:
 
 ```json
 {
@@ -89,6 +89,42 @@ JWT payload, device token:
 | `jti` | yes | token id; UUIDv7. Device enrollment derives it deterministically for retries; refresh replaces it. No device issuance or replay record is retained. Service-token issuance metadata remains instance-scoped. |
 
 Workers MUST reject any token missing a required claim or carrying an unexpected `scope` for the requested route.
+
+## Instance capability v2
+
+A v2 dial capability has exactly these claims:
+
+```json
+{
+  "iss": "link.solstone.app",
+  "sub": "instance:<instance_id>",
+  "aud": "spl-relay",
+  "scope": "session.dial",
+  "ver": 2,
+  "instance_id": "<paired home instance_id>",
+  "iat": 1745006400,
+  "exp": 1750190400,
+  "jti": "<uuidv7>"
+}
+```
+
+V2 admits the bearer to the named instance; the home still authorizes the device inside mTLS. The relay rejects unknown token versions, an inconsistent subject, or extra v2 claims, including device fingerprints and predecessor identifiers. Service tokens remain unversioned. Timestamps are integer epoch seconds, and v2 expiration must follow issue time. An instance capability cannot listen or acquire service-authorized access.
+
+### POST `/token/access`
+
+The configured home sends exactly `{ "service_token": "<JWT>" }` over HTTPS, within 16 KiB. The relay verifies its `session.listen` signature, expiry, exact `home:<instance_id>` subject and matching enrolled CA. Missing instances return 404, revoked instances 403, invalid service credentials 401, and unavailable signing or verification configuration 503. Request fields cannot choose a different instance. This endpoint neither enrolls nor enables a home and does not apply entitlement; the actual session routes retain that gate.
+
+Success returns `{ "protocol_version": 2, "device_token": "<JWT>", "expires_at": "<RFC3339>" }`. The legacy field name contains the instance capability. Each normal issuance and renewal has an independent fresh token ID; no issuance history or old/new-token mapping is stored. The home caches only the latest capability at service-configuration level and supplies it to authenticated paired clients.
+
+### Upgrade and compatibility
+
+`POST /token/refresh` accepts optional `protocol_version: 2`. With a valid legacy token this explicitly upgrades to v2, dropping the device subject and fingerprint. A v2 input always renews as v2, even without the request discriminator. Omitted version on a legacy input preserves legacy behavior. Unsupported requested versions return 400. The existing 60-day TTL and 30-day refresh grace apply to both forms.
+
+Transitional `POST /enroll/device` also accepts `protocol_version: 2` and returns v2. It still receives the older home's fingerprint attestation transiently. Retry derivation uses `spl-enroll-token-v2`; the v1 derivation stays unchanged. V2 uses the instance subject, never the derived device ID. Same verified attestation and version yields the same response under the fixed signing configuration.
+
+Every v2 success explicitly returns `protocol_version: 2` and an expiry matching the JWT. Clients must check that discriminator, decoded `ver`, exact subject, paired instance, absent device fields and usable expiry before recording v2 readiness. Decoding is not signature verification: response authenticity comes from relay HTTPS or home mTLS, and the relay checks the signature when the capability is used. An older relay may ignore the request version and return v1; clients may preserve compatible access but must not record a successful upgrade.
+
+Legacy acceptance is a rollout choice, not an expiry timer: legacy refresh can perpetuate old claims. Retire it only after checking maintained-client compatibility. Reusing a bearer remains correlatable, and the relay still sees the instance and network connection metadata.
 
 ## TTLs
 
@@ -147,7 +183,7 @@ In v1, `/enroll/home` is **neither gated nor rate-limited**: no waitlist, no pay
 
 ### POST `/enroll/device`
 
-Called by the mobile app after LAN pairing completes. Body:
+Legacy enrollment and transitional off-LAN pairing with older homes use this endpoint. New direct pairing does not call it. Body:
 
 ```json
 {
@@ -209,7 +245,7 @@ Signature algorithm is ES256 (ECDSA-P256 / SHA-256), in either JOSE raw (r||s, 6
 - *Bootstrap-token-plus-nonce.* Similar security, extra endpoint. The proposed home-signed JWT carries the same signal — fresh signature, scoped to `(instance_id, device_fp)`, short-lived — in a single compact blob on an existing endpoint.
 - *mTLS from the home to `spl-relay` at `/enroll/device`.* Would require threading the home's CA private key through the enrollment path, which it isn't on otherwise. Bigger attack surface on the control plane with no marginal benefit over a signed JWT.
 
-The home-signed JWT is the minimal shape that closes the trust gap. The relay never gains decrypt capability; the home never ships the CA private key off-box; the attestation is consumed exactly once via D1's UNIQUE constraint.
+The compatibility attestation proves home authorization without transferring the CA private key. Its replay behavior is stateless deterministic issuance, specified below. New homes deliver an instance capability through the encrypted pairing response or authenticated application API instead.
 
 Response (on success):
 
@@ -234,7 +270,7 @@ Called by the mobile app to re-issue its device token without re-pairing. Body:
 }
 ```
 
-The presented token may be still-valid or recently expired within the 30-day refresh grace. `spl-relay` verifies its own prior Ed25519 signature and the normal `session.dial` claims, then mints a fresh 60-day device token with a new `jti`, `iat`, and `exp`, preserving the same `instance_id`, `device_id`/`sub`, and `device_fp`.
+The presented token may be still-valid or recently expired within the 30-day refresh grace. `spl-relay` verifies its own prior Ed25519 signature and the normal `session.dial` claims, then mints a fresh 60-day device token with a new `jti`, `iat`, and `exp`, preserving the same `instance_id`. An unversioned legacy request preserves `device_id`/`sub` and `device_fp`; explicit v2 upgrade and all v2 renewals use only the instance claims described below.
 
 No attestation, client cert, or QR code is involved. Prior enrollment is proven by the relay's own signature on the device token; the relay still never sees the client cert and never sees tunnel payload. Refresh is stateless: it does not write to `devices`, because dial authentication is by signature alone.
 
@@ -264,7 +300,7 @@ On every token-authenticated WebSocket upgrade request to `/session/listen` or `
    - `iat ≤ now + 60s` (allow 60s clock skew on the issued-at side)
    - `scope` matches the route (`session.listen` for `/session/listen`; `session.dial` for `/session/dial`)
    - for `session.listen`, `sub` starts with `home:` and `ca_fp` is present and matches `^sha256:[0-9a-f]{64}$`
-   - for `session.dial`, `sub` starts with `device:` and `device_fp` is present and matches `^sha256:[0-9a-f]{64}$`
+   - for legacy `session.dial`, `sub` starts with `device:` and `device_fp` is present and matches `^sha256:[0-9a-f]{64}$`; v2 uses the exact claim shape below
 6. Applies the session entitlement gate, when the deployment sets `ENTITLEMENT_REQUIRED` to exactly `"true"`. That is the only D1 read on these two routes: it resolves the instance row and refuses an instance that is unknown, revoked, or holding no live grant. With the gate off, `/session/listen` and `/session/dial` complete on the token alone. ⚠ **Do not assume a fresh self-host has it off.** The variable is unset in `relay/wrangler.toml`'s top-level `[vars]`, but the committed `[env.production]` block sets it to `"true"`, and the documented self-host deploy (`make deploy`) runs `wrangler deploy --env production`. A self-host that follows those steps has the gate **on**, and those two routes answer `402` until it either clears the variable or pushes an entitlement grant.
 
 ⚠ **The gate covers exactly those two routes.** `/session/pair-window`, `/session/pair-dial` and `/tunnel/<id>` never consult it, so a gate-on relay holding no grants still completes a full off-LAN pair ceremony and brokers the tunnel it produces. Entitlement gates the data session, not pairing.
@@ -353,7 +389,7 @@ The endpoint is unauthenticated, served `Cache-Control: max-age=300` (5 minutes 
 
 The relay stores instance admission state: ID, CA public key/fingerprint, service-token issuance metadata, revocation and entitlement. It also holds bounded purge-operation receipts and pending instance grants. The authoritative schema is `relay/migrations/`.
 
-There is no device table, device label, home label, certificate-fingerprint history or attestation replay ledger. Enrollment and refresh write no per-device state. Legacy bearer tokens still reveal their device subject and fingerprint transiently when presented; removing those claims requires a separately versioned admission contract. Socket routing attachments survive Durable Object hibernation for live connections, and the instance listener-generation counter is persistent.
+There is no device table, device label, home label, certificate-fingerprint history or attestation replay ledger. Enrollment and refresh write no per-device state. Legacy bearer tokens still reveal their device subject and fingerprint transiently when presented; v2 issuance omits those claims, while legacy acceptance remains available during client rollout. Socket routing attachments survive Durable Object hibernation for live connections, and the instance listener-generation counter is persistent.
 
 ### Stateless enrollment transition
 

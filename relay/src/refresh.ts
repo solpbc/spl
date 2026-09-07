@@ -8,7 +8,7 @@
 import { DEVICE_TOKEN_TTL_SECONDS } from "./enroll";
 import type { Env } from "./env";
 import { json, readJson } from "./http";
-import { mintDeviceToken, verifyToken } from "./tokens";
+import { mintDeviceToken, mintInstanceToken, verifyToken } from "./tokens";
 
 const MAX_REFRESH_BYTES = 16 * 1024;
 // 30-day reactive grace so a token that just lapsed can still re-issue without re-pairing.
@@ -16,6 +16,7 @@ const REFRESH_GRACE_SECONDS = 30 * 24 * 60 * 60;
 
 interface RefreshBody {
 	device_token?: string;
+	protocol_version?: number;
 }
 
 export async function handleTokenRefresh(request: Request, env: Env): Promise<Response> {
@@ -30,6 +31,10 @@ export async function handleTokenRefresh(request: Request, env: Env): Promise<Re
 		return json({ error: "device_token required" }, 400);
 	}
 	const body = read.value;
+	if (!body || typeof body !== "object" || Array.isArray(body))
+		return json({ error: "invalid request" }, 400);
+	if (body.protocol_version !== undefined && body.protocol_version !== 2)
+		return json({ error: "unsupported protocol_version" }, 400);
 	if (typeof body.device_token !== "string" || !body.device_token) {
 		return json({ error: "device_token required" }, 400);
 	}
@@ -55,15 +60,22 @@ export async function handleTokenRefresh(request: Request, env: Env): Promise<Re
 	if (!instance) return json({ error: "unknown instance_id" }, 404);
 	if (instance.revoked_at !== null) return json({ error: "instance revoked" }, 403);
 
-	const minted = await mintDeviceToken(env.SIGNING_JWK, {
+	const v2 = body.protocol_version === 2 || result.claims.ver === 2;
+	const input = {
 		instance_id,
-		device_id,
-		device_fp: device_fp as string,
 		issuer: env.ISSUER,
 		ttlSeconds: DEVICE_TOKEN_TTL_SECONDS,
-	});
+	};
+	const minted = v2
+		? await mintInstanceToken(env.SIGNING_JWK, input)
+		: await mintDeviceToken(env.SIGNING_JWK, {
+				...input,
+				device_id,
+				device_fp: device_fp as string,
+			});
 
 	return json({
+		...(v2 ? { protocol_version: 2 } : {}),
 		device_token: minted.jwt,
 		expires_at: new Date(minted.exp * 1000).toISOString(),
 	});

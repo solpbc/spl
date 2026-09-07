@@ -8,6 +8,7 @@ import type { AttestationClaims } from "./attestation";
 // not change issuance; every verified semantic claim participates.
 export async function enrollmentIds(
 	claims: AttestationClaims,
+	version: 1 | 2 = 1,
 ): Promise<{ deviceId: string; jti: string }> {
 	const canonical = JSON.stringify([
 		claims.iss,
@@ -39,7 +40,7 @@ export async function enrollmentIds(
 		].join("-");
 	}
 	return {
-		deviceId: await derive("spl-enroll-device-v1"),
-		jti: await derive("spl-enroll-token-v1"),
+		deviceId: await derive(`spl-enroll-device-v${version}`),
+		jti: await derive(`spl-enroll-token-v${version}`),
 	};
 }

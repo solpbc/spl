@@ -3,7 +3,7 @@
 The journal's own identity, and the client identity that sits beside it. Two values, computed two different ways.
 
 - The **jid** identifies a journal. The home derives it from its own CA's public key, and a client compares it against the `instance_id` it dials.
-- The **cid**, or client id, identifies a paired client. It is the fingerprint of that client's certificate, taken directly rather than derived, and it is carried as `device_fp` in the token claims and as `fingerprint` in the home's authorized-client ledger. It is **not** the `device_id` that appears in a `session.dial` token's subject; that is a different value.
+- The **cid**, or client id, identifies a paired client. It is the fingerprint of that client's certificate, taken directly rather than derived, and it is carried as `device_fp` in legacy token claims and as `fingerprint` in the home's authorized-client ledger. It is **not** the `device_id` that appears in a `session.dial` token's subject; that is a different value.
 
 This document is the normative source for both. Machine-readable form for both, and conformance vectors for the jid, are in [`definition/`](definition/README.md).
 
@@ -56,7 +56,7 @@ An implementation MUST NOT signal a refusal in-band as a returned jid. A jid ret
 
 A paired client is identified by the **SHA-256 digest of its client certificate, over the certificate's DER encoding**, rendered lowercase hexadecimal with a `sha256:` prefix. That is the same value the home records for the client when it signs the certificate.
 
-⚠ **This value was called the `did` in every revision of this document before definition bundle 6.0.0.** It was renamed for two reasons. `did` reads as a W3C Decentralized Identifier for exactly the audience implementing a device-identity protocol, and it is not one and never was. It also sat one letter away from `device_id`, which is a different value inside the same token. Nothing on the wire changed with the rename: the claim is still `device_fp`, the ledger key is still `fingerprint`, and the bytes are the same bytes.
+⚠ **This value was called the `did` in every revision of this document before definition bundle 6.0.0.** It was renamed for two reasons. `did` reads as a W3C Decentralized Identifier for exactly the audience implementing a device-identity protocol, and it is not one and never was. It also sat one letter away from `device_id`, which is a different value inside the same token. Nothing on the wire changed with that rename: the legacy claim remains `device_fp`, the ledger key remains `fingerprint`, and the bytes are the same bytes. Instance capability v2 subsequently removes the client fingerprint from relay tokens; the home still uses the same cid for device authorization.
 
 > **`ca_fp` names more than one value in this protocol, and they are not interchangeable.** The direct pair-link's `ca_fp` is the leading 16 bytes of SHA-256 over the CA certificate DER ([`pairing.md`](pairing.md)). The relay pair-link's `ca_fp_spki` is the leading 16 bytes over the CA `SubjectPublicKeyInfo` DER ([`pair-window.md`](pair-window.md)). A service token's `ca_fp` claim is a full 32-byte digest over the home's CA `SubjectPublicKeyInfo` DER ([`tokens.md`](tokens.md)). The `pair-start` response's `ca_fingerprint` is the full 32 bytes over the CA certificate DER ([`pairing.md`](pairing.md)).
 >

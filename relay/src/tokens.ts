@@ -22,6 +22,7 @@ export interface TokenClaims {
 	iat: number;
 	exp: number;
 	jti: string;
+	ver?: 2;
 	// service token only
 	ca_fp?: string;
 	// device token only
@@ -96,7 +97,17 @@ export async function verifyToken(token: string, options: VerifyOptions): Promis
 		return { ok: false, reason: "malformed" };
 	}
 
-	if (header.alg !== "EdDSA" || !header.kid) {
+	if (
+		!header ||
+		typeof header !== "object" ||
+		Array.isArray(header) ||
+		!claims ||
+		typeof claims !== "object" ||
+		Array.isArray(claims) ||
+		header.alg !== "EdDSA" ||
+		typeof header.kid !== "string" ||
+		!header.kid
+	) {
 		return { ok: false, reason: "malformed" };
 	}
 
@@ -112,9 +123,12 @@ export async function verifyToken(token: string, options: VerifyOptions): Promis
 
 	const key = await importPublic(jwk);
 	const signed = utf8Encode(`${headerB64}.${payloadB64}`);
-	const sig = base64UrlDecode(sigB64);
-
-	const valid = await crypto.subtle.verify("Ed25519", key, sig, signed);
+	let valid = false;
+	try {
+		valid = await crypto.subtle.verify("Ed25519", key, base64UrlDecode(sigB64), signed);
+	} catch {
+		return { ok: false, reason: "bad_signature" };
+	}
 	if (!valid) {
 		return { ok: false, reason: "bad_signature" };
 	}
@@ -123,9 +137,9 @@ export async function verifyToken(token: string, options: VerifyOptions): Promis
 	if (claims.iss !== options.expectedIssuer) return { ok: false, reason: "wrong_issuer" };
 	if (claims.scope !== options.expectedScope) return { ok: false, reason: "wrong_scope" };
 	const graceSeconds = options.graceSeconds ?? 0;
-	if (typeof claims.exp !== "number" || claims.exp + graceSeconds <= now)
+	if (!Number.isSafeInteger(claims.exp) || claims.exp + graceSeconds <= now)
 		return { ok: false, reason: "expired" };
-	if (typeof claims.iat !== "number" || claims.iat > now + 60)
+	if (!Number.isSafeInteger(claims.iat) || claims.iat > now + 60)
 		return { ok: false, reason: "issued_future" };
 	if (
 		typeof claims.sub !== "string" ||
@@ -136,14 +150,36 @@ export async function verifyToken(token: string, options: VerifyOptions): Promis
 		!claims.jti
 	)
 		return { ok: false, reason: "bad_claim" };
+	if (claims.ver !== undefined && claims.ver !== 2) return { ok: false, reason: "bad_claim" };
 	const FP_RE = /^sha256:[0-9a-f]{64}$/;
 	switch (options.expectedScope) {
 		case "session.listen":
-			if (!claims.sub.startsWith("home:")) return { ok: false, reason: "bad_claim" };
+			if (claims.ver !== undefined || !claims.sub.startsWith("home:"))
+				return { ok: false, reason: "bad_claim" };
 			if (typeof claims.ca_fp !== "string" || !FP_RE.test(claims.ca_fp))
 				return { ok: false, reason: "bad_claim" };
 			break;
 		case "session.dial":
+			if (claims.ver === 2) {
+				const fields = new Set([
+					"iss",
+					"sub",
+					"aud",
+					"scope",
+					"ver",
+					"instance_id",
+					"iat",
+					"exp",
+					"jti",
+				]);
+				if (
+					claims.sub !== `instance:${claims.instance_id}` ||
+					claims.exp <= claims.iat ||
+					Object.keys(claims).some((field) => !fields.has(field))
+				)
+					return { ok: false, reason: "bad_claim" };
+				break;
+			}
 			if (!claims.sub.startsWith("device:")) return { ok: false, reason: "bad_claim" };
 			if (typeof claims.device_fp !== "string" || !FP_RE.test(claims.device_fp))
 				return { ok: false, reason: "bad_claim" };
@@ -226,6 +262,27 @@ export async function mintDeviceToken(
 
 	const jwt = await sign(signingJwkRaw, claims);
 	return { jwt, jti, iat: now, exp };
+}
+
+export async function mintInstanceToken(
+	signingJwkRaw: string,
+	input: Omit<MintDeviceTokenInput, "device_id" | "device_fp">,
+): Promise<MintedToken> {
+	const now = input.now ?? Math.floor(Date.now() / 1000);
+	const jti = input.jti ?? uuidv7();
+	const exp = now + input.ttlSeconds;
+	const claims: TokenClaims = {
+		iss: input.issuer,
+		sub: `instance:${input.instance_id}`,
+		aud: "spl-relay",
+		scope: "session.dial",
+		ver: 2,
+		instance_id: input.instance_id,
+		iat: now,
+		exp,
+		jti,
+	};
+	return { jwt: await sign(signingJwkRaw, claims), jti, iat: now, exp };
 }
 
 async function sign(signingJwkRaw: string, claims: TokenClaims): Promise<string> {

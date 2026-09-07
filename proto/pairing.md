@@ -6,25 +6,25 @@ The end state of a successful pairing:
 
 - The mobile device holds a **client cert** signed by the home's local CA, with the matching private key in the platform keychain. The **iOS** client stores it with `kSecAttrAccessibleAfterFirstUnlock` — **deliberately backup-migratable** (a researched UX choice so pairing survives a device restore/migration); device-instance identity is anchored by the device-local observer ingest keys rather than by making the pairing bundle non-migratable. The **macOS** client stores it in the Data Protection keychain with `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly` (device-bound). Both are `AfterFirstUnlock` so background delivery keeps working while the device is locked.
 - The home holds the device's cert **fingerprint** in `authorized_clients.json`, alongside the device label and pair date.
-- The mobile device holds a **device token** issued by `spl-relay`'s control plane, scoped to (`home_instance_id`, this device).
-- Future dial attempts from this device authenticate at the rendezvous (device token) and at the data plane (TLS client cert verified inside the handshake against the fingerprint file).
+- When relay access is available, the mobile holds an instance capability delivered by the home, or a compatible legacy device token. Successful direct pairing does not require relay access.
+- Future connections authenticate at the data plane with the TLS client certificate. Relay connections also present their admission capability to the rendezvous.
 
 This is a one-time ceremony per device. Re-pairing is identical (revoke first, pair again).
 
-v1 supports a LAN-direct pairing form and an off-LAN **relay-addressed** pairing form. The LAN-direct QR wire contract is specified below; the off-LAN relay form is the `0x06` home-opened pairing window specified in [`pair-window.md`](pair-window.md). The inner ceremony (steps 4-8) is unchanged. Once paired, everyday use works from any network.
+v1 supports a LAN-direct pairing form and an off-LAN **relay-addressed** pairing form. The LAN-direct QR wire contract is specified below; the off-LAN relay form is the `0x06` home-opened pairing window specified in [`pair-window.md`](pair-window.md). The inner certificate ceremony remains the same. Off-LAN use additionally requires relay access as described in step 8.
 
-> **Two hosts, by design.** This ceremony deliberately touches two different hosts, and they are not interchangeable:
+> **Pair-link and relay hosts have separate roles:**
 > - **`go.solstone.app`** is the **pair-link / universal-link host** — every QR encodes `https://go.solstone.app/p#…`, which opens the app (or the install-fallback page). It serves only the app-association files and the landing page; it holds no keys and relays nothing.
-> - **`link.solstone.app`** is the **`spl-relay` endpoint** — where the device enrolls and dials (`/enroll/device`, `/session/*`, `/tunnel/*`) and the JWT issuer. Self-hosters substitute their own relay origin (carried in the QR's `relay_origin`); the pair-link host stays `go.solstone.app`.
+> - **`link.solstone.app`** is the **`spl-relay` endpoint** — the JWT issuer and session endpoint (`/session/*`, `/tunnel/*`). Device enrollment remains a legacy compatibility path. Self-hosters substitute their own relay origin (carried in the QR's `relay_origin`); the pair-link host stays `go.solstone.app`.
 >
-> Seeing both in this doc is correct. A QR host is always `go.solstone.app`; an enroll/session/token host is always `link.solstone.app`.
+> Direct pairing does not require a device request to the relay. A self-hosted relay uses its configured origin.
 
 ## actors
 
 - **home** — the python `spl.pair` server inside solstone, plus the local CA. Generates the QR. Signs the CSR. Updates `authorized_clients.json`.
 - **convey** — the home's HTTPS UI. Surfaces the "Pair a phone" button and displays the QR.
 - **mobile** — the solstone iOS app. Scans the QR. Generates an on-device keypair. Posts the CSR. Stores the resulting cert and device token in Keychain.
-- **spl-relay** — Cloudflare-hosted relay. Issues the device token after the mobile completes pairing with the home. Does not see any pairing payload.
+- **spl-relay** — Cloudflare-hosted relay. Issues instance capabilities to the configured home; legacy clients enroll separately after pairing. Does not see the inner encrypted pairing exchange. Legacy enrollment sends a signed fingerprint attestation separately.
 
 ## the local CA
 
@@ -198,25 +198,36 @@ Response body:
 }
 ```
 
-`home_attestation` is a short-lived JWT signed by the local CA private key and scoped to this particular pair ceremony. Shape, claims, and validation are specified in [`tokens.md`](tokens.md) §"POST /enroll/device". The mobile forwards it verbatim to `/enroll/device` in step 8; the home never stores it and never signs a second one for the same device without a fresh pair ceremony.
+`home_attestation` is a short-lived JWT signed by the local CA private key and scoped to this particular pair ceremony. Shape, claims, and validation are specified in [`tokens.md`](tokens.md) §"POST /enroll/device". Legacy clients forward it verbatim to `/enroll/device` in step 8; the home never stores it and never signs a second one for the same device without a fresh pair ceremony.
 
 The mobile stores `client_cert`, the matching private key (already in Keychain from step 4), and `ca_chain` (used to validate the home's TLS server cert during everyday tunnel use). It also stores `instance_id` — this is the address it will dial through `spl-relay`.
 
-### 8. mobile acquires a device token from spl-relay
+### 8. relay access after pairing
 
-The mobile makes one HTTPS POST to `spl-relay`'s control plane:
+New clients finish direct pairing without contacting the relay. On an authenticated home connection they request GET `/app/network/api/relay/access`. An enabled home obtains and caches an instance capability using its own service token at [`/token/access`](tokens.md#post-tokenaccess); it never exposes that service token to devices. Optional acquisition failure leaves direct pairing and local use intact.
 
-```
-POST https://link.solstone.app/enroll/device
+For off-LAN pairing, a new home obtains a valid capability before opening the pairing window, with sufficient lifetime for that window. The window is bound to the current relay configuration; changing or disabling the service cancels it. A failed acquisition refuses window start before consuming pairing consent state, and the owner can retry starting it.
+
+The successful encrypted pair response includes an additive `relay_access` object:
+
+```json
 {
-  "instance_id": "<from step 7>",
-  "home_attestation": "<from step 7>"
+  "protocol_version": 2,
+  "status": "ready",
+  "relay_origin": "https://link.solstone.app",
+  "instance_id": "<paired home instance_id>",
+  "device_token": "<instance capability JWT>",
+  "expires_at": "<RFC3339>"
 }
 ```
 
-`spl-relay` validates the `home_attestation` against the home's registered CA public key (per [`tokens.md`](tokens.md) §"POST /enroll/device"). The attestation binds this specific device fingerprint to a specific pair ceremony within a 5-minute window; its `jti` is consumed exactly once via a D1 UNIQUE constraint. If valid, `spl-relay` issues a **device token** — a JWT scoped to (`instance_id`, fingerprint), signed by `spl-relay`'s signing key. Mobile stores it in Keychain alongside the client cert.
+Existing required pair-response fields remain present. Direct pairing may omit `relay_access` when unavailable; it must never be null. No capability acquisition is awaited after the pair is committed. Existing clients ignore the added object.
 
-Pairing complete. The mobile now holds: ECDSA private key + client cert + CA chain + device token. Owner-visible: `LITERAL: "Paired with <home label>."`
+The authenticated access API returns the same ready object, or `{ "protocol_version": 2, "status": "not_configured" }` without relay contact when disabled, or a bounded 503 when configured access is unavailable. Only currently authorized linked clients can call it. Pairing peers cannot. Clients validate the paired instance, allowed relay origin, explicit version, decoded v2 claims and matching usable expiry before replacing their cache. Optional failures preserve usable access; an authenticated `not_configured` clears it. Asynchronous writes must belong to the current pairing/configuration generation.
+
+New clients pairing off-LAN with an older home may use `/enroll/device` with its attestation and `protocol_version: 2`. An older relay may return unversioned legacy credentials; that is compatible access, not a completed v2 upgrade. New direct pairing to an older home remains locally usable until the home provides the access API; it does not silently enroll the device with the relay.
+
+Legacy clients can still enroll with a valid home attestation. Issuance is deterministic for retries and retains no device or replay row, as specified in [`tokens.md`](tokens.md). Device names, labels and app versions belong to the authenticated home API and must not be sent in relay request headers.
 
 ## revocation
 
@@ -227,7 +238,7 @@ Revoking a device is a one-step operation **on the home, not on `spl-relay`.**
 3. The TLS layer's mtime poller reloads the file within ~500 ms.
 4. The next dial from the revoked device opens the tunnel WS through `spl-relay` (rendezvous still works — the device token is still valid), but the home refuses the client cert inside the TLS handshake. Which alert it sends, and what the mobile shows the owner, are specified in [`session.md`](session.md) § 7.
 
-This is the authoritative revocation point. The device token at `spl-relay` may remain valid; it confers no data access without the TLS handshake succeeding. v1 does not propagate revocation to `spl-relay`. (Defense-in-depth — invalidate the device token too — is a known follow-up, not a blocker.)
+This is the authoritative revocation point. The device token at `spl-relay` may remain valid; it confers no data access without the TLS handshake succeeding. v1 does not propagate revocation to `spl-relay`. Instance capabilities deliberately do not provide a per-device relay revocation mechanism.
 
 The TLS-layer rejection is **not** an app-layer post-handshake drop. The prototype found (notes §8 + §11.3, meaning sol pbc's internal engineering notes, which are not published — ⚠ **not** this document's own step 8) that app-layer fingerprint checks produce silent disconnects with no clean error semantics, so the check runs inside the handshake, where a refusal has an alert to travel on and the mobile can tell one refusal from another.
 
