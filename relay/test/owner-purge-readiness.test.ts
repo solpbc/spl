@@ -6,7 +6,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { Env } from "../src/env";
-import { evaluatePurgeProvisioning } from "../src/purge";
+import { evaluatePurgeProvisioning, extractCheckExpressions } from "../src/purge";
+import { base64UrlDecode, base64UrlEncode } from "../src/tokens";
 
 const READINESS_FIXTURE_SHA256 = "e6456d20243c7a73542bacd8a31a2c1f321f08bee7034584d03977b6e0ba0ef4";
 const VENDORED_FIXTURE = join(process.cwd(), "test-fixtures", "owner-purge-readiness-v1.json");
@@ -283,5 +284,176 @@ describe("owner-purge provisioning evaluation", () => {
 				OWNER_PURGE_HMAC_KEY_V2: "colliding-k2",
 			} as unknown as Env),
 		).toBeNull();
+	});
+});
+
+const BASE64URL_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+
+describe("owner-purge readiness nonce canonical terminal-bit derivations", () => {
+	it("accepts a valid canonical 32-byte base64url nonce and rejects all derived noncanonical terminal-bit variants", () => {
+		const fixture = JSON.parse(readFileSync(VENDORED_FIXTURE, "utf8")) as ReadinessFixture;
+		const canonicalNonce = fixture.sample_readiness.nonce;
+		expect(canonicalNonce).toHaveLength(43);
+
+		const decoded = base64UrlDecode(canonicalNonce);
+		expect(decoded.byteLength).toBe(32);
+		expect(base64UrlEncode(decoded)).toBe(canonicalNonce);
+
+		const lastChar = canonicalNonce[42];
+		const lastCharIndex = BASE64URL_ALPHABET.indexOf(lastChar);
+		expect(lastCharIndex % 4).toBe(0); // Canonical terminal bits are 00
+
+		// Derive all 3 alternate noncanonical spellings for this exact 32-byte payload
+		const noncanonicalAlternates = [1, 2, 3].map(
+			(offset) => canonicalNonce.slice(0, 42) + BASE64URL_ALPHABET[lastCharIndex + offset],
+		);
+
+		for (const alt of noncanonicalAlternates) {
+			expect(alt).toHaveLength(43);
+			const altDecoded = base64UrlDecode(alt);
+			expect(Buffer.from(altDecoded).equals(Buffer.from(decoded))).toBe(true);
+			// Re-encoding reveals the canonical spelling
+			expect(base64UrlEncode(altDecoded)).not.toBe(alt);
+			expect(base64UrlEncode(altDecoded)).toBe(canonicalNonce);
+		}
+
+		// Verify across all 16 possible terminal nibbles (48 noncanonical trailing characters)
+		for (let nibble = 0; nibble < 16; nibble++) {
+			const canonicalChar = BASE64URL_ALPHABET[nibble * 4];
+			const testBytes = new Uint8Array(32);
+			testBytes[31] = nibble;
+			const canonicalB64 = base64UrlEncode(testBytes);
+			expect(canonicalB64[42]).toBe(canonicalChar);
+
+			for (let offset = 1; offset <= 3; offset++) {
+				const noncanonicalChar = BASE64URL_ALPHABET[nibble * 4 + offset];
+				const noncanonicalB64 = canonicalB64.slice(0, 42) + noncanonicalChar;
+				const decodedAlt = base64UrlDecode(noncanonicalB64);
+				expect(Buffer.from(decodedAlt).equals(Buffer.from(testBytes))).toBe(true);
+				expect(base64UrlEncode(decodedAlt) === noncanonicalB64).toBe(false);
+			}
+		}
+	});
+
+	it("strictly accepts 16 canonical terminal characters and rejects all 48 noncanonical variants", () => {
+		const prefix42 = "A".repeat(42);
+
+		const canonicalChars: string[] = [];
+		const noncanonicalChars: string[] = [];
+
+		for (let i = 0; i < BASE64URL_ALPHABET.length; i++) {
+			const char = BASE64URL_ALPHABET[i];
+			if (i % 4 === 0) {
+				canonicalChars.push(char);
+			} else {
+				noncanonicalChars.push(char);
+			}
+		}
+
+		expect(canonicalChars.length).toBe(16);
+		expect(noncanonicalChars.length).toBe(48);
+		expect(canonicalChars).toEqual([
+			"A",
+			"E",
+			"I",
+			"M",
+			"Q",
+			"U",
+			"Y",
+			"c",
+			"g",
+			"k",
+			"o",
+			"s",
+			"w",
+			"0",
+			"4",
+			"8",
+		]);
+
+		for (let nibble = 0; nibble < 16; nibble++) {
+			const canonicalChar = BASE64URL_ALPHABET[nibble * 4];
+			const canonicalNonce = prefix42 + canonicalChar;
+			const decodedCanonical = base64UrlDecode(canonicalNonce);
+
+			expect(decodedCanonical.byteLength).toBe(32);
+			expect(base64UrlEncode(decodedCanonical)).toBe(canonicalNonce);
+
+			for (let nonZeroBits = 1; nonZeroBits <= 3; nonZeroBits++) {
+				const noncanonicalChar = BASE64URL_ALPHABET[nibble * 4 + nonZeroBits];
+				const noncanonicalNonce = prefix42 + noncanonicalChar;
+				const decodedNoncanonical = base64UrlDecode(noncanonicalNonce);
+
+				expect(decodedNoncanonical.byteLength).toBe(32);
+				expect(decodedNoncanonical).toEqual(decodedCanonical);
+
+				expect(base64UrlEncode(decodedNoncanonical)).toBe(canonicalNonce);
+				expect(base64UrlEncode(decodedNoncanonical)).not.toBe(noncanonicalNonce);
+				expect(base64UrlEncode(decodedNoncanonical) === noncanonicalNonce).toBe(false);
+			}
+		}
+	});
+});
+
+describe("extractCheckExpressions", () => {
+	it("extracts single and multiple CHECK constraints ignoring whitespace and formatting", () => {
+		const sqlSingle = `
+			CREATE TABLE purge_operations (
+				operation_id_hash TEXT PRIMARY KEY,
+				request_digest TEXT NOT NULL,
+				disposition TEXT NOT NULL CHECK (disposition IN ('retryable', 'complete', 'confirmed')),
+				expires_at INTEGER NOT NULL
+			);
+		`;
+		expect(extractCheckExpressions(sqlSingle)).toEqual([
+			"disposition IN ('retryable', 'complete', 'confirmed')",
+		]);
+
+		const sqlMultiple = `
+			CREATE TABLE purge_operations (
+				operation_id_hash TEXT PRIMARY KEY,
+				request_digest TEXT NOT NULL,
+				disposition TEXT NOT NULL CHECK (disposition IN ('retryable', 'complete', 'confirmed')),
+				expires_at INTEGER NOT NULL,
+				CHECK (disposition <> 'confirmed')
+			);
+		`;
+		expect(extractCheckExpressions(sqlMultiple)).toEqual([
+			"disposition IN ('retryable', 'complete', 'confirmed')",
+			"disposition <> 'confirmed'",
+		]);
+	});
+
+	it("handles nested parentheses and string literals within CHECK constraints", () => {
+		const sqlNested = `
+			CREATE TABLE test_table (
+				id TEXT PRIMARY KEY,
+				status TEXT CHECK ((status = 'a' OR (status = 'b' AND id != 'c')) AND status NOT IN ('x', 'y (z)'))
+			);
+		`;
+		expect(extractCheckExpressions(sqlNested)).toEqual([
+			"(status = 'a' OR (status = 'b' AND id != 'c')) AND status NOT IN ('x', 'y (z)')",
+		]);
+	});
+
+	it("returns empty array when no CHECK constraints are present", () => {
+		const sqlNone = "CREATE TABLE instances (instance_id TEXT PRIMARY KEY);";
+		expect(extractCheckExpressions(sqlNone)).toEqual([]);
+	});
+
+	it("ignores CHECK tokens inside comments, string literals, and identifiers", () => {
+		const sqlWithComments = `
+			-- line comment containing CHECK (fake_line = 1)
+			/* block comment containing CHECK (fake_block = 1) */
+			CREATE TABLE test_comments (
+				id TEXT PRIMARY KEY, -- CHECK (fake_inline = 1)
+				name TEXT DEFAULT 'CHECK (fake_string = 1)',
+				"CHECK (col_ident)" TEXT,
+				disposition TEXT CHECK (disposition IN ('retryable', 'complete', 'confirmed'))
+			);
+		`;
+		expect(extractCheckExpressions(sqlWithComments)).toEqual([
+			"disposition IN ('retryable', 'complete', 'confirmed')",
+		]);
 	});
 });

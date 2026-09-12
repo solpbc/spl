@@ -3,6 +3,17 @@
 
 import { SELF, env } from "cloudflare:test";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import m0001 from "../migrations/0001_init.sql?raw";
+import m0002 from "../migrations/0002_devices_add_device_id.sql?raw";
+import m0003 from "../migrations/0003_rename_account_token_jti.sql?raw";
+import m0004 from "../migrations/0004_instances_totp_ca_unique.sql?raw";
+import m0005 from "../migrations/0005_instances_entitled_until.sql?raw";
+import m0006 from "../migrations/0006_pending_grants.sql?raw";
+import m0007 from "../migrations/0007_drop_totp_secret.sql?raw";
+import m0008 from "../migrations/0008_purge_operations.sql?raw";
+import m0009 from "../migrations/0009_purge_operations_confirmed.sql?raw";
+import m0010 from "../migrations/0010_owner_purge_v1.sql?raw";
+import m0011 from "../migrations/0011_relay_minimization.sql?raw";
 import { responseSigner } from "../src/purge";
 import fixture from "../test-fixtures/owner-purge-v1.json";
 import { applyRelayD1Migrations } from "./apply-migrations";
@@ -32,6 +43,54 @@ import {
 	seedInstance,
 	transcript,
 } from "./owner-purge.helpers";
+
+const BASE64URL_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+
+const RAW_PRODUCTION_MIGRATIONS = [
+	{ name: "0001_init", sql: m0001 },
+	{ name: "0002_devices_add_device_id", sql: m0002 },
+	{ name: "0003_rename_account_token_jti", sql: m0003 },
+	{ name: "0004_instances_totp_ca_unique", sql: m0004 },
+	{ name: "0005_instances_entitled_until", sql: m0005 },
+	{ name: "0006_pending_grants", sql: m0006 },
+	{ name: "0007_drop_totp_secret", sql: m0007 },
+	{ name: "0008_purge_operations", sql: m0008 },
+	{ name: "0009_purge_operations_confirmed", sql: m0009 },
+	{ name: "0010_owner_purge_v1", sql: m0010 },
+	{ name: "0011_relay_minimization", sql: m0011 },
+];
+
+function splitSqlQueries(sql: string): string[] {
+	const cleaned = sql.replace(/--[^\r\n]*/g, "").replace(/\/\*[\s\S]*?\*\//g, "");
+	return cleaned
+		.split(";")
+		.map((q) => q.trim())
+		.filter((q) => q.length > 0);
+}
+
+async function execDdl(queries: string[]): Promise<void> {
+	for (const q of queries) {
+		await env.DB.prepare(q).run();
+	}
+}
+
+async function resetTables(): Promise<void> {
+	await execDdl([
+		"DROP TABLE IF EXISTS instances",
+		"DROP TABLE IF EXISTS pending_grants",
+		"DROP TABLE IF EXISTS purge_operations",
+		"DROP TABLE IF EXISTS purge_operations_0010",
+		"DROP TABLE IF EXISTS purge_operations_0009",
+		"DROP TABLE IF EXISTS devices",
+	]);
+}
+
+async function restoreProductionSchema(): Promise<void> {
+	await resetTables();
+	for (const m of RAW_PRODUCTION_MIGRATIONS) {
+		await execDdl(splitSqlQueries(m.sql));
+	}
+}
 
 const RELAY_V1_NAME = "relay_retained_key_v1_first_confirmation_and_lost_response_retry";
 const RELAY_V2_NAME = "relay_current_key_v2";
@@ -267,6 +326,23 @@ describe("owner-purge v1 admission boundaries", () => {
 			expect(invalidChars.headers.get("cache-control")).toBe("no-store");
 			expect(await invalidChars.text()).toBe("");
 
+			// Nonce with noncanonical terminal bits (test all 3 derived alternate trailing-bit spellings)
+			const lastCharIndex = BASE64URL_ALPHABET.indexOf(READINESS_NONCE[42]);
+			for (let offset = 1; offset <= 3; offset++) {
+				const noncanonicalNonce = `${READINESS_NONCE.slice(0, 42)}${BASE64URL_ALPHABET[lastCharIndex + offset]}`;
+				const noncanonicalRes = await request(READINESS_ROUTE, undefined, {
+					method: "GET",
+					bearer: env.PURGE_SECRET,
+					headers: { "x-owner-purge-readiness-nonce": noncanonicalNonce },
+				});
+				expect(noncanonicalRes.status).toBe(400);
+				expect(noncanonicalRes.headers.get("cache-control")).toBe("no-store");
+				expect(noncanonicalRes.headers.get("x-owner-purge-readiness-proof-v1")).toBeNull();
+				expect(noncanonicalRes.headers.get("x-owner-purge-readiness-proof-v2")).toBeNull();
+				expect(noncanonicalRes.headers.get("x-owner-purge-readiness-version")).toBeNull();
+				expect(await noncanonicalRes.text()).toBe("");
+			}
+
 			expect(databaseSpy).not.toHaveBeenCalled();
 			expect(batchSpy).not.toHaveBeenCalled();
 		} finally {
@@ -326,35 +402,18 @@ describe("owner-purge v1 admission boundaries", () => {
 		}
 	});
 
-	it("executes operational readiness probe with zero-row schema validation and exact proof headers", async () => {
-		const preparedQueries: string[] = [];
-		const originalPrepare = env.DB.prepare.bind(env.DB);
-		const prepareSpy = vi.spyOn(env.DB, "prepare").mockImplementation((query: string) => {
-			preparedQueries.push(query);
-			return originalPrepare(query);
+	it("executes operational readiness probe with exact proof headers", async () => {
+		const res = await request(READINESS_ROUTE, undefined, {
+			method: "GET",
+			bearer: env.PURGE_SECRET,
+			headers: { "x-owner-purge-readiness-nonce": READINESS_NONCE },
 		});
-
-		try {
-			const res = await request(READINESS_ROUTE, undefined, {
-				method: "GET",
-				bearer: env.PURGE_SECRET,
-				headers: { "x-owner-purge-readiness-nonce": READINESS_NONCE },
-			});
-			expect(res.status).toBe(204);
-			expect(res.headers.get("cache-control")).toBe("no-store");
-			expect(res.headers.get("x-owner-purge-readiness-version")).toBe("1");
-			expect(res.headers.get("x-owner-purge-readiness-proof-v1")).toBe(READINESS_PROOF_V1);
-			expect(res.headers.get("x-owner-purge-readiness-proof-v2")).toBe(READINESS_PROOF_V2);
-			expect(await res.text()).toBe("");
-
-			expect(preparedQueries).toEqual([
-				"SELECT instance_id, ca_fp, ca_pubkey_pem, created_at, service_token_jti, rotated_at, revoked_at, entitled_until FROM instances WHERE 0",
-				"SELECT instance_id, entitled_until, updated_at FROM pending_grants WHERE 0",
-				"SELECT operation_id_hash, request_digest, disposition, expires_at FROM purge_operations WHERE disposition IN ('retryable', 'complete', 'confirmed') AND 0",
-			]);
-		} finally {
-			prepareSpy.mockRestore();
-		}
+		expect(res.status).toBe(204);
+		expect(res.headers.get("cache-control")).toBe("no-store");
+		expect(res.headers.get("x-owner-purge-readiness-version")).toBe("1");
+		expect(res.headers.get("x-owner-purge-readiness-proof-v1")).toBe(READINESS_PROOF_V1);
+		expect(res.headers.get("x-owner-purge-readiness-proof-v2")).toBe(READINESS_PROOF_V2);
+		expect(await res.text()).toBe("");
 	});
 
 	it("mirrors GET readiness status and headers on HEAD across success and error responses without body", async () => {
@@ -407,17 +466,70 @@ describe("owner-purge v1 admission boundaries", () => {
 		expect(await res403.text()).toBe("");
 	});
 
-	it("returns generic 503 without proofs when any required D1 schema capability is missing or unreadable", async () => {
-		const originalPrepare = env.DB.prepare.bind(env.DB);
-
-		// 1. instances table / columns failure
-		const instancesSpy = vi.spyOn(env.DB, "prepare").mockImplementation((query: string) => {
-			if (query.includes("FROM instances")) {
-				throw new Error("no such column: instances.entitled_until");
-			}
-			return originalPrepare(query);
-		});
+	it("succeeds with 204 and exact proof headers when all raw production migrations (0001-0011) are applied in sequence", async () => {
 		try {
+			await resetTables();
+			for (const m of RAW_PRODUCTION_MIGRATIONS) {
+				await execDdl(splitSqlQueries(m.sql));
+			}
+			const res = await request(READINESS_ROUTE, undefined, {
+				method: "GET",
+				bearer: env.PURGE_SECRET,
+				headers: { "x-owner-purge-readiness-nonce": READINESS_NONCE },
+			});
+			expect(res.status).toBe(204);
+			expect(res.headers.get("cache-control")).toBe("no-store");
+			expect(res.headers.get("x-owner-purge-readiness-version")).toBe("1");
+			expect(res.headers.get("x-owner-purge-readiness-proof-v1")).toBe(READINESS_PROOF_V1);
+			expect(res.headers.get("x-owner-purge-readiness-proof-v2")).toBe(READINESS_PROOF_V2);
+			expect(await res.text()).toBe("");
+		} finally {
+			await restoreProductionSchema();
+		}
+	});
+
+	it("passes readiness with minimal three-table schema containing only required destructive-purge columns", async () => {
+		try {
+			await resetTables();
+			await execDdl([
+				"CREATE TABLE instances (instance_id TEXT PRIMARY KEY)",
+				"CREATE TABLE pending_grants (instance_id TEXT PRIMARY KEY)",
+				`CREATE TABLE purge_operations (
+					operation_id_hash TEXT PRIMARY KEY,
+					request_digest TEXT NOT NULL,
+					disposition TEXT NOT NULL CHECK (disposition IN ('retryable', 'complete', 'confirmed')),
+					expires_at INTEGER NOT NULL
+				)`,
+			]);
+			const res = await request(READINESS_ROUTE, undefined, {
+				method: "GET",
+				bearer: env.PURGE_SECRET,
+				headers: { "x-owner-purge-readiness-nonce": READINESS_NONCE },
+			});
+			expect(res.status).toBe(204);
+			expect(res.headers.get("cache-control")).toBe("no-store");
+			expect(res.headers.get("x-owner-purge-readiness-version")).toBe("1");
+			expect(res.headers.get("x-owner-purge-readiness-proof-v1")).toBe(READINESS_PROOF_V1);
+			expect(res.headers.get("x-owner-purge-readiness-proof-v2")).toBe(READINESS_PROOF_V2);
+			expect(await res.text()).toBe("");
+		} finally {
+			await restoreProductionSchema();
+		}
+	});
+
+	it("returns generic 503 when schema is pre-0010 (missing confirmed disposition capability)", async () => {
+		try {
+			await resetTables();
+			await execDdl([
+				"CREATE TABLE instances (instance_id TEXT PRIMARY KEY)",
+				"CREATE TABLE pending_grants (instance_id TEXT PRIMARY KEY)",
+				`CREATE TABLE purge_operations (
+					operation_id_hash TEXT PRIMARY KEY,
+					request_digest TEXT NOT NULL,
+					state TEXT NOT NULL CHECK (state IN ('retryable', 'complete')),
+					expires_at INTEGER NOT NULL
+				)`,
+			]);
 			const res = await request(READINESS_ROUTE, undefined, {
 				method: "GET",
 				bearer: env.PURGE_SECRET,
@@ -430,17 +542,24 @@ describe("owner-purge v1 admission boundaries", () => {
 			expect(res.headers.get("x-owner-purge-readiness-version")).toBeNull();
 			expect(await res.text()).toBe("");
 		} finally {
-			instancesSpy.mockRestore();
+			await restoreProductionSchema();
 		}
+	});
 
-		// 2. pending_grants table / columns failure
-		const pendingSpy = vi.spyOn(env.DB, "prepare").mockImplementation((query: string) => {
-			if (query.includes("FROM pending_grants")) {
-				throw new Error("no such table: pending_grants");
-			}
-			return originalPrepare(query);
-		});
+	it("returns generic 503 when 'confirmed' appears only in an unrelated column constraint while disposition lacks it", async () => {
 		try {
+			await resetTables();
+			await execDdl([
+				"CREATE TABLE instances (instance_id TEXT PRIMARY KEY)",
+				"CREATE TABLE pending_grants (instance_id TEXT PRIMARY KEY)",
+				`CREATE TABLE purge_operations (
+					operation_id_hash TEXT PRIMARY KEY,
+					request_digest TEXT NOT NULL,
+					disposition TEXT NOT NULL CHECK (disposition IN ('retryable', 'complete')),
+					unrelated TEXT NOT NULL CHECK (unrelated = 'confirmed'),
+					expires_at INTEGER NOT NULL
+				)`,
+			]);
 			const res = await request(READINESS_ROUTE, undefined, {
 				method: "GET",
 				bearer: env.PURGE_SECRET,
@@ -449,19 +568,28 @@ describe("owner-purge v1 admission boundaries", () => {
 			expect(res.status).toBe(503);
 			expect(res.headers.get("cache-control")).toBe("no-store");
 			expect(res.headers.get("x-owner-purge-readiness-proof-v1")).toBeNull();
+			expect(res.headers.get("x-owner-purge-readiness-proof-v2")).toBeNull();
+			expect(res.headers.get("x-owner-purge-readiness-version")).toBeNull();
 			expect(await res.text()).toBe("");
 		} finally {
-			pendingSpy.mockRestore();
+			await restoreProductionSchema();
 		}
+	});
 
-		// 3. purge_operations table / columns / post-0010 confirmed capability failure
-		const purgeOpsSpy = vi.spyOn(env.DB, "prepare").mockImplementation((query: string) => {
-			if (query.includes("FROM purge_operations")) {
-				throw new Error("pre-0010 schema missing confirmed capability");
-			}
-			return originalPrepare(query);
-		});
+	it("returns generic 503 when positive disposition IN constraint is contradicted by a case-variant negative CHECK constraint", async () => {
 		try {
+			await resetTables();
+			await execDdl([
+				"CREATE TABLE instances (instance_id TEXT PRIMARY KEY)",
+				"CREATE TABLE pending_grants (instance_id TEXT PRIMARY KEY)",
+				`CREATE TABLE purge_operations (
+					operation_id_hash TEXT PRIMARY KEY,
+					request_digest TEXT NOT NULL,
+					disposition TEXT NOT NULL CHECK (disposition IN ('retryable', 'complete', 'confirmed')),
+					expires_at INTEGER NOT NULL,
+					CHECK (Disposition <> 'confirmed')
+				)`,
+			]);
 			const res = await request(READINESS_ROUTE, undefined, {
 				method: "GET",
 				bearer: env.PURGE_SECRET,
@@ -470,9 +598,119 @@ describe("owner-purge v1 admission boundaries", () => {
 			expect(res.status).toBe(503);
 			expect(res.headers.get("cache-control")).toBe("no-store");
 			expect(res.headers.get("x-owner-purge-readiness-proof-v1")).toBeNull();
+			expect(res.headers.get("x-owner-purge-readiness-proof-v2")).toBeNull();
+			expect(res.headers.get("x-owner-purge-readiness-version")).toBeNull();
 			expect(await res.text()).toBe("");
 		} finally {
-			purgeOpsSpy.mockRestore();
+			await restoreProductionSchema();
+		}
+	});
+
+	it("returns generic 503 when disposition lacks 'confirmed' even if comments and string literals contain 'disposition'", async () => {
+		try {
+			await resetTables();
+			await execDdl([
+				"CREATE TABLE instances (instance_id TEXT PRIMARY KEY)",
+				"CREATE TABLE pending_grants (instance_id TEXT PRIMARY KEY)",
+				`CREATE TABLE purge_operations (
+					operation_id_hash TEXT PRIMARY KEY,
+					request_digest TEXT NOT NULL,
+					-- comment containing CHECK (disposition = 'confirmed')
+					note TEXT DEFAULT 'disposition is confirmed',
+					/* block comment containing CHECK (disposition IN ('confirmed')) */
+					disposition TEXT NOT NULL CHECK (disposition IN ('retryable', 'complete')),
+					expires_at INTEGER NOT NULL
+				)`,
+			]);
+			const res = await request(READINESS_ROUTE, undefined, {
+				method: "GET",
+				bearer: env.PURGE_SECRET,
+				headers: { "x-owner-purge-readiness-nonce": READINESS_NONCE },
+			});
+			expect(res.status).toBe(503);
+			expect(res.headers.get("cache-control")).toBe("no-store");
+			expect(res.headers.get("x-owner-purge-readiness-proof-v1")).toBeNull();
+			expect(res.headers.get("x-owner-purge-readiness-proof-v2")).toBeNull();
+			expect(res.headers.get("x-owner-purge-readiness-version")).toBeNull();
+			expect(await res.text()).toBe("");
+		} finally {
+			await restoreProductionSchema();
+		}
+	});
+
+	it("returns generic 503 for independent missing tables or required columns", async () => {
+		const defectiveSchemas: string[][] = [
+			// Missing instances table
+			[
+				"CREATE TABLE pending_grants (instance_id TEXT PRIMARY KEY)",
+				"CREATE TABLE purge_operations (operation_id_hash TEXT PRIMARY KEY, request_digest TEXT NOT NULL, disposition TEXT NOT NULL CHECK (disposition IN ('retryable', 'complete', 'confirmed')), expires_at INTEGER NOT NULL)",
+			],
+			// Missing instances.instance_id column
+			[
+				"CREATE TABLE instances (other_id TEXT PRIMARY KEY)",
+				"CREATE TABLE pending_grants (instance_id TEXT PRIMARY KEY)",
+				"CREATE TABLE purge_operations (operation_id_hash TEXT PRIMARY KEY, request_digest TEXT NOT NULL, disposition TEXT NOT NULL CHECK (disposition IN ('retryable', 'complete', 'confirmed')), expires_at INTEGER NOT NULL)",
+			],
+			// Missing pending_grants table
+			[
+				"CREATE TABLE instances (instance_id TEXT PRIMARY KEY)",
+				"CREATE TABLE purge_operations (operation_id_hash TEXT PRIMARY KEY, request_digest TEXT NOT NULL, disposition TEXT NOT NULL CHECK (disposition IN ('retryable', 'complete', 'confirmed')), expires_at INTEGER NOT NULL)",
+			],
+			// Missing pending_grants.instance_id column
+			[
+				"CREATE TABLE instances (instance_id TEXT PRIMARY KEY)",
+				"CREATE TABLE pending_grants (other_id TEXT PRIMARY KEY)",
+				"CREATE TABLE purge_operations (operation_id_hash TEXT PRIMARY KEY, request_digest TEXT NOT NULL, disposition TEXT NOT NULL CHECK (disposition IN ('retryable', 'complete', 'confirmed')), expires_at INTEGER NOT NULL)",
+			],
+			// Missing purge_operations table
+			[
+				"CREATE TABLE instances (instance_id TEXT PRIMARY KEY)",
+				"CREATE TABLE pending_grants (instance_id TEXT PRIMARY KEY)",
+			],
+			// Missing purge_operations.operation_id_hash
+			[
+				"CREATE TABLE instances (instance_id TEXT PRIMARY KEY)",
+				"CREATE TABLE pending_grants (instance_id TEXT PRIMARY KEY)",
+				"CREATE TABLE purge_operations (other_hash TEXT PRIMARY KEY, request_digest TEXT NOT NULL, disposition TEXT NOT NULL CHECK (disposition IN ('retryable', 'complete', 'confirmed')), expires_at INTEGER NOT NULL)",
+			],
+			// Missing purge_operations.request_digest
+			[
+				"CREATE TABLE instances (instance_id TEXT PRIMARY KEY)",
+				"CREATE TABLE pending_grants (instance_id TEXT PRIMARY KEY)",
+				"CREATE TABLE purge_operations (operation_id_hash TEXT PRIMARY KEY, disposition TEXT NOT NULL CHECK (disposition IN ('retryable', 'complete', 'confirmed')), expires_at INTEGER NOT NULL)",
+			],
+			// Missing purge_operations.disposition
+			[
+				"CREATE TABLE instances (instance_id TEXT PRIMARY KEY)",
+				"CREATE TABLE pending_grants (instance_id TEXT PRIMARY KEY)",
+				"CREATE TABLE purge_operations (operation_id_hash TEXT PRIMARY KEY, request_digest TEXT NOT NULL, expires_at INTEGER NOT NULL)",
+			],
+			// Missing purge_operations.expires_at
+			[
+				"CREATE TABLE instances (instance_id TEXT PRIMARY KEY)",
+				"CREATE TABLE pending_grants (instance_id TEXT PRIMARY KEY)",
+				"CREATE TABLE purge_operations (operation_id_hash TEXT PRIMARY KEY, request_digest TEXT NOT NULL, disposition TEXT NOT NULL CHECK (disposition IN ('retryable', 'complete', 'confirmed')))",
+			],
+		];
+
+		try {
+			for (const queries of defectiveSchemas) {
+				await resetTables();
+				await execDdl(queries);
+				const res = await request(READINESS_ROUTE, undefined, {
+					method: "GET",
+					bearer: env.PURGE_SECRET,
+					headers: { "x-owner-purge-readiness-nonce": READINESS_NONCE },
+				});
+				expect(res.status).toBe(503);
+				expect(res.headers.get("cache-control")).toBe("no-store");
+				expect(res.headers.get("x-owner-purge-readiness-proof-v1")).toBeNull();
+				expect(res.headers.get("x-owner-purge-readiness-proof-v2")).toBeNull();
+				expect(res.headers.get("x-owner-purge-readiness-version")).toBeNull();
+				expect(await res.text()).toBe("");
+			}
+		} finally {
+			await restoreProductionSchema();
 		}
 	});
 

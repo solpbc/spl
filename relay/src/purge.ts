@@ -149,7 +149,7 @@ export async function handlePurgeReadiness(request: Request, env: Env): Promise<
 			headers: { "cache-control": "no-store" },
 		});
 	}
-	if (decodedNonce.byteLength !== 32) {
+	if (decodedNonce.byteLength !== 32 || base64UrlEncode(decodedNonce) !== nonce) {
 		return new Response(null, {
 			status: 400,
 			headers: { "cache-control": "no-store" },
@@ -178,17 +178,8 @@ export async function handlePurgeReadiness(request: Request, env: Env): Promise<
 		});
 	}
 
-	try {
-		await env.DB.batch([
-			env.DB.prepare(
-				"SELECT instance_id, ca_fp, ca_pubkey_pem, created_at, service_token_jti, rotated_at, revoked_at, entitled_until FROM instances WHERE 0",
-			),
-			env.DB.prepare("SELECT instance_id, entitled_until, updated_at FROM pending_grants WHERE 0"),
-			env.DB.prepare(
-				"SELECT operation_id_hash, request_digest, disposition, expires_at FROM purge_operations WHERE disposition IN ('retryable', 'complete', 'confirmed') AND 0",
-			),
-		]);
-	} catch {
+	const schemaOk = await verifyPurgeSchema(env.DB);
+	if (!schemaOk) {
 		return new Response(null, {
 			status: 503,
 			headers: { "cache-control": "no-store" },
@@ -824,4 +815,194 @@ function compareUtf8(left: string, right: string): number {
 		if (leftBytes[index] !== rightBytes[index]) return leftBytes[index] - rightBytes[index];
 	}
 	return leftBytes.length - rightBytes.length;
+}
+
+export function extractCheckExpressions(sql: string): string[] {
+	const checks: string[] = [];
+	let i = 0;
+	const n = sql.length;
+
+	while (i < n) {
+		const char = sql[i];
+		const next = sql[i + 1];
+
+		// Skip line comments: -- ...
+		if (char === "-" && next === "-") {
+			i += 2;
+			while (i < n && sql[i] !== "\n" && sql[i] !== "\r") i += 1;
+			continue;
+		}
+
+		// Skip block comments: /* ... */
+		if (char === "/" && next === "*") {
+			i += 2;
+			while (i < n && !(sql[i] === "*" && sql[i + 1] === "/")) i += 1;
+			i += 2;
+			continue;
+		}
+
+		// Skip single-quoted string literals: '...'
+		if (char === "'") {
+			i += 1;
+			while (i < n) {
+				if (sql[i] === "'") {
+					if (sql[i + 1] === "'") {
+						i += 2;
+					} else {
+						i += 1;
+						break;
+					}
+				} else {
+					i += 1;
+				}
+			}
+			continue;
+		}
+
+		// Skip double-quoted, backtick, or bracket-quoted identifiers: "...", `...`, [...]
+		if (char === '"' || char === "`" || char === "[") {
+			const closeChar = char === "[" ? "]" : char;
+			i += 1;
+			while (i < n && sql[i] !== closeChar) i += 1;
+			i += 1;
+			continue;
+		}
+
+		// Check for word boundary followed by CHECK keyword (case-insensitive)
+		if (
+			(i === 0 || /[\s,()=;]/.test(sql[i - 1])) &&
+			sql.slice(i, i + 5).toUpperCase() === "CHECK" &&
+			(i + 5 === n || /[\s(]/.test(sql[i + 5]))
+		) {
+			let j = i + 5;
+			while (j < n && /\s/.test(sql[j])) j += 1;
+			if (j < n && sql[j] === "(") {
+				j += 1;
+				let depth = 1;
+				let expr = "";
+				while (j < n && depth > 0) {
+					const c = sql[j];
+					if (c === "'") {
+						expr += c;
+						j += 1;
+						while (j < n) {
+							const sc = sql[j];
+							expr += sc;
+							if (sc === "'") {
+								if (sql[j + 1] === "'") {
+									expr += sql[j + 1];
+									j += 2;
+								} else {
+									j += 1;
+									break;
+								}
+							} else {
+								j += 1;
+							}
+						}
+						continue;
+					}
+					if (c === '"' || c === "`" || c === "[") {
+						const closeChar = c === "[" ? "]" : c;
+						expr += c;
+						j += 1;
+						while (j < n && sql[j] !== closeChar) {
+							expr += sql[j];
+							j += 1;
+						}
+						if (j < n) {
+							expr += sql[j];
+							j += 1;
+						}
+						continue;
+					}
+					if (c === "(") {
+						depth += 1;
+						expr += c;
+					} else if (c === ")") {
+						depth -= 1;
+						if (depth > 0) expr += c;
+					} else {
+						expr += c;
+					}
+					j += 1;
+				}
+				if (depth === 0 && expr.trim().length > 0) {
+					checks.push(expr.trim());
+				}
+				i = j;
+				continue;
+			}
+		}
+
+		i += 1;
+	}
+
+	return checks;
+}
+
+export async function verifyPurgeSchema(db: D1Database): Promise<boolean> {
+	try {
+		const [instancesInfo, pendingGrantsInfo, purgeOpsInfo, tableSql] = await Promise.all([
+			db.prepare("PRAGMA table_info(instances)").all<{ name: string }>(),
+			db.prepare("PRAGMA table_info(pending_grants)").all<{ name: string }>(),
+			db.prepare("PRAGMA table_info(purge_operations)").all<{ name: string }>(),
+			db
+				.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'purge_operations'")
+				.first<{ sql: string }>(),
+		]);
+
+		if (
+			!instancesInfo.results ||
+			!pendingGrantsInfo.results ||
+			!purgeOpsInfo.results ||
+			!tableSql?.sql
+		) {
+			return false;
+		}
+
+		const instancesCols = new Set(instancesInfo.results.map((c) => c.name));
+		const pendingGrantsCols = new Set(pendingGrantsInfo.results.map((c) => c.name));
+		const purgeOpsCols = new Set(purgeOpsInfo.results.map((c) => c.name));
+
+		if (!instancesCols.has("instance_id")) return false;
+		if (!pendingGrantsCols.has("instance_id")) return false;
+		if (
+			!purgeOpsCols.has("operation_id_hash") ||
+			!purgeOpsCols.has("request_digest") ||
+			!purgeOpsCols.has("disposition") ||
+			!purgeOpsCols.has("expires_at")
+		) {
+			return false;
+		}
+
+		const allChecks = extractCheckExpressions(tableSql.sql);
+		// An empty applicable CHECK set fails closed: readiness requires establishing that the
+		// schema defines and permits the confirmed disposition.
+		if (allChecks.length === 0) return false;
+
+		// SQLite CHECK success semantics: passes if not 0 (nonzero or NULL).
+		// Evaluates every extracted table constraint against a synthetic constant row containing
+		// disposition = 'confirmed' and valid non-sensitive dummy column values.
+		const confirmedClauses = allChecks.map((c) => `(NOT ((${c}) = 0))`).join(" AND ");
+
+		const evalQuery = `
+			SELECT
+				(${confirmedClauses}) AS confirmed_valid
+			FROM (
+				SELECT
+					'confirmed' AS disposition,
+					'valid-hash' AS operation_id_hash,
+					'valid-digest' AS request_digest,
+					1000 AS expires_at
+			)
+		`;
+
+		const evalResult = await db.prepare(evalQuery).first<{
+			confirmed_valid: number | null;
+		}>();
+		return evalResult?.confirmed_valid === 1;
+	} catch {
+		return false;
+	}
 }
