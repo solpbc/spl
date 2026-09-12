@@ -124,27 +124,25 @@ describe("owner-purge v1 admission boundaries", () => {
 		const signerSpy = vi.spyOn(responseSigner, "sign");
 
 		try {
-			expect(
-				await response(
-					post(REQUEST_ROUTE, requestEnvelope, {
-						bearer: env.PURGE_SECRET,
-						headers,
-					}),
-				),
-			).toEqual({ status: 400, body: { error: "bad request" } });
+			const submitRes = await post(REQUEST_ROUTE, requestEnvelope, {
+				bearer: env.PURGE_SECRET,
+				headers,
+			});
+			expect(submitRes.status).toBe(403);
+			expect(submitRes.headers.get("cache-control")).toBe("no-store");
+			expect(await submitRes.text()).toBe("");
 
-			expect(
-				await response(
-					post(
-						CONFIRM_ROUTE,
-						confirmationWrapper(requestEnvelope, fixtureAttestation(RELAY_V1_NAME)),
-						{
-							bearer: env.PURGE_SECRET,
-							headers,
-						},
-					),
-				),
-			).toEqual({ status: 400, body: { error: "bad request" } });
+			const confirmRes = await post(
+				CONFIRM_ROUTE,
+				confirmationWrapper(requestEnvelope, fixtureAttestation(RELAY_V1_NAME)),
+				{
+					bearer: env.PURGE_SECRET,
+					headers,
+				},
+			);
+			expect(confirmRes.status).toBe(403);
+			expect(confirmRes.headers.get("cache-control")).toBe("no-store");
+			expect(await confirmRes.text()).toBe("");
 
 			expect(databaseSpy).not.toHaveBeenCalled();
 			expect(batchSpy).not.toHaveBeenCalled();

@@ -13,7 +13,6 @@ import { base64UrlDecode, base64UrlEncode } from "./tokens";
 
 const PURGE_ROUTE = "/internal/deletion/purge";
 const PURGE_CONFIRM_ROUTE = "/internal/deletion/purge/confirm";
-const PURGE_READINESS_ROUTE = "/internal/deletion/purge/readiness";
 const MAX_PURGE_BODY_BYTES = 32 * 1024;
 const MAX_OPERATION_ID_BYTES = 256;
 const MAX_INSTANCE_IDS = 100;
@@ -233,7 +232,12 @@ export async function handlePurge(request: Request, env: Env, now = unixNow()): 
 		log({ event: "unauthorized", route: PURGE_ROUTE, reason: "bad_bearer" });
 		return json({ error: "unauthorized" }, 401);
 	}
-	if (request.headers.has("origin")) return plainRefusal("owner_purge_malformed", 400);
+	if (request.headers.has("origin")) {
+		return new Response(null, {
+			status: 403,
+			headers: { "cache-control": "no-store" },
+		});
+	}
 	const keys = provisioning.keys;
 
 	const body = await readJson<unknown>(request, MAX_PURGE_BODY_BYTES);
@@ -312,7 +316,12 @@ export async function handlePurgeConfirm(
 		log({ event: "unauthorized", route: PURGE_CONFIRM_ROUTE, reason: "bad_bearer" });
 		return json({ error: "unauthorized" }, 401);
 	}
-	if (request.headers.has("origin")) return plainRefusal("owner_purge_malformed", 400);
+	if (request.headers.has("origin")) {
+		return new Response(null, {
+			status: 403,
+			headers: { "cache-control": "no-store" },
+		});
+	}
 	const keys = provisioning.keys;
 
 	const body = await readJson<unknown>(request, MAX_PURGE_BODY_BYTES);
