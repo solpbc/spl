@@ -13,6 +13,7 @@ import { base64UrlDecode, base64UrlEncode } from "./tokens";
 
 const PURGE_ROUTE = "/internal/deletion/purge";
 const PURGE_CONFIRM_ROUTE = "/internal/deletion/purge/confirm";
+const PURGE_READINESS_ROUTE = "/internal/deletion/purge/readiness";
 const MAX_PURGE_BODY_BYTES = 32 * 1024;
 const MAX_OPERATION_ID_BYTES = 256;
 const MAX_INSTANCE_IDS = 100;
@@ -97,13 +98,143 @@ function unixNow(): number {
 	return Date.now();
 }
 
-export async function handlePurge(request: Request, env: Env, now = unixNow()): Promise<Response> {
-	const keys = purgeKeys(env);
-	if (!env.PURGE_SECRET || !keys) return unprovisioned();
+export function evaluatePurgeProvisioning(env: Env): { secret: string; keys: PurgeKeys } | null {
+	if (!env.PURGE_SECRET || !env.OWNER_PURGE_HMAC_KEY_V1 || !env.OWNER_PURGE_HMAC_KEY_V2) {
+		return null;
+	}
+	if (env.GRANT_SECRET && env.PURGE_SECRET === env.GRANT_SECRET) return null;
+	if (
+		env.PURGE_SECRET === env.OWNER_PURGE_HMAC_KEY_V1 ||
+		env.PURGE_SECRET === env.OWNER_PURGE_HMAC_KEY_V2
+	) {
+		return null;
+	}
+	return {
+		secret: env.PURGE_SECRET,
+		keys: { 1: env.OWNER_PURGE_HMAC_KEY_V1, 2: env.OWNER_PURGE_HMAC_KEY_V2 },
+	};
+}
+
+export async function handlePurgeReadiness(request: Request, env: Env): Promise<Response> {
+	if (request.method !== "GET" && request.method !== "HEAD") {
+		return new Response(null, {
+			status: 405,
+			headers: {
+				allow: "GET, HEAD",
+				"cache-control": "no-store",
+			},
+		});
+	}
+
+	if (request.headers.has("origin")) {
+		return new Response(null, {
+			status: 403,
+			headers: { "cache-control": "no-store" },
+		});
+	}
+
+	const nonce = request.headers.get("x-owner-purge-readiness-nonce");
+	if (!nonce || !BASE64URL_SHA256_RE.test(nonce)) {
+		return new Response(null, {
+			status: 400,
+			headers: { "cache-control": "no-store" },
+		});
+	}
+
+	let decodedNonce: Uint8Array;
+	try {
+		decodedNonce = base64UrlDecode(nonce);
+	} catch {
+		return new Response(null, {
+			status: 400,
+			headers: { "cache-control": "no-store" },
+		});
+	}
+	if (decodedNonce.byteLength !== 32) {
+		return new Response(null, {
+			status: 400,
+			headers: { "cache-control": "no-store" },
+		});
+	}
+
+	if (!env.PURGE_SECRET) {
+		return new Response(null, {
+			status: 503,
+			headers: { "cache-control": "no-store" },
+		});
+	}
+
 	if (!hasValidBearer(request, env.PURGE_SECRET)) {
+		return new Response(null, {
+			status: 401,
+			headers: { "cache-control": "no-store" },
+		});
+	}
+
+	const provisioning = evaluatePurgeProvisioning(env);
+	if (!provisioning) {
+		return new Response(null, {
+			status: 503,
+			headers: { "cache-control": "no-store" },
+		});
+	}
+
+	try {
+		await env.DB.batch([
+			env.DB.prepare(
+				"SELECT instance_id, ca_fp, ca_pubkey_pem, created_at, service_token_jti, rotated_at, revoked_at, entitled_until FROM instances WHERE 0",
+			),
+			env.DB.prepare("SELECT instance_id, entitled_until, updated_at FROM pending_grants WHERE 0"),
+			env.DB.prepare(
+				"SELECT operation_id_hash, request_digest, disposition, expires_at FROM purge_operations WHERE disposition IN ('retryable', 'complete', 'confirmed') AND 0",
+			),
+		]);
+	} catch {
+		return new Response(null, {
+			status: 503,
+			headers: { "cache-control": "no-store" },
+		});
+	}
+
+	const canonicalV1 = canonicalizeOwnerPurgeJson({
+		version: PROTOCOL_VERSION,
+		key_version: 1,
+		service: SERVICE,
+		nonce,
+	});
+	const canonicalV2 = canonicalizeOwnerPurgeJson({
+		version: PROTOCOL_VERSION,
+		key_version: 2,
+		service: SERVICE,
+		nonce,
+	});
+
+	const frameV1 = ownerPurgeIntegrityFrame("solpbc-owner-purge-v1:relay:readiness", canonicalV1);
+	const frameV2 = ownerPurgeIntegrityFrame("solpbc-owner-purge-v1:relay:readiness", canonicalV2);
+
+	const proofV1 = base64UrlEncode(await hmacSha256(frameV1, provisioning.keys[1]));
+	const proofV2 = base64UrlEncode(await hmacSha256(frameV2, provisioning.keys[2]));
+
+	return new Response(null, {
+		status: 204,
+		headers: {
+			"cache-control": "no-store",
+			"x-owner-purge-readiness-version": "1",
+			"x-owner-purge-readiness-proof-v1": proofV1,
+			"x-owner-purge-readiness-proof-v2": proofV2,
+		},
+	});
+}
+
+export async function handlePurge(request: Request, env: Env, now = unixNow()): Promise<Response> {
+	const provisioning = evaluatePurgeProvisioning(env);
+	if (!provisioning) return unprovisioned();
+	if (!hasValidBearer(request, provisioning.secret)) {
 		log({ event: "unauthorized", route: PURGE_ROUTE, reason: "bad_bearer" });
 		return json({ error: "unauthorized" }, 401);
 	}
+	if (request.headers.has("origin")) return plainRefusal("owner_purge_malformed", 400);
+	const keys = provisioning.keys;
 
 	const body = await readJson<unknown>(request, MAX_PURGE_BODY_BYTES);
 	if (!body.ok) return plainRefusal("owner_purge_malformed", 400);
@@ -175,12 +306,14 @@ export async function handlePurgeConfirm(
 	env: Env,
 	now = unixNow(),
 ): Promise<Response> {
-	const keys = purgeKeys(env);
-	if (!env.PURGE_SECRET || !keys) return unprovisioned();
-	if (!hasValidBearer(request, env.PURGE_SECRET)) {
+	const provisioning = evaluatePurgeProvisioning(env);
+	if (!provisioning) return unprovisioned();
+	if (!hasValidBearer(request, provisioning.secret)) {
 		log({ event: "unauthorized", route: PURGE_CONFIRM_ROUTE, reason: "bad_bearer" });
 		return json({ error: "unauthorized" }, 401);
 	}
+	if (request.headers.has("origin")) return plainRefusal("owner_purge_malformed", 400);
+	const keys = provisioning.keys;
 
 	const body = await readJson<unknown>(request, MAX_PURGE_BODY_BYTES);
 	if (!body.ok) return plainRefusal("owner_purge_malformed", 400);
@@ -593,11 +726,6 @@ function canonicalWithoutIntegrity(envelope: RawRequestEnvelope | AttestationEnv
 
 function domain(kind: IntegrityKind): string {
 	return `solpbc-owner-purge-v1:${SERVICE}:${kind}`;
-}
-
-function purgeKeys(env: Env): PurgeKeys | null {
-	if (!env.OWNER_PURGE_HMAC_KEY_V1 || !env.OWNER_PURGE_HMAC_KEY_V2) return null;
-	return { 1: env.OWNER_PURGE_HMAC_KEY_V1, 2: env.OWNER_PURGE_HMAC_KEY_V2 };
 }
 
 export const responseSigner = { sign: hmacSha256 };

@@ -1,0 +1,22 @@
+{
+	"version": 1,
+	"service": "relay",
+	"route": "/internal/deletion/purge/ready",
+	"description": "Owner-purge v1 relay readiness probe contract and canonical transcripts. Validates operational readiness, zero-row D1 schema capability, and generates cryptographic key proofs without mutating state.",
+	"domain": "solpbc-owner-purge-v1:relay:readiness",
+	"integrity": {
+		"non_production_test_keys_utf8": {
+			"1": "owner-purge-v1-fixture-test-key",
+			"2": "owner-purge-v2-fixture-test-key"
+		}
+	},
+	"sample_readiness": {
+		"nonce": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
+		"canonical_v1": "{\"key_version\":1,\"nonce\":\"AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8\",\"service\":\"relay\",\"version\":1}",
+		"canonical_v2": "{\"key_version\":2,\"nonce\":\"AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8\",\"service\":\"relay\",\"version\":1}",
+		"frame_hex_v1": "0000000000000025736f6c7062632d6f776e65722d70757267652d76313a72656c61793a72656164696e65737300000000000000657b226b65795f76657273696f6e223a312c226e6f6e6365223a2241414543417751464267634943516f4c4441304f4478415245684d554652595847426b6147787764486838222c2273657276696365223a2272656c6179222c2276657273696f6e223a317d",
+		"frame_hex_v2": "0000000000000025736f6c7062632d6f776e65722d70757267652d76313a72656c61793a72656164696e65737300000000000000657b226b65795f76657273696f6e223a322c226e6f6e6365223a2241414543417751464267634943516f4c4441304f4478415245684d554652595847426b6147787764486838222c2273657276696365223a2272656c6179222c2276657273696f6e223a317d",
+		"proof_v1": "jnLWxA0xnA0nhsNh5uKEivAHp49huPFd-dTr4KdBpMQ",
+		"proof_v2": "oYp3FXG9CiKGrD1e7iMpUWiyVmXMaDfQnpoYDR3hDTo"
+	}
+}

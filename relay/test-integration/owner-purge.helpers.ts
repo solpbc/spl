@@ -112,6 +112,11 @@ interface OwnerPurgeFixture {
 const ownerPurgeFixture = fixture as OwnerPurgeFixture;
 export const REQUEST_ROUTE = ownerPurgeFixture.routes.purge;
 export const CONFIRM_ROUTE = ownerPurgeFixture.routes.confirm;
+export const READY_ROUTE = "/internal/deletion/purge/ready";
+export const READINESS_ROUTE = READY_ROUTE;
+export const READINESS_NONCE = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8";
+export const READINESS_PROOF_V1 = "jnLWxA0xnA0nhsNh5uKEivAHp49huPFd-dTr4KdBpMQ";
+export const READINESS_PROOF_V2 = "oYp3FXG9CiKGrD1e7iMpUWiyVmXMaDfQnpoYDR3hDTo";
 export const NOW = transcript(
 	"relay_retained_key_v1_first_confirmation_and_lost_response_retry",
 ).request_received_at;

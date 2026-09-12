@@ -13,6 +13,7 @@
 //   GET  /admin/instances/<id>      — operator inspection: single instance metadata
 //   POST /internal/deletion/purge         — owner-purge v1 relay submit/retry
 //   POST /internal/deletion/purge/confirm — owner-purge v1 relay confirmation
+//   GET  /internal/deletion/purge/ready   — owner-purge v1 relay readiness probe
 //   POST /token/refresh             — re-issue a device token from a current/recently-expired one
 //   GET  /session/listen?instance=  — home holds this open indefinitely
 //   GET  /session/dial?instance=    — mobile opens, becomes tunnel WS on pair
@@ -31,7 +32,12 @@ import { handleListInstances, handleSetEntitlement, handleShowInstance } from ".
 import type { Env } from "./env";
 import { unauthorizedResponse } from "./instance-do";
 import { log } from "./logging";
-import { handlePurge, handlePurgeConfirm, purgeExpiredOperations } from "./purge";
+import {
+	handlePurge,
+	handlePurgeConfirm,
+	handlePurgeReadiness,
+	purgeExpiredOperations,
+} from "./purge";
 import { handleTokenRefresh } from "./refresh";
 
 export { InstanceDO } from "./instance-do";
@@ -63,6 +69,9 @@ async function routeRequest(request: Request, env: Env): Promise<Response> {
 	}
 	if (request.method === "GET" && url.pathname.startsWith("/admin/instances/")) {
 		return handleShowInstance(request, env, url.pathname.slice("/admin/instances/".length));
+	}
+	if (url.pathname === "/internal/deletion/purge/ready") {
+		return handlePurgeReadiness(request, env);
 	}
 	if (request.method === "POST" && url.pathname === "/internal/deletion/purge") {
 		return handlePurge(request, env);

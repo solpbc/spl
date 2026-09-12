@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) 2026 sol pbc
 
-import { env } from "cloudflare:test";
+import { SELF, env } from "cloudflare:test";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { responseSigner } from "../src/purge";
 import fixture from "../test-fixtures/owner-purge-v1.json";
@@ -9,6 +9,10 @@ import { applyRelayD1Migrations } from "./apply-migrations";
 import {
 	CONFIRM_ROUTE,
 	NOW,
+	READINESS_NONCE,
+	READINESS_PROOF_V1,
+	READINESS_PROOF_V2,
+	READINESS_ROUTE,
 	REQUEST_ROUTE,
 	bindingCount,
 	bindingDisposition,
@@ -110,11 +114,449 @@ describe("owner-purge v1 admission boundaries", () => {
 		expect(await bindingCount()).toBe(0);
 	});
 
+	it("refuses valid-bearer valid-signed submit and confirm carrying Origin header before lookup or mutation", async () => {
+		const headers = { Origin: "https://browser.example.test" };
+		const requestEnvelope = fixtureRequest(RELAY_V1_NAME);
+		for (const instanceId of fixtureInstanceIds(requestEnvelope)) await seedInstance(instanceId);
+
+		const databaseSpy = vi.spyOn(env.DB, "prepare");
+		const batchSpy = vi.spyOn(env.DB, "batch");
+		const signerSpy = vi.spyOn(responseSigner, "sign");
+
+		try {
+			expect(
+				await response(
+					post(REQUEST_ROUTE, requestEnvelope, {
+						bearer: env.PURGE_SECRET,
+						headers,
+					}),
+				),
+			).toEqual({ status: 400, body: { error: "bad request" } });
+
+			expect(
+				await response(
+					post(
+						CONFIRM_ROUTE,
+						confirmationWrapper(requestEnvelope, fixtureAttestation(RELAY_V1_NAME)),
+						{
+							bearer: env.PURGE_SECRET,
+							headers,
+						},
+					),
+				),
+			).toEqual({ status: 400, body: { error: "bad request" } });
+
+			expect(databaseSpy).not.toHaveBeenCalled();
+			expect(batchSpy).not.toHaveBeenCalled();
+			expect(signerSpy).not.toHaveBeenCalled();
+			expect(await bindingCount()).toBe(0);
+
+			for (const instanceId of fixtureInstanceIds(requestEnvelope)) {
+				expect(await rowCount("instances", instanceId)).toBe(1);
+				expect(await rowCount("pending_grants", instanceId)).toBe(1);
+			}
+		} finally {
+			databaseSpy.mockRestore();
+			batchSpy.mockRestore();
+			signerSpy.mockRestore();
+		}
+	});
+
 	it("does not route non-POST or legacy purge paths", async () => {
 		expect((await request(REQUEST_ROUTE, undefined, { method: "GET" })).status).toBe(404);
 		expect((await request(CONFIRM_ROUTE, undefined, { method: "PUT" })).status).toBe(404);
 		expect((await request("/internal/purge", undefined)).status).toBe(404);
 		expect(await bindingCount()).toBe(0);
+	});
+
+	it("rejects non-GET/HEAD methods on readiness path with bodyless 405 and Allow header before nonce, auth, or D1 lookup", async () => {
+		const databaseSpy = vi.spyOn(env.DB, "prepare");
+		const batchSpy = vi.spyOn(env.DB, "batch");
+		try {
+			for (const method of ["POST", "PUT", "DELETE", "PATCH"]) {
+				const res = await request(READINESS_ROUTE, undefined, { method });
+				expect(res.status).toBe(405);
+				expect(res.headers.get("allow")).toBe("GET, HEAD");
+				expect(res.headers.get("cache-control")).toBe("no-store");
+				expect(res.headers.get("x-owner-purge-readiness-proof-v1")).toBeNull();
+				expect(res.headers.get("x-owner-purge-readiness-proof-v2")).toBeNull();
+				expect(res.headers.get("x-owner-purge-readiness-version")).toBeNull();
+				expect(await res.text()).toBe("");
+			}
+			expect(databaseSpy).not.toHaveBeenCalled();
+			expect(batchSpy).not.toHaveBeenCalled();
+			expect(await bindingCount()).toBe(0);
+		} finally {
+			databaseSpy.mockRestore();
+			batchSpy.mockRestore();
+		}
+	});
+
+	it("refuses readiness requests carrying Origin header with 403 and no-store before nonce, auth, or D1 lookup", async () => {
+		const databaseSpy = vi.spyOn(env.DB, "prepare");
+		const batchSpy = vi.spyOn(env.DB, "batch");
+		try {
+			// Origin present with valid credentials and valid nonce
+			const res = await request(READINESS_ROUTE, undefined, {
+				method: "GET",
+				bearer: env.PURGE_SECRET,
+				headers: {
+					Origin: "https://browser.example.test",
+					"x-owner-purge-readiness-nonce": READINESS_NONCE,
+				},
+			});
+			expect(res.status).toBe(403);
+			expect(res.headers.get("cache-control")).toBe("no-store");
+			expect(res.headers.get("x-owner-purge-readiness-proof-v1")).toBeNull();
+			expect(res.headers.get("x-owner-purge-readiness-proof-v2")).toBeNull();
+			expect(res.headers.get("x-owner-purge-readiness-version")).toBeNull();
+			expect(await res.text()).toBe("");
+
+			// Origin present even with invalid bearer / invalid nonce
+			const resInvalid = await request(READINESS_ROUTE, undefined, {
+				method: "GET",
+				bearer: "wrong-bearer",
+				headers: {
+					Origin: "https://browser.example.test",
+					"x-owner-purge-readiness-nonce": "invalid-short-nonce",
+				},
+			});
+			expect(resInvalid.status).toBe(403);
+			expect(resInvalid.headers.get("cache-control")).toBe("no-store");
+			expect(await resInvalid.text()).toBe("");
+
+			expect(databaseSpy).not.toHaveBeenCalled();
+			expect(batchSpy).not.toHaveBeenCalled();
+		} finally {
+			databaseSpy.mockRestore();
+			batchSpy.mockRestore();
+		}
+	});
+
+	it("refuses readiness requests carrying invalid or missing nonce with 400 and no-store before bearer or D1 lookup", async () => {
+		const databaseSpy = vi.spyOn(env.DB, "prepare");
+		const batchSpy = vi.spyOn(env.DB, "batch");
+		try {
+			// Missing nonce
+			const missing = await request(READINESS_ROUTE, undefined, {
+				method: "GET",
+				bearer: env.PURGE_SECRET,
+			});
+			expect(missing.status).toBe(400);
+			expect(missing.headers.get("cache-control")).toBe("no-store");
+			expect(missing.headers.get("x-owner-purge-readiness-proof-v1")).toBeNull();
+			expect(missing.headers.get("x-owner-purge-readiness-proof-v2")).toBeNull();
+			expect(missing.headers.get("x-owner-purge-readiness-version")).toBeNull();
+			expect(await missing.text()).toBe("");
+
+			// Nonce not 43 characters
+			const shortNonce = await request(READINESS_ROUTE, undefined, {
+				method: "GET",
+				bearer: env.PURGE_SECRET,
+				headers: { "x-owner-purge-readiness-nonce": "short" },
+			});
+			expect(shortNonce.status).toBe(400);
+			expect(shortNonce.headers.get("cache-control")).toBe("no-store");
+			expect(await shortNonce.text()).toBe("");
+
+			// Nonce with invalid base64url characters
+			const invalidChars = await request(READINESS_ROUTE, undefined, {
+				method: "GET",
+				bearer: env.PURGE_SECRET,
+				headers: { "x-owner-purge-readiness-nonce": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh+" },
+			});
+			expect(invalidChars.status).toBe(400);
+			expect(invalidChars.headers.get("cache-control")).toBe("no-store");
+			expect(await invalidChars.text()).toBe("");
+
+			expect(databaseSpy).not.toHaveBeenCalled();
+			expect(batchSpy).not.toHaveBeenCalled();
+		} finally {
+			databaseSpy.mockRestore();
+			batchSpy.mockRestore();
+		}
+	});
+
+	it("refuses unauthenticated and bad-bearer readiness requests with 401 after PURGE_SECRET check and before D1 lookup", async () => {
+		const databaseSpy = vi.spyOn(env.DB, "prepare");
+		const batchSpy = vi.spyOn(env.DB, "batch");
+		try {
+			const missingBearer = await request(READINESS_ROUTE, undefined, {
+				method: "GET",
+				headers: { "x-owner-purge-readiness-nonce": READINESS_NONCE },
+				bearer: "",
+			});
+			expect(missingBearer.status).toBe(401);
+			expect(missingBearer.headers.get("cache-control")).toBe("no-store");
+			expect(missingBearer.headers.get("x-owner-purge-readiness-proof-v1")).toBeNull();
+			expect(await missingBearer.text()).toBe("");
+
+			const noAuthHeader = await SELF.fetch(`http://spl.test${READINESS_ROUTE}`, {
+				method: "GET",
+				headers: { "x-owner-purge-readiness-nonce": READINESS_NONCE },
+			});
+			expect(noAuthHeader.status).toBe(401);
+			expect(noAuthHeader.headers.get("cache-control")).toBe("no-store");
+			expect(noAuthHeader.headers.get("x-owner-purge-readiness-proof-v1")).toBeNull();
+			expect(await noAuthHeader.text()).toBe("");
+
+			const badBearer = await request(READINESS_ROUTE, undefined, {
+				method: "GET",
+				bearer: "wrong-bearer",
+				headers: { "x-owner-purge-readiness-nonce": READINESS_NONCE },
+			});
+			expect(badBearer.status).toBe(401);
+			expect(badBearer.headers.get("cache-control")).toBe("no-store");
+			expect(badBearer.headers.get("x-owner-purge-readiness-proof-v1")).toBeNull();
+			expect(await badBearer.text()).toBe("");
+
+			const grantBearer = await request(READINESS_ROUTE, undefined, {
+				method: "GET",
+				bearer: env.GRANT_SECRET,
+				headers: { "x-owner-purge-readiness-nonce": READINESS_NONCE },
+			});
+			expect(grantBearer.status).toBe(401);
+			expect(grantBearer.headers.get("cache-control")).toBe("no-store");
+			expect(grantBearer.headers.get("x-owner-purge-readiness-proof-v1")).toBeNull();
+			expect(await grantBearer.text()).toBe("");
+
+			expect(databaseSpy).not.toHaveBeenCalled();
+			expect(batchSpy).not.toHaveBeenCalled();
+		} finally {
+			databaseSpy.mockRestore();
+			batchSpy.mockRestore();
+		}
+	});
+
+	it("executes operational readiness probe with zero-row schema validation and exact proof headers", async () => {
+		const preparedQueries: string[] = [];
+		const originalPrepare = env.DB.prepare.bind(env.DB);
+		const prepareSpy = vi.spyOn(env.DB, "prepare").mockImplementation((query: string) => {
+			preparedQueries.push(query);
+			return originalPrepare(query);
+		});
+
+		try {
+			const res = await request(READINESS_ROUTE, undefined, {
+				method: "GET",
+				bearer: env.PURGE_SECRET,
+				headers: { "x-owner-purge-readiness-nonce": READINESS_NONCE },
+			});
+			expect(res.status).toBe(204);
+			expect(res.headers.get("cache-control")).toBe("no-store");
+			expect(res.headers.get("x-owner-purge-readiness-version")).toBe("1");
+			expect(res.headers.get("x-owner-purge-readiness-proof-v1")).toBe(READINESS_PROOF_V1);
+			expect(res.headers.get("x-owner-purge-readiness-proof-v2")).toBe(READINESS_PROOF_V2);
+			expect(await res.text()).toBe("");
+
+			expect(preparedQueries).toEqual([
+				"SELECT instance_id, ca_fp, ca_pubkey_pem, created_at, service_token_jti, rotated_at, revoked_at, entitled_until FROM instances WHERE 0",
+				"SELECT instance_id, entitled_until, updated_at FROM pending_grants WHERE 0",
+				"SELECT operation_id_hash, request_digest, disposition, expires_at FROM purge_operations WHERE disposition IN ('retryable', 'complete', 'confirmed') AND 0",
+			]);
+		} finally {
+			prepareSpy.mockRestore();
+		}
+	});
+
+	it("mirrors GET readiness status and headers on HEAD across success and error responses without body", async () => {
+		// 204 Success
+		const res204 = await request(READINESS_ROUTE, undefined, {
+			method: "HEAD",
+			bearer: env.PURGE_SECRET,
+			headers: { "x-owner-purge-readiness-nonce": READINESS_NONCE },
+		});
+		expect(res204.status).toBe(204);
+		expect(res204.headers.get("cache-control")).toBe("no-store");
+		expect(res204.headers.get("x-owner-purge-readiness-version")).toBe("1");
+		expect(res204.headers.get("x-owner-purge-readiness-proof-v1")).toBe(READINESS_PROOF_V1);
+		expect(res204.headers.get("x-owner-purge-readiness-proof-v2")).toBe(READINESS_PROOF_V2);
+		expect(await res204.text()).toBe("");
+
+		// 400 Bad Nonce
+		const res400 = await request(READINESS_ROUTE, undefined, {
+			method: "HEAD",
+			bearer: env.PURGE_SECRET,
+		});
+		expect(res400.status).toBe(400);
+		expect(res400.headers.get("cache-control")).toBe("no-store");
+		expect(res400.headers.get("x-owner-purge-readiness-proof-v1")).toBeNull();
+		expect(await res400.text()).toBe("");
+
+		// 401 Unauthorized
+		const res401 = await request(READINESS_ROUTE, undefined, {
+			method: "HEAD",
+			bearer: "bad-bearer",
+			headers: { "x-owner-purge-readiness-nonce": READINESS_NONCE },
+		});
+		expect(res401.status).toBe(401);
+		expect(res401.headers.get("cache-control")).toBe("no-store");
+		expect(res401.headers.get("x-owner-purge-readiness-proof-v1")).toBeNull();
+		expect(await res401.text()).toBe("");
+
+		// 403 Forbidden (Origin)
+		const res403 = await request(READINESS_ROUTE, undefined, {
+			method: "HEAD",
+			bearer: env.PURGE_SECRET,
+			headers: {
+				Origin: "https://browser.example.test",
+				"x-owner-purge-readiness-nonce": READINESS_NONCE,
+			},
+		});
+		expect(res403.status).toBe(403);
+		expect(res403.headers.get("cache-control")).toBe("no-store");
+		expect(res403.headers.get("x-owner-purge-readiness-proof-v1")).toBeNull();
+		expect(await res403.text()).toBe("");
+	});
+
+	it("returns generic 503 without proofs when any required D1 schema capability is missing or unreadable", async () => {
+		const originalPrepare = env.DB.prepare.bind(env.DB);
+
+		// 1. instances table / columns failure
+		const instancesSpy = vi.spyOn(env.DB, "prepare").mockImplementation((query: string) => {
+			if (query.includes("FROM instances")) {
+				throw new Error("no such column: instances.entitled_until");
+			}
+			return originalPrepare(query);
+		});
+		try {
+			const res = await request(READINESS_ROUTE, undefined, {
+				method: "GET",
+				bearer: env.PURGE_SECRET,
+				headers: { "x-owner-purge-readiness-nonce": READINESS_NONCE },
+			});
+			expect(res.status).toBe(503);
+			expect(res.headers.get("cache-control")).toBe("no-store");
+			expect(res.headers.get("x-owner-purge-readiness-proof-v1")).toBeNull();
+			expect(res.headers.get("x-owner-purge-readiness-proof-v2")).toBeNull();
+			expect(res.headers.get("x-owner-purge-readiness-version")).toBeNull();
+			expect(await res.text()).toBe("");
+		} finally {
+			instancesSpy.mockRestore();
+		}
+
+		// 2. pending_grants table / columns failure
+		const pendingSpy = vi.spyOn(env.DB, "prepare").mockImplementation((query: string) => {
+			if (query.includes("FROM pending_grants")) {
+				throw new Error("no such table: pending_grants");
+			}
+			return originalPrepare(query);
+		});
+		try {
+			const res = await request(READINESS_ROUTE, undefined, {
+				method: "GET",
+				bearer: env.PURGE_SECRET,
+				headers: { "x-owner-purge-readiness-nonce": READINESS_NONCE },
+			});
+			expect(res.status).toBe(503);
+			expect(res.headers.get("cache-control")).toBe("no-store");
+			expect(res.headers.get("x-owner-purge-readiness-proof-v1")).toBeNull();
+			expect(await res.text()).toBe("");
+		} finally {
+			pendingSpy.mockRestore();
+		}
+
+		// 3. purge_operations table / columns / post-0010 confirmed capability failure
+		const purgeOpsSpy = vi.spyOn(env.DB, "prepare").mockImplementation((query: string) => {
+			if (query.includes("FROM purge_operations")) {
+				throw new Error("pre-0010 schema missing confirmed capability");
+			}
+			return originalPrepare(query);
+		});
+		try {
+			const res = await request(READINESS_ROUTE, undefined, {
+				method: "GET",
+				bearer: env.PURGE_SECRET,
+				headers: { "x-owner-purge-readiness-nonce": READINESS_NONCE },
+			});
+			expect(res.status).toBe(503);
+			expect(res.headers.get("cache-control")).toBe("no-store");
+			expect(res.headers.get("x-owner-purge-readiness-proof-v1")).toBeNull();
+			expect(await res.text()).toBe("");
+		} finally {
+			purgeOpsSpy.mockRestore();
+		}
+	});
+
+	it("proves no DML, no row reads, and leaves existing purge and instance rows unchanged", async () => {
+		// Seed live instance and pending grant
+		const instanceId = "00000000-0000-4000-8000-000000000088";
+		await seedInstance(instanceId);
+
+		// Seed a purge operation row
+		await env.DB.prepare(
+			"INSERT INTO purge_operations (operation_id_hash, request_digest, disposition, expires_at) VALUES ('test-hash', 'test-digest', 'complete', 9999999999999)",
+		).run();
+
+		// Run readiness multiple times
+		for (let i = 0; i < 3; i++) {
+			const res = await request(READINESS_ROUTE, undefined, {
+				method: "GET",
+				bearer: env.PURGE_SECRET,
+				headers: { "x-owner-purge-readiness-nonce": READINESS_NONCE },
+			});
+			expect(res.status).toBe(204);
+			expect(res.headers.get("x-owner-purge-readiness-proof-v1")).toBe(READINESS_PROOF_V1);
+		}
+
+		// Verify existing rows are completely unmodified
+		expect(await rowCount("instances", instanceId)).toBe(1);
+		expect(await rowCount("pending_grants", instanceId)).toBe(1);
+		expect(await bindingCount()).toBe(1);
+		expect(await bindingDisposition()).toBe("complete");
+	});
+
+	it("verifies no sensitive sentinels in captured logs across readiness success and refusal branches", async () => {
+		const loggedMessages: string[] = [];
+		const logSpy = vi.spyOn(console, "log").mockImplementation((msg: string) => {
+			loggedMessages.push(msg);
+		});
+
+		try {
+			// Success
+			await request(READINESS_ROUTE, undefined, {
+				method: "GET",
+				bearer: env.PURGE_SECRET,
+				headers: { "x-owner-purge-readiness-nonce": READINESS_NONCE },
+			});
+
+			// Refusal: 405 Method
+			await request(READINESS_ROUTE, undefined, { method: "POST" });
+
+			// Refusal: 403 Origin
+			await request(READINESS_ROUTE, undefined, {
+				method: "GET",
+				bearer: env.PURGE_SECRET,
+				headers: {
+					Origin: "https://browser.example.test",
+					"x-owner-purge-readiness-nonce": READINESS_NONCE,
+				},
+			});
+
+			// Refusal: 400 Bad Nonce
+			await request(READINESS_ROUTE, undefined, {
+				method: "GET",
+				bearer: env.PURGE_SECRET,
+			});
+
+			// Refusal: 401 Bad Bearer
+			await request(READINESS_ROUTE, undefined, {
+				method: "GET",
+				bearer: "wrong-bearer-sentinel",
+				headers: { "x-owner-purge-readiness-nonce": READINESS_NONCE },
+			});
+
+			// Check all captured logs
+			for (const msg of loggedMessages) {
+				expect(msg).not.toContain(env.PURGE_SECRET);
+				expect(msg).not.toContain(env.OWNER_PURGE_HMAC_KEY_V1);
+				expect(msg).not.toContain(env.OWNER_PURGE_HMAC_KEY_V2);
+				expect(msg).not.toContain(READINESS_NONCE);
+				expect(msg).not.toContain("wrong-bearer-sentinel");
+			}
+		} finally {
+			logSpy.mockRestore();
+		}
 	});
 
 	it("rejects unknown and wrong-typed submit envelope fields before binding", async () => {

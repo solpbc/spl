@@ -5,8 +5,10 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import type { Env } from "../src/env";
 import {
 	canonicalizeOwnerPurgeJson,
+	evaluatePurgeProvisioning,
 	ownerPurgeIntegrityFrame,
 	ownerPurgeRequestDigest,
 } from "../src/purge";
@@ -15,6 +17,19 @@ import { base64UrlEncode } from "../src/tokens";
 const FIXTURE_SHA256 = "716133ca9dd49b0d938720a52b8c46122d73fa2c99085eac3a4100af04bc1066";
 const VENDORED_FIXTURE = join(process.cwd(), "test-fixtures", "owner-purge-v1.json");
 const CANONICAL_FIXTURE = join(process.cwd(), "..", "proto", "owner-purge-v1.json");
+
+const READINESS_FIXTURE_SHA256 = "e6456d20243c7a73542bacd8a31a2c1f321f08bee7034584d03977b6e0ba0ef4";
+const VENDORED_READINESS_FIXTURE = join(
+	process.cwd(),
+	"test-fixtures",
+	"owner-purge-readiness-v1.json",
+);
+const CANONICAL_READINESS_FIXTURE = join(
+	process.cwd(),
+	"..",
+	"proto",
+	"owner-purge-readiness-v1.json",
+);
 
 interface FixtureEnvelope {
 	version: number;
@@ -59,6 +74,37 @@ describe("owner-purge v1 canonical conformance", () => {
 
 		expect(createHash("sha256").update(vendored).digest("hex")).toBe(FIXTURE_SHA256);
 		expect(vendored).toEqual(canonical);
+	});
+
+	it("vendors the pinned canonical readiness fixture byte-for-byte", () => {
+		const vendored = readFileSync(VENDORED_READINESS_FIXTURE);
+		const canonical = readFileSync(CANONICAL_READINESS_FIXTURE);
+
+		expect(createHash("sha256").update(vendored).digest("hex")).toBe(READINESS_FIXTURE_SHA256);
+		expect(vendored).toEqual(canonical);
+	});
+
+	it("matches the canonical readiness frame and HMAC proofs from the readiness fixture", async () => {
+		const fixture = JSON.parse(readFileSync(VENDORED_READINESS_FIXTURE, "utf8"));
+		const domain = fixture.domain;
+		const nonce = fixture.sample_readiness.nonce;
+
+		for (const keyVersion of [1, 2] as const) {
+			const canonical = canonicalizeOwnerPurgeJson({
+				version: 1,
+				key_version: keyVersion,
+				service: "relay",
+				nonce,
+			});
+			expect(canonical).toBe(fixture.sample_readiness[`canonical_v${keyVersion}`]);
+
+			const frame = ownerPurgeIntegrityFrame(domain, canonical);
+			expect(toHex(frame)).toBe(fixture.sample_readiness[`frame_hex_v${keyVersion}`]);
+
+			const key = fixture.integrity.non_production_test_keys_utf8[String(keyVersion)];
+			const proof = await hmac(frame, key);
+			expect(proof).toBe(fixture.sample_readiness[`proof_v${keyVersion}`]);
+		}
 	});
 
 	it("matches the retained relay-v1 canonical request, digest, frames, and HMACs", async () => {
@@ -127,6 +173,80 @@ describe("owner-purge v1 canonical conformance", () => {
 			transcript.response,
 			transcript.response_canonical_without_integrity,
 		);
+	});
+});
+
+describe("owner-purge v1 provisioning evaluation", () => {
+	const baseEnv: Env = {
+		INSTANCE: {} as unknown as DurableObjectNamespace,
+		DB: {} as unknown as D1Database,
+		ENVIRONMENT: "test",
+		ISSUER: "spl.test",
+		PURGE_SECRET: "test-purge-secret",
+		GRANT_SECRET: "test-grant-secret",
+		OWNER_PURGE_HMAC_KEY_V1: "key-v1-secret",
+		OWNER_PURGE_HMAC_KEY_V2: "key-v2-secret",
+	};
+
+	it("accepts valid distinct purge secrets and key versions", () => {
+		const result = evaluatePurgeProvisioning(baseEnv);
+		expect(result).toEqual({
+			secret: "test-purge-secret",
+			keys: { 1: "key-v1-secret", 2: "key-v2-secret" },
+		});
+	});
+
+	it("permits key v1 to equal key v2", () => {
+		const result = evaluatePurgeProvisioning({
+			...baseEnv,
+			OWNER_PURGE_HMAC_KEY_V1: "same-key",
+			OWNER_PURGE_HMAC_KEY_V2: "same-key",
+		});
+		expect(result).toEqual({
+			secret: "test-purge-secret",
+			keys: { 1: "same-key", 2: "same-key" },
+		});
+	});
+
+	it("refuses when PURGE_SECRET is missing or empty", () => {
+		expect(evaluatePurgeProvisioning({ ...baseEnv, PURGE_SECRET: undefined })).toBeNull();
+		expect(evaluatePurgeProvisioning({ ...baseEnv, PURGE_SECRET: "" })).toBeNull();
+	});
+
+	it("refuses when either HMAC key version is missing or empty", () => {
+		expect(
+			evaluatePurgeProvisioning({ ...baseEnv, OWNER_PURGE_HMAC_KEY_V1: undefined }),
+		).toBeNull();
+		expect(evaluatePurgeProvisioning({ ...baseEnv, OWNER_PURGE_HMAC_KEY_V1: "" })).toBeNull();
+		expect(
+			evaluatePurgeProvisioning({ ...baseEnv, OWNER_PURGE_HMAC_KEY_V2: undefined }),
+		).toBeNull();
+		expect(evaluatePurgeProvisioning({ ...baseEnv, OWNER_PURGE_HMAC_KEY_V2: "" })).toBeNull();
+	});
+
+	it("refuses when PURGE_SECRET collides with GRANT_SECRET", () => {
+		expect(
+			evaluatePurgeProvisioning({
+				...baseEnv,
+				PURGE_SECRET: "shared-secret",
+				GRANT_SECRET: "shared-secret",
+			}),
+		).toBeNull();
+	});
+
+	it("refuses when PURGE_SECRET collides with either HMAC key", () => {
+		expect(
+			evaluatePurgeProvisioning({
+				...baseEnv,
+				PURGE_SECRET: "key-v1-secret",
+			}),
+		).toBeNull();
+		expect(
+			evaluatePurgeProvisioning({
+				...baseEnv,
+				PURGE_SECRET: "key-v2-secret",
+			}),
+		).toBeNull();
 	});
 });
 
