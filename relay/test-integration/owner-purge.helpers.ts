@@ -226,6 +226,10 @@ export function postRaw(path: string, body: string, options: PostOptions = {}): 
 	return request(path, body, options);
 }
 
+// The only legitimate caller reaches purge/confirm over a service binding
+// constructed against "relay.internal" (see src/purge.ts PURGE_INTERNAL_HOST).
+// Every test in this suite exercises that legitimate path by default; the
+// dedicated reachability tests construct their own public-style host instead.
 export function request(
 	path: string,
 	body: string | undefined,
@@ -235,7 +239,7 @@ export function request(
 	headers.set("authorization", `Bearer ${options.bearer ?? env.PURGE_SECRET}`);
 	if (body !== undefined && !headers.has("content-type"))
 		headers.set("content-type", "application/json");
-	return SELF.fetch(`http://spl.test${path}`, {
+	return SELF.fetch(`http://relay.internal${path}`, {
 		method: options.method ?? "POST",
 		headers,
 		body,

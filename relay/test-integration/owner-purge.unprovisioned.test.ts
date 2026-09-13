@@ -6,7 +6,10 @@ import { describe, expect, it } from "vitest";
 
 describe("owner-purge v1 unprovisioned", () => {
 	it("returns 503 from submit and confirmation when owner-purge secrets are unset", async () => {
-		const submit = await SELF.fetch("http://spl.test/internal/deletion/purge", {
+		// Submit and confirm are gated on arriving via the internal caller
+		// host before they are gated on provisioning — see purge.ts
+		// PURGE_INTERNAL_HOST. Reached via that host, unprovisioned still 503s.
+		const submit = await SELF.fetch("http://relay.internal/internal/deletion/purge", {
 			method: "POST",
 			headers: { "content-type": "application/json" },
 			body: JSON.stringify({}),
@@ -14,7 +17,7 @@ describe("owner-purge v1 unprovisioned", () => {
 		expect(submit.status).toBe(503);
 		expect(await submit.json()).toEqual({ error: "relay not provisioned" });
 
-		const confirm = await SELF.fetch("http://spl.test/internal/deletion/purge/confirm", {
+		const confirm = await SELF.fetch("http://relay.internal/internal/deletion/purge/confirm", {
 			method: "POST",
 			headers: { "content-type": "application/json" },
 			body: JSON.stringify({}),

@@ -18,6 +18,14 @@ const MAX_OPERATION_ID_BYTES = 256;
 const MAX_INSTANCE_IDS = 100;
 const PROTOCOL_VERSION = 1;
 const SERVICE = "relay";
+// The only legitimate caller (the account portal) reaches purge/confirm over
+// a Worker service binding, which it constructs against this synthetic host
+// rather than the public custom domain. The public domain answers the same
+// two routes for machine reachability, so refusing every other host here is
+// what actually keeps a leaked bearer/HMAC pair from being usable from the
+// open internet. Never applied to the readiness probe, which is meant to
+// answer publicly.
+const PURGE_INTERNAL_HOST = `${SERVICE}.internal`;
 const REQUEST_MAX_LIFETIME_MS = 7 * 24 * 60 * 60 * 1000;
 const ATTESTATION_MAX_LIFETIME_MS = 5 * 60 * 1000;
 const REQUEST_FIELDS = [
@@ -95,6 +103,15 @@ interface PurgeOperation {
 
 function unixNow(): number {
 	return Date.now();
+}
+
+function isPurgeInternalCaller(request: Request): boolean {
+	return new URL(request.url).hostname === PURGE_INTERNAL_HOST;
+}
+
+function publicHostRefusal(route: string): Response {
+	log({ event: "unauthorized", route, reason: "owner_purge_public_host" });
+	return json({ error: "unauthorized" }, 401);
 }
 
 export function evaluatePurgeProvisioning(env: Env): { secret: string; keys: PurgeKeys } | null {
@@ -217,6 +234,7 @@ export async function handlePurgeReadiness(request: Request, env: Env): Promise<
 }
 
 export async function handlePurge(request: Request, env: Env, now = unixNow()): Promise<Response> {
+	if (!isPurgeInternalCaller(request)) return publicHostRefusal(PURGE_ROUTE);
 	const provisioning = evaluatePurgeProvisioning(env);
 	if (!provisioning) return unprovisioned();
 	if (!hasValidBearer(request, provisioning.secret)) {
@@ -301,6 +319,7 @@ export async function handlePurgeConfirm(
 	env: Env,
 	now = unixNow(),
 ): Promise<Response> {
+	if (!isPurgeInternalCaller(request)) return publicHostRefusal(PURGE_CONFIRM_ROUTE);
 	const provisioning = evaluatePurgeProvisioning(env);
 	if (!provisioning) return unprovisioned();
 	if (!hasValidBearer(request, provisioning.secret)) {

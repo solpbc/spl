@@ -77,7 +77,8 @@ type AuthorizedReason =
 	| "owner_purge_attestation_lifetime"
 	| "owner_purge_binding_mismatch"
 	| "owner_purge_binding_absent"
-	| "owner_purge_database_error";
+	| "owner_purge_database_error"
+	| "owner_purge_public_host";
 
 export interface LogFields {
 	event: LogEvent;

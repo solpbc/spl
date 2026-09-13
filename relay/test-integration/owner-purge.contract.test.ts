@@ -226,6 +226,61 @@ describe("owner-purge v1 admission boundaries", () => {
 		expect(await bindingCount()).toBe(0);
 	});
 
+	it("refuses valid-bearer submit and confirm arriving on the public host, before D1 lookup", async () => {
+		const requestEnvelope = fixtureRequest(RELAY_V1_NAME);
+		for (const instanceId of fixtureInstanceIds(requestEnvelope)) await seedInstance(instanceId);
+
+		const databaseSpy = vi.spyOn(env.DB, "prepare");
+		const batchSpy = vi.spyOn(env.DB, "batch");
+		try {
+			const submitRes = await SELF.fetch(`https://link.solstone.app${REQUEST_ROUTE}`, {
+				method: "POST",
+				headers: {
+					authorization: `Bearer ${env.PURGE_SECRET}`,
+					"content-type": "application/json",
+				},
+				body: JSON.stringify(requestEnvelope),
+			});
+			expect(submitRes.status).toBe(401);
+			expect(await submitRes.json()).toEqual({ error: "unauthorized" });
+
+			const confirmRes = await SELF.fetch(`https://link.solstone.app${CONFIRM_ROUTE}`, {
+				method: "POST",
+				headers: {
+					authorization: `Bearer ${env.PURGE_SECRET}`,
+					"content-type": "application/json",
+				},
+				body: JSON.stringify(
+					confirmationWrapper(requestEnvelope, fixtureAttestation(RELAY_V1_NAME)),
+				),
+			});
+			expect(confirmRes.status).toBe(401);
+			expect(await confirmRes.json()).toEqual({ error: "unauthorized" });
+
+			expect(databaseSpy).not.toHaveBeenCalled();
+			expect(batchSpy).not.toHaveBeenCalled();
+			expect(await bindingCount()).toBe(0);
+			for (const instanceId of fixtureInstanceIds(requestEnvelope)) {
+				expect(await rowCount("instances", instanceId)).toBe(1);
+				expect(await rowCount("pending_grants", instanceId)).toBe(1);
+			}
+		} finally {
+			databaseSpy.mockRestore();
+			batchSpy.mockRestore();
+		}
+	});
+
+	it("keeps the readiness probe reachable from the public host", async () => {
+		const res = await SELF.fetch(`https://link.solstone.app${READINESS_ROUTE}`, {
+			headers: {
+				authorization: `Bearer ${env.PURGE_SECRET}`,
+				"x-owner-purge-readiness-nonce": READINESS_NONCE,
+			},
+		});
+		expect(res.status).toBe(204);
+		expect(res.headers.get("x-owner-purge-readiness-proof-v1")).toBe(READINESS_PROOF_V1);
+	});
+
 	it("rejects non-GET/HEAD methods on readiness path with bodyless 405 and Allow header before nonce, auth, or D1 lookup", async () => {
 		const databaseSpy = vi.spyOn(env.DB, "prepare");
 		const batchSpy = vi.spyOn(env.DB, "batch");
