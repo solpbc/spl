@@ -164,7 +164,8 @@ v1 is asymmetric: the **dialing side** (mobile) drives keepalive on a direct-mod
 
 - The mobile client opens a keepalive task immediately after the mux is established on a direct-mode candidate, and pings at a fixed cadence of **500 ms**.
 - Each outstanding `PING` is tracked by its nonce. A `PONG` whose payload matches the outstanding nonce clears the pending state.
-- If **3 consecutive pings** elapse without a matching `PONG` (≈1.5 s of silence), the client treats the direct TLS path as lost and tears it down, then re-dials with relay-preferred candidates.
+- If **3 consecutive pings** elapse without a matching `PONG` **and the peer has sent no frame on any application stream in that window** (≈1.5 s of silence), the client treats the direct TLS path as lost and tears it down, then re-dials with relay-preferred candidates.
+- A late `PONG` by itself is not loss. The initiator's outbound scheduler puts a `PING` ahead of DATA it has not yet handed to the transport, but not ahead of DATA the transport has already buffered below the framing layer, so during a bulk transfer the `PING` reaches the peer only after those bytes do and the reply is late by the buffer's drain time. A peer that is granting `WINDOW` or writing to a stream in that same window is provably alive. The client keeps pinging through it and treats the path as lost only once no `PONG` has matched for a bounded wall-clock limit (30 s in the shipped mobile client), which stays under the outer HTTP probe watchdog so a path that is truly wedged is still caught.
 
 These cadences are mobile-side policy; the framing layer does not encode them. A future version MAY change the cadence or add SETTINGS-style negotiation. Receivers MUST tolerate `PING` at any cadence — including bursts — without rate-limiting.
 
