@@ -14,7 +14,7 @@
 
 import { DurableObject } from "cloudflare:workers";
 import type { Env } from "./env";
-import { type Direction, type LogFields, log } from "./logging";
+import { type CloseReason, type Direction, type LogFields, log } from "./logging";
 import { verifyToken } from "./tokens";
 
 interface Attachment {
@@ -59,6 +59,8 @@ const LISTENER_GENERATION_KEY = "listener_generation";
 
 const PAIR_DIAL_FAILED_LIMIT = 50;
 const PAIR_WINDOW_TTL_MS = 7 * 60 * 1000;
+
+type TunnelCloseReason = CloseReason | "pending_buffer_overflow";
 
 export class InstanceDO extends DurableObject<Env> {
 	// Buffers keyed by WS-tag destination (e.g., `tunnel_home:<id>`).
@@ -416,8 +418,8 @@ export class InstanceDO extends DurableObject<Env> {
 		try {
 			peers[0].send(message);
 		} catch {
-			// If forwarding fails, let the close propagation path handle
-			// both sides. Do NOT retry — the peer is gone.
+			log({ event: "internal_error", reason: "forward_send_failed" });
+			this.closeTunnel(tunnelId, CLOSE_CODE_INTERNAL_ERROR, "forward_send_failed");
 			return;
 		}
 	}
@@ -625,7 +627,7 @@ export class InstanceDO extends DurableObject<Env> {
 	private closeTunnel(
 		tunnelId: string,
 		code: number,
-		reason: string,
+		reason: TunnelCloseReason,
 		originatingRole?: Attachment["role"],
 	): void {
 		const homeTag = tagTunnelHome(tunnelId);

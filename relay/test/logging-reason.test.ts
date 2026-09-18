@@ -8,6 +8,7 @@ const authored: LogFields["reason"] = "listen_replaced";
 const closeAuthored: LogFields["reason"] = "ws_error";
 const attestation: LogFields["reason"] = "attestation_expired";
 const close: CloseReason = "peer_closed";
+const forwarding: CloseReason = "forward_send_failed";
 // @ts-expect-error General authored reasons are not close classifications.
 const badClose: CloseReason = "listen_replaced";
 // @ts-expect-error Novel reasons are rejected at the logging boundary.
@@ -15,6 +16,8 @@ const novel: LogFields["reason"] = "totally-made-up-reason";
 
 describe("logging reason types", () => {
 	it("keeps runtime test discovery satisfied", () => {
-		expect([authored, closeAuthored, attestation, close, badClose, novel]).toHaveLength(6);
+		expect([authored, closeAuthored, attestation, close, forwarding, badClose, novel]).toHaveLength(
+			7,
+		);
 	});
 });
