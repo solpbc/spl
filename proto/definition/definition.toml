@@ -1,4 +1,4 @@
-bundle_semver = "7.0.0"
+bundle_semver = "8.0.0"
 
 # Citation markers are exact source substrings. The longer markers below are
 # deliberate: the obvious markers `0x01` = IPv4, first 16 bytes of SHA-256
@@ -25,19 +25,27 @@ marker = "`192.168.0.0/16`"
 
 [citations.allow_link_local]
 document = "proto/pairing.md"
-marker = "IPv4 link-local `169.254.0.0/16`"
+marker = "link-local (`169.254.0.0/16`)"
 
 [citations.allow_shared]
 document = "proto/pairing.md"
-marker = "RFC 6598 shared address space `100.64.0.0/10`"
+marker = "(`100.64.0.0/10`)"
 
 [citations.allow_ula]
 document = "proto/pairing.md"
-marker = "IPv6 ULA `fc00::/7`"
+marker = "ULA `fc00::/7`"
 
 [citations.allow_loopback]
 document = "proto/pairing.md"
-marker = "`fc00::/7`, loopback). v1 refuses every other address at this step"
+marker = "IPv4 link-local (`169.254.0.0/16`), loopback, and public alike"
+
+[citations.reserved_unspecified]
+document = "proto/pairing.md"
+marker = "unspecified network `0.0.0.0/8`"
+
+[citations.reserved_multicast]
+document = "proto/pairing.md"
+marker = "`224.0.0.0/3` (which also covers the broadcast address)"
 
 [citations.form_04]
 document = "proto/pairing.md"
@@ -193,6 +201,7 @@ family = "ipv4"
 kind = "cidr"
 value = "10.0.0.0/8"
 citation = "allow_10"
+decision = "admit"
 
 [[address_allow_list]]
 id = "direct_address.172_16_12"
@@ -200,6 +209,7 @@ family = "ipv4"
 kind = "cidr"
 value = "172.16.0.0/12"
 citation = "allow_172"
+decision = "admit"
 
 [[address_allow_list]]
 id = "direct_address.192_168_16"
@@ -207,6 +217,7 @@ family = "ipv4"
 kind = "cidr"
 value = "192.168.0.0/16"
 citation = "allow_192"
+decision = "admit"
 
 [[address_allow_list]]
 id = "direct_address.ipv4_link_local"
@@ -214,6 +225,7 @@ family = "ipv4"
 kind = "cidr"
 value = "169.254.0.0/16"
 citation = "allow_link_local"
+decision = "admit"
 
 [[address_allow_list]]
 id = "direct_address.rfc6598_shared"
@@ -221,6 +233,7 @@ family = "ipv4"
 kind = "cidr"
 value = "100.64.0.0/10"
 citation = "allow_shared"
+decision = "admit"
 
 [[address_allow_list]]
 id = "direct_address.ipv6_ula"
@@ -228,6 +241,7 @@ family = "ipv6"
 kind = "cidr"
 value = "fc00::/7"
 citation = "allow_ula"
+decision = "admit"
 
 [[address_allow_list]]
 id = "direct_address.loopback"
@@ -236,6 +250,23 @@ kind = "source_term"
 value = "loopback"
 citation = "allow_loopback"
 gap_ref = "gap.address_policy.loopback_scope"
+decision = "admit"
+
+[[address_allow_list]]
+id = "direct_address.reserved_unspecified"
+family = "ipv4"
+kind = "cidr"
+value = "0.0.0.0/8"
+citation = "reserved_unspecified"
+decision = "refuse"
+
+[[address_allow_list]]
+id = "direct_address.reserved_multicast_and_above"
+family = "ipv4"
+kind = "cidr"
+value = "224.0.0.0/3"
+citation = "reserved_multicast"
+decision = "refuse"
 
 [[pin_domains]]
 id = "ca_cert_der_sha256_prefix16"
@@ -522,11 +553,11 @@ values = [
 
 [[vocabularies]]
 id = "direct_address_policy.allow_list"
-classification = "closed"
-unknown_value_behavior = "reject"
+classification = "extensible"
+unknown_value_behavior = "admit"
 source_pointer = "/address_allow_list"
 citation = "allow_loopback"
-values = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "169.254.0.0/16", "100.64.0.0/10", "fc00::/7", "loopback"]
+values = ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "169.254.0.0/16", "100.64.0.0/10", "fc00::/7", "loopback", "0.0.0.0/8", "224.0.0.0/3"]
 
 [[vocabularies]]
 id = "pair_link.pin_domain"

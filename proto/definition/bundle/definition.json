@@ -5,6 +5,7 @@
         "document": "proto/pairing.md",
         "marker": "`10.0.0.0/8`"
       },
+      "decision": "admit",
       "family": "ipv4",
       "gap_ref": null,
       "id": "direct_address.10_8",
@@ -16,6 +17,7 @@
         "document": "proto/pairing.md",
         "marker": "`172.16.0.0/12`"
       },
+      "decision": "admit",
       "family": "ipv4",
       "gap_ref": null,
       "id": "direct_address.172_16_12",
@@ -27,6 +29,7 @@
         "document": "proto/pairing.md",
         "marker": "`192.168.0.0/16`"
       },
+      "decision": "admit",
       "family": "ipv4",
       "gap_ref": null,
       "id": "direct_address.192_168_16",
@@ -36,8 +39,9 @@
     {
       "citation": {
         "document": "proto/pairing.md",
-        "marker": "IPv4 link-local `169.254.0.0/16`"
+        "marker": "link-local (`169.254.0.0/16`)"
       },
+      "decision": "admit",
       "family": "ipv4",
       "gap_ref": null,
       "id": "direct_address.ipv4_link_local",
@@ -47,8 +51,9 @@
     {
       "citation": {
         "document": "proto/pairing.md",
-        "marker": "RFC 6598 shared address space `100.64.0.0/10`"
+        "marker": "(`100.64.0.0/10`)"
       },
+      "decision": "admit",
       "family": "ipv4",
       "gap_ref": null,
       "id": "direct_address.rfc6598_shared",
@@ -58,8 +63,9 @@
     {
       "citation": {
         "document": "proto/pairing.md",
-        "marker": "IPv6 ULA `fc00::/7`"
+        "marker": "ULA `fc00::/7`"
       },
+      "decision": "admit",
       "family": "ipv6",
       "gap_ref": null,
       "id": "direct_address.ipv6_ula",
@@ -69,13 +75,38 @@
     {
       "citation": {
         "document": "proto/pairing.md",
-        "marker": "`fc00::/7`, loopback). v1 refuses every other address at this step"
+        "marker": "IPv4 link-local (`169.254.0.0/16`), loopback, and public alike"
       },
+      "decision": "admit",
       "family": "unspecified_in_source_documents",
       "gap_ref": "gap.address_policy.loopback_scope",
       "id": "direct_address.loopback",
       "kind": "source_term",
       "value": "loopback"
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "unspecified network `0.0.0.0/8`"
+      },
+      "decision": "refuse",
+      "family": "ipv4",
+      "gap_ref": null,
+      "id": "direct_address.reserved_unspecified",
+      "kind": "cidr",
+      "value": "0.0.0.0/8"
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "`224.0.0.0/3` (which also covers the broadcast address)"
+      },
+      "decision": "refuse",
+      "family": "ipv4",
+      "gap_ref": null,
+      "id": "direct_address.reserved_multicast_and_above",
+      "kind": "cidr",
+      "value": "224.0.0.0/3"
     }
   ],
   "ca_pin_tags": [
@@ -472,7 +503,7 @@
     {
       "citation": {
         "document": "proto/pairing.md",
-        "marker": "`fc00::/7`, loopback). v1 refuses every other address at this step"
+        "marker": "IPv4 link-local (`169.254.0.0/16`), loopback, and public alike"
       },
       "description": "The source document says loopback without specifying IPv4 127.0.0.0/8, IPv6 ::1/128, or both.",
       "id": "gap.address_policy.loopback_scope",
@@ -839,12 +870,12 @@
     {
       "citation": {
         "document": "proto/pairing.md",
-        "marker": "`fc00::/7`, loopback). v1 refuses every other address at this step"
+        "marker": "IPv4 link-local (`169.254.0.0/16`), loopback, and public alike"
       },
-      "classification": "closed",
+      "classification": "extensible",
       "id": "direct_address_policy.allow_list",
       "source_pointer": "/address_allow_list",
-      "unknown_value_behavior": "reject",
+      "unknown_value_behavior": "admit",
       "values": [
         "10.0.0.0/8",
         "172.16.0.0/12",
@@ -852,7 +883,9 @@
         "169.254.0.0/16",
         "100.64.0.0/10",
         "fc00::/7",
-        "loopback"
+        "loopback",
+        "0.0.0.0/8",
+        "224.0.0.0/3"
       ]
     },
     {

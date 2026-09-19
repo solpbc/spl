@@ -1,18 +1,18 @@
 {
   "bundle_schema_identity": "spl.pair-link-definition-bundle.schema.v1",
-  "bundle_semver": "7.0.0",
+  "bundle_semver": "8.0.0",
   "files": [
     {
       "path": "definition.json",
-      "sha256": "ef77f81ef7f74d2225935885d682457b8b9c9af9e61f67477ac6e4dfc93363ad"
+      "sha256": "0507791c12f71b595cab3b49b0e47848137c2c5f8ee9340d9e3b5205a28218df"
     },
     {
       "path": "definition.schema.json",
-      "sha256": "e52b0fa33e732de6a48336571e541c6fb4d6551de047c3b4e037323e0fe5f69a"
+      "sha256": "2050eb864994751ba19f0ab6f5a2ab5ffbf2ce4483c0ed531a667a1e9a574f55"
     },
     {
       "path": "vectors.json",
-      "sha256": "edebc1cfde34cf379e4dc16fcf43eda9254da7141bdce4f7a9d85991f9b6d270"
+      "sha256": "9a7833f0e0206b03981a14459e0a1b90070dc562e4cd1bf162cb541ce3d0a8de"
     },
     {
       "path": "vectors.schema.json",
@@ -25,19 +25,19 @@
       "id": "definition.authored_source",
       "path": "proto/definition/definition.toml",
       "role": "authored_source",
-      "sha256": "cfd7f31e55e14d591795d790757348a287d57a4fc257350d72a276134bd32652"
+      "sha256": "a6d430d00aa7028262d0baf059453de3f64152cee95fbe6719d78e0731eccb44"
     },
     {
       "id": "definition.conformance_corpus",
       "path": "proto/definition/vectors.json",
       "role": "conformance_corpus",
-      "sha256": "edebc1cfde34cf379e4dc16fcf43eda9254da7141bdce4f7a9d85991f9b6d270"
+      "sha256": "9a7833f0e0206b03981a14459e0a1b90070dc562e4cd1bf162cb541ce3d0a8de"
     },
     {
       "id": "definition.generator",
       "path": "proto/definition/generate.py",
       "role": "generator",
-      "sha256": "58a6c3ad93c7f0f72b8ef62adff6a2cb9312f6c06df92833d401f17233b7b513"
+      "sha256": "13ffb9c7b5bc6b2e2abef57470d3cf48af4efe06416d4d44ce0ff78e01a3e8ac"
     },
     {
       "id": "source.identity",
@@ -55,7 +55,7 @@
       "id": "source.pairing",
       "path": "proto/pairing.md",
       "role": "normative_source_document",
-      "sha256": "335e68568c8cb8fb4d378c521b0035bdfcc021505f84f91751f68ee8cfd3b03f"
+      "sha256": "b755d4a385e469dcb9eb8680b05e37515e7c7f6b585589e52b0b0dd8e16123c8"
     }
   ],
   "schema_dialect_uri": "https://json-schema.org/draft/2020-12/schema"

@@ -55,6 +55,9 @@ EXPECTED_VECTOR_IDS = (
     "direct.admission.loopback.below",
     "direct.admission.loopback.lower",
     "direct.admission.loopback.upper",
+    "direct.admission.reserved-high.below",
+    "direct.admission.reserved-high.lower",
+    "direct.admission.reserved-high.upper",
     "direct.admission.rfc1918-10.above",
     "direct.admission.rfc1918-10.below",
     "direct.admission.rfc1918-10.lower",
@@ -71,6 +74,9 @@ EXPECTED_VECTOR_IDS = (
     "direct.admission.rfc6598.below",
     "direct.admission.rfc6598.lower",
     "direct.admission.rfc6598.upper",
+    "direct.admission.unspecified.above",
+    "direct.admission.unspecified.lower",
+    "direct.admission.unspecified.upper",
     "identity.jid.canonical",
     "identity.jid.compressed-point",
     "identity.jid.explicit-parameters",
@@ -91,7 +97,7 @@ EXPECTED_VECTOR_IDS = (
     "pair.v04.truncated.8",
     "pair.v04.unsupported-address-tag",
     "pair.v05.admission.all-allowed",
-    "pair.v05.admission.mixed-refused",
+    "pair.v05.admission.mixed-private-and-public",
     "pair.v05.count.0.refuse",
     "pair.v05.count.1",
     "pair.v05.count.2",
@@ -144,12 +150,12 @@ EXPECTED_DECLARED_VECTOR_IDS = (
 EXPECTED_RECORDED_VECTOR_IDS = tuple(
     vector_id for vector_id in EXPECTED_VECTOR_IDS if vector_id not in EXPECTED_DECLARED_VECTOR_IDS
 )
-assert len(EXPECTED_VECTOR_IDS) == 78
+assert len(EXPECTED_VECTOR_IDS) == 84
 assert EXPECTED_VECTOR_IDS == tuple(sorted(set(EXPECTED_VECTOR_IDS)))
 assert len(EXPECTED_DECLARED_VECTOR_IDS) == 14
 assert EXPECTED_DECLARED_VECTOR_IDS == tuple(sorted(set(EXPECTED_DECLARED_VECTOR_IDS)))
 assert set(EXPECTED_DECLARED_VECTOR_IDS) < set(EXPECTED_VECTOR_IDS)
-assert len(EXPECTED_RECORDED_VECTOR_IDS) == 64
+assert len(EXPECTED_RECORDED_VECTOR_IDS) == 70
 
 SEMVER_RE = re.compile(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -198,6 +204,7 @@ RECORD_SCHEMAS: dict[str, dict[str, Any]] = {
             "value": STRING,
             "citation": CITATION_REF,
             "gap_ref": GAP_REF,
+            "decision": {"enum": ["admit", "refuse"]},
         }
     ),
     "form_field": object_schema(
@@ -847,6 +854,7 @@ def build_definition(source: dict[str, Any], failures: Failures) -> dict[str, An
             "value": item.get("value"),
             "citation": cite(item),
             "gap_ref": item.get("gap_ref"),
+            "decision": item.get("decision"),
         }
         for item in source.get("address_allow_list", [])
         if isinstance(item, dict)

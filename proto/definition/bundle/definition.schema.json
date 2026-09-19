@@ -67,6 +67,12 @@
         "citation": {
           "$ref": "#/$defs/citation"
         },
+        "decision": {
+          "enum": [
+            "admit",
+            "refuse"
+          ]
+        },
         "family": {
           "enum": [
             "ipv4",
@@ -106,7 +112,8 @@
         "kind",
         "value",
         "citation",
-        "gap_ref"
+        "gap_ref",
+        "decision"
       ],
       "type": "object"
     },

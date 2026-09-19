@@ -6,6 +6,8 @@
     "direct_address.192_168_16",
     "direct_address.ipv4_link_local",
     "direct_address.loopback",
+    "direct_address.reserved_multicast_and_above",
+    "direct_address.reserved_unspecified",
     "direct_address.rfc6598_shared",
     "direct_address_policy.allow_list",
     "gap.addr_type.unknown_behavior",
@@ -53,12 +55,12 @@
     {
       "citation": {
         "document": "proto/pairing.md",
-        "marker": "Verifies every candidate address is in the explicit direct-pair allow-list"
+        "marker": "Verifies every IPv4 candidate address is not the unspecified network `0.0.0.0/8` and not multicast-or-reserved `224.0.0.0/3`"
       },
       "document_literals": [],
       "entry_digests": {
-        "direct_address.ipv4_link_local": "fa2b77b37d99ba418b2a6b2e7801668c3d23195f9b4f7b3389fade051404b7c8",
-        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "direct_address.ipv4_link_local": "d72e74b06899de4774410484f03bea24af8c7b59664c148c78d75a3f4ea0e9bc",
+        "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
         "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
         "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
@@ -70,11 +72,15 @@
         "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
       },
       "expected": {
-        "error": {
-          "address": "169.255.0.0",
-          "kind": "disallowed_direct_ipv4"
-        },
-        "result": "error"
+        "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
+        "candidates": [
+          {
+            "host": "169.255.0.0",
+            "port": 7070
+          }
+        ],
+        "nonce_hex": "a1b2c3d4e5f607181122334455667788",
+        "result": "direct"
       },
       "id": "direct.admission.link-local.above",
       "input": {
@@ -88,12 +94,12 @@
     {
       "citation": {
         "document": "proto/pairing.md",
-        "marker": "Verifies every candidate address is in the explicit direct-pair allow-list"
+        "marker": "Verifies every IPv4 candidate address is not the unspecified network `0.0.0.0/8` and not multicast-or-reserved `224.0.0.0/3`"
       },
       "document_literals": [],
       "entry_digests": {
-        "direct_address.ipv4_link_local": "fa2b77b37d99ba418b2a6b2e7801668c3d23195f9b4f7b3389fade051404b7c8",
-        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "direct_address.ipv4_link_local": "d72e74b06899de4774410484f03bea24af8c7b59664c148c78d75a3f4ea0e9bc",
+        "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
         "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
         "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
@@ -105,11 +111,15 @@
         "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
       },
       "expected": {
-        "error": {
-          "address": "169.253.255.255",
-          "kind": "disallowed_direct_ipv4"
-        },
-        "result": "error"
+        "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
+        "candidates": [
+          {
+            "host": "169.253.255.255",
+            "port": 7070
+          }
+        ],
+        "nonce_hex": "a1b2c3d4e5f607181122334455667788",
+        "result": "direct"
       },
       "id": "direct.admission.link-local.below",
       "input": {
@@ -127,8 +137,8 @@
       },
       "document_literals": [],
       "entry_digests": {
-        "direct_address.ipv4_link_local": "fa2b77b37d99ba418b2a6b2e7801668c3d23195f9b4f7b3389fade051404b7c8",
-        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "direct_address.ipv4_link_local": "d72e74b06899de4774410484f03bea24af8c7b59664c148c78d75a3f4ea0e9bc",
+        "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
         "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
         "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
@@ -162,12 +172,12 @@
     {
       "citation": {
         "document": "proto/pairing.md",
-        "marker": "Verifies every candidate address is in the explicit direct-pair allow-list"
+        "marker": "Verifies every IPv4 candidate address is not the unspecified network `0.0.0.0/8` and not multicast-or-reserved `224.0.0.0/3`"
       },
       "document_literals": [],
       "entry_digests": {
-        "direct_address.ipv4_link_local": "fa2b77b37d99ba418b2a6b2e7801668c3d23195f9b4f7b3389fade051404b7c8",
-        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "direct_address.ipv4_link_local": "d72e74b06899de4774410484f03bea24af8c7b59664c148c78d75a3f4ea0e9bc",
+        "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
         "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
         "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
@@ -201,12 +211,12 @@
     {
       "citation": {
         "document": "proto/pairing.md",
-        "marker": "Verifies every candidate address is in the explicit direct-pair allow-list"
+        "marker": "Verifies every IPv4 candidate address is not the unspecified network `0.0.0.0/8` and not multicast-or-reserved `224.0.0.0/3`"
       },
       "document_literals": [],
       "entry_digests": {
-        "direct_address.ipv4_link_local": "fa2b77b37d99ba418b2a6b2e7801668c3d23195f9b4f7b3389fade051404b7c8",
-        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "direct_address.ipv4_link_local": "d72e74b06899de4774410484f03bea24af8c7b59664c148c78d75a3f4ea0e9bc",
+        "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
         "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
         "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
@@ -240,13 +250,13 @@
     {
       "citation": {
         "document": "proto/pairing.md",
-        "marker": "Verifies every candidate address is in the explicit direct-pair allow-list"
+        "marker": "Verifies every IPv4 candidate address is not the unspecified network `0.0.0.0/8` and not multicast-or-reserved `224.0.0.0/3`"
       },
       "document_literals": [],
       "entry_digests": {
-        "direct_address.loopback": "54fea13b4d5c794bfe7d37857c0e8182bbfa30db7d757e8fef41cc7905677996",
-        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
-        "gap.address_policy.loopback_scope": "23820dd05cb0b24f864cc1df8066263d2d5bffb276df6edf9294eba124597ed3",
+        "direct_address.loopback": "ff882ed7a8b72e1ac18b6c68453b8509a4736b9b0475e4e8db7c6908d54b6b65",
+        "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
+        "gap.address_policy.loopback_scope": "b8f91fa1f64e1e8e6754de6db8a3b326e90ab826fd71dc5f459e1554bc225c87",
         "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
         "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
@@ -258,11 +268,15 @@
         "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
       },
       "expected": {
-        "error": {
-          "address": "128.0.0.0",
-          "kind": "disallowed_direct_ipv4"
-        },
-        "result": "error"
+        "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
+        "candidates": [
+          {
+            "host": "128.0.0.0",
+            "port": 7070
+          }
+        ],
+        "nonce_hex": "a1b2c3d4e5f607181122334455667788",
+        "result": "direct"
       },
       "id": "direct.admission.loopback.above",
       "input": {
@@ -276,13 +290,13 @@
     {
       "citation": {
         "document": "proto/pairing.md",
-        "marker": "Verifies every candidate address is in the explicit direct-pair allow-list"
+        "marker": "Verifies every IPv4 candidate address is not the unspecified network `0.0.0.0/8` and not multicast-or-reserved `224.0.0.0/3`"
       },
       "document_literals": [],
       "entry_digests": {
-        "direct_address.loopback": "54fea13b4d5c794bfe7d37857c0e8182bbfa30db7d757e8fef41cc7905677996",
-        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
-        "gap.address_policy.loopback_scope": "23820dd05cb0b24f864cc1df8066263d2d5bffb276df6edf9294eba124597ed3",
+        "direct_address.loopback": "ff882ed7a8b72e1ac18b6c68453b8509a4736b9b0475e4e8db7c6908d54b6b65",
+        "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
+        "gap.address_policy.loopback_scope": "b8f91fa1f64e1e8e6754de6db8a3b326e90ab826fd71dc5f459e1554bc225c87",
         "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
         "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
@@ -294,11 +308,15 @@
         "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
       },
       "expected": {
-        "error": {
-          "address": "126.255.255.255",
-          "kind": "disallowed_direct_ipv4"
-        },
-        "result": "error"
+        "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
+        "candidates": [
+          {
+            "host": "126.255.255.255",
+            "port": 7070
+          }
+        ],
+        "nonce_hex": "a1b2c3d4e5f607181122334455667788",
+        "result": "direct"
       },
       "id": "direct.admission.loopback.below",
       "input": {
@@ -312,13 +330,13 @@
     {
       "citation": {
         "document": "proto/pairing.md",
-        "marker": "Verifies every candidate address is in the explicit direct-pair allow-list"
+        "marker": "Verifies every IPv4 candidate address is not the unspecified network `0.0.0.0/8` and not multicast-or-reserved `224.0.0.0/3`"
       },
       "document_literals": [],
       "entry_digests": {
-        "direct_address.loopback": "54fea13b4d5c794bfe7d37857c0e8182bbfa30db7d757e8fef41cc7905677996",
-        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
-        "gap.address_policy.loopback_scope": "23820dd05cb0b24f864cc1df8066263d2d5bffb276df6edf9294eba124597ed3",
+        "direct_address.loopback": "ff882ed7a8b72e1ac18b6c68453b8509a4736b9b0475e4e8db7c6908d54b6b65",
+        "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
+        "gap.address_policy.loopback_scope": "b8f91fa1f64e1e8e6754de6db8a3b326e90ab826fd71dc5f459e1554bc225c87",
         "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
         "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
@@ -352,13 +370,13 @@
     {
       "citation": {
         "document": "proto/pairing.md",
-        "marker": "Verifies every candidate address is in the explicit direct-pair allow-list"
+        "marker": "Verifies every IPv4 candidate address is not the unspecified network `0.0.0.0/8` and not multicast-or-reserved `224.0.0.0/3`"
       },
       "document_literals": [],
       "entry_digests": {
-        "direct_address.loopback": "54fea13b4d5c794bfe7d37857c0e8182bbfa30db7d757e8fef41cc7905677996",
-        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
-        "gap.address_policy.loopback_scope": "23820dd05cb0b24f864cc1df8066263d2d5bffb276df6edf9294eba124597ed3",
+        "direct_address.loopback": "ff882ed7a8b72e1ac18b6c68453b8509a4736b9b0475e4e8db7c6908d54b6b65",
+        "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
+        "gap.address_policy.loopback_scope": "b8f91fa1f64e1e8e6754de6db8a3b326e90ab826fd71dc5f459e1554bc225c87",
         "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
         "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
@@ -392,12 +410,51 @@
     {
       "citation": {
         "document": "proto/pairing.md",
-        "marker": "Verifies every candidate address is in the explicit direct-pair allow-list"
+        "marker": "Verifies every IPv4 candidate address is not the unspecified network `0.0.0.0/8` and not multicast-or-reserved `224.0.0.0/3`"
       },
       "document_literals": [],
       "entry_digests": {
-        "direct_address.10_8": "f6f046dfa3f60deacc45b30553e8de6e54312b36369fe65e74df16df7bc0125d",
-        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "direct_address.reserved_multicast_and_above": "fc4ae2dd7652800fb681d176d547bed75aa026c0b4d12e72b4e83e6b015356bf",
+        "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
+        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
+        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
+        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
+        "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
+        "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
+        "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
+        "candidates": [
+          {
+            "host": "223.255.255.255",
+            "port": 7070
+          }
+        ],
+        "nonce_hex": "a1b2c3d4e5f607181122334455667788",
+        "result": "direct"
+      },
+      "id": "direct.admission.reserved-high.below",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "0401dfffffff1b9ea1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Verifies every IPv4 candidate address is not the unspecified network `0.0.0.0/8` and not multicast-or-reserved `224.0.0.0/3`"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "direct_address.reserved_multicast_and_above": "fc4ae2dd7652800fb681d176d547bed75aa026c0b4d12e72b4e83e6b015356bf",
+        "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
         "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
         "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
@@ -410,10 +467,84 @@
       },
       "expected": {
         "error": {
-          "address": "11.0.0.0",
+          "address": "224.0.0.0",
           "kind": "disallowed_direct_ipv4"
         },
         "result": "error"
+      },
+      "id": "direct.admission.reserved-high.lower",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "0401e00000001b9ea1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Verifies every IPv4 candidate address is not the unspecified network `0.0.0.0/8` and not multicast-or-reserved `224.0.0.0/3`"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "direct_address.reserved_multicast_and_above": "fc4ae2dd7652800fb681d176d547bed75aa026c0b4d12e72b4e83e6b015356bf",
+        "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
+        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
+        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
+        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
+        "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
+        "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
+        "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "error": {
+          "address": "255.255.255.255",
+          "kind": "disallowed_direct_ipv4"
+        },
+        "result": "error"
+      },
+      "id": "direct.admission.reserved-high.upper",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "0401ffffffff1b9ea1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Verifies every IPv4 candidate address is not the unspecified network `0.0.0.0/8` and not multicast-or-reserved `224.0.0.0/3`"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "direct_address.10_8": "f82715c86ff9a66ce292fd8f992452de75b1b8e975c09bd24a68013ae045bde0",
+        "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
+        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
+        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
+        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
+        "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
+        "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
+        "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
+        "candidates": [
+          {
+            "host": "11.0.0.0",
+            "port": 7070
+          }
+        ],
+        "nonce_hex": "a1b2c3d4e5f607181122334455667788",
+        "result": "direct"
       },
       "id": "direct.admission.rfc1918-10.above",
       "input": {
@@ -427,12 +558,12 @@
     {
       "citation": {
         "document": "proto/pairing.md",
-        "marker": "Verifies every candidate address is in the explicit direct-pair allow-list"
+        "marker": "Verifies every IPv4 candidate address is not the unspecified network `0.0.0.0/8` and not multicast-or-reserved `224.0.0.0/3`"
       },
       "document_literals": [],
       "entry_digests": {
-        "direct_address.10_8": "f6f046dfa3f60deacc45b30553e8de6e54312b36369fe65e74df16df7bc0125d",
-        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "direct_address.10_8": "f82715c86ff9a66ce292fd8f992452de75b1b8e975c09bd24a68013ae045bde0",
+        "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
         "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
         "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
@@ -444,11 +575,15 @@
         "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
       },
       "expected": {
-        "error": {
-          "address": "9.255.255.255",
-          "kind": "disallowed_direct_ipv4"
-        },
-        "result": "error"
+        "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
+        "candidates": [
+          {
+            "host": "9.255.255.255",
+            "port": 7070
+          }
+        ],
+        "nonce_hex": "a1b2c3d4e5f607181122334455667788",
+        "result": "direct"
       },
       "id": "direct.admission.rfc1918-10.below",
       "input": {
@@ -462,12 +597,12 @@
     {
       "citation": {
         "document": "proto/pairing.md",
-        "marker": "Verifies every candidate address is in the explicit direct-pair allow-list"
+        "marker": "Verifies every IPv4 candidate address is not the unspecified network `0.0.0.0/8` and not multicast-or-reserved `224.0.0.0/3`"
       },
       "document_literals": [],
       "entry_digests": {
-        "direct_address.10_8": "f6f046dfa3f60deacc45b30553e8de6e54312b36369fe65e74df16df7bc0125d",
-        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "direct_address.10_8": "f82715c86ff9a66ce292fd8f992452de75b1b8e975c09bd24a68013ae045bde0",
+        "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
         "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
         "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
@@ -501,12 +636,12 @@
     {
       "citation": {
         "document": "proto/pairing.md",
-        "marker": "Verifies every candidate address is in the explicit direct-pair allow-list"
+        "marker": "Verifies every IPv4 candidate address is not the unspecified network `0.0.0.0/8` and not multicast-or-reserved `224.0.0.0/3`"
       },
       "document_literals": [],
       "entry_digests": {
-        "direct_address.10_8": "f6f046dfa3f60deacc45b30553e8de6e54312b36369fe65e74df16df7bc0125d",
-        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "direct_address.10_8": "f82715c86ff9a66ce292fd8f992452de75b1b8e975c09bd24a68013ae045bde0",
+        "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
         "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
         "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
@@ -540,12 +675,12 @@
     {
       "citation": {
         "document": "proto/pairing.md",
-        "marker": "Verifies every candidate address is in the explicit direct-pair allow-list"
+        "marker": "Verifies every IPv4 candidate address is not the unspecified network `0.0.0.0/8` and not multicast-or-reserved `224.0.0.0/3`"
       },
       "document_literals": [],
       "entry_digests": {
-        "direct_address.172_16_12": "7369e2b54752fce000439f36b96754bcdec069dec161bcebb3b01a30e5161405",
-        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "direct_address.172_16_12": "ab30a70dd8bc9c4676596069a82856de38f75c8a523d01a9f206a6507a525713",
+        "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
         "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
         "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
@@ -557,11 +692,15 @@
         "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
       },
       "expected": {
-        "error": {
-          "address": "172.32.0.0",
-          "kind": "disallowed_direct_ipv4"
-        },
-        "result": "error"
+        "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
+        "candidates": [
+          {
+            "host": "172.32.0.0",
+            "port": 7070
+          }
+        ],
+        "nonce_hex": "a1b2c3d4e5f607181122334455667788",
+        "result": "direct"
       },
       "id": "direct.admission.rfc1918-172.above",
       "input": {
@@ -575,12 +714,12 @@
     {
       "citation": {
         "document": "proto/pairing.md",
-        "marker": "Verifies every candidate address is in the explicit direct-pair allow-list"
+        "marker": "Verifies every IPv4 candidate address is not the unspecified network `0.0.0.0/8` and not multicast-or-reserved `224.0.0.0/3`"
       },
       "document_literals": [],
       "entry_digests": {
-        "direct_address.172_16_12": "7369e2b54752fce000439f36b96754bcdec069dec161bcebb3b01a30e5161405",
-        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "direct_address.172_16_12": "ab30a70dd8bc9c4676596069a82856de38f75c8a523d01a9f206a6507a525713",
+        "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
         "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
         "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
@@ -592,11 +731,15 @@
         "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
       },
       "expected": {
-        "error": {
-          "address": "172.15.255.255",
-          "kind": "disallowed_direct_ipv4"
-        },
-        "result": "error"
+        "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
+        "candidates": [
+          {
+            "host": "172.15.255.255",
+            "port": 7070
+          }
+        ],
+        "nonce_hex": "a1b2c3d4e5f607181122334455667788",
+        "result": "direct"
       },
       "id": "direct.admission.rfc1918-172.below",
       "input": {
@@ -610,12 +753,12 @@
     {
       "citation": {
         "document": "proto/pairing.md",
-        "marker": "Verifies every candidate address is in the explicit direct-pair allow-list"
+        "marker": "Verifies every IPv4 candidate address is not the unspecified network `0.0.0.0/8` and not multicast-or-reserved `224.0.0.0/3`"
       },
       "document_literals": [],
       "entry_digests": {
-        "direct_address.172_16_12": "7369e2b54752fce000439f36b96754bcdec069dec161bcebb3b01a30e5161405",
-        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "direct_address.172_16_12": "ab30a70dd8bc9c4676596069a82856de38f75c8a523d01a9f206a6507a525713",
+        "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
         "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
         "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
@@ -649,12 +792,12 @@
     {
       "citation": {
         "document": "proto/pairing.md",
-        "marker": "Verifies every candidate address is in the explicit direct-pair allow-list"
+        "marker": "Verifies every IPv4 candidate address is not the unspecified network `0.0.0.0/8` and not multicast-or-reserved `224.0.0.0/3`"
       },
       "document_literals": [],
       "entry_digests": {
-        "direct_address.172_16_12": "7369e2b54752fce000439f36b96754bcdec069dec161bcebb3b01a30e5161405",
-        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "direct_address.172_16_12": "ab30a70dd8bc9c4676596069a82856de38f75c8a523d01a9f206a6507a525713",
+        "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
         "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
         "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
@@ -688,12 +831,12 @@
     {
       "citation": {
         "document": "proto/pairing.md",
-        "marker": "Verifies every candidate address is in the explicit direct-pair allow-list"
+        "marker": "Verifies every IPv4 candidate address is not the unspecified network `0.0.0.0/8` and not multicast-or-reserved `224.0.0.0/3`"
       },
       "document_literals": [],
       "entry_digests": {
-        "direct_address.192_168_16": "3948e2a70405486ea02dcf6d9f8125bdcdbc2f1acc0da15f4dbaf86804a78b07",
-        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "direct_address.192_168_16": "24eb9632362751725da328b35962512ab1e2414d0c8f4d6e5d5eb93f93cc431e",
+        "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
         "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
         "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
@@ -705,11 +848,15 @@
         "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
       },
       "expected": {
-        "error": {
-          "address": "192.169.0.0",
-          "kind": "disallowed_direct_ipv4"
-        },
-        "result": "error"
+        "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
+        "candidates": [
+          {
+            "host": "192.169.0.0",
+            "port": 7070
+          }
+        ],
+        "nonce_hex": "a1b2c3d4e5f607181122334455667788",
+        "result": "direct"
       },
       "id": "direct.admission.rfc1918-192.above",
       "input": {
@@ -723,12 +870,12 @@
     {
       "citation": {
         "document": "proto/pairing.md",
-        "marker": "Verifies every candidate address is in the explicit direct-pair allow-list"
+        "marker": "Verifies every IPv4 candidate address is not the unspecified network `0.0.0.0/8` and not multicast-or-reserved `224.0.0.0/3`"
       },
       "document_literals": [],
       "entry_digests": {
-        "direct_address.192_168_16": "3948e2a70405486ea02dcf6d9f8125bdcdbc2f1acc0da15f4dbaf86804a78b07",
-        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "direct_address.192_168_16": "24eb9632362751725da328b35962512ab1e2414d0c8f4d6e5d5eb93f93cc431e",
+        "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
         "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
         "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
@@ -740,11 +887,15 @@
         "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
       },
       "expected": {
-        "error": {
-          "address": "192.167.255.255",
-          "kind": "disallowed_direct_ipv4"
-        },
-        "result": "error"
+        "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
+        "candidates": [
+          {
+            "host": "192.167.255.255",
+            "port": 7070
+          }
+        ],
+        "nonce_hex": "a1b2c3d4e5f607181122334455667788",
+        "result": "direct"
       },
       "id": "direct.admission.rfc1918-192.below",
       "input": {
@@ -758,12 +909,12 @@
     {
       "citation": {
         "document": "proto/pairing.md",
-        "marker": "Verifies every candidate address is in the explicit direct-pair allow-list"
+        "marker": "Verifies every IPv4 candidate address is not the unspecified network `0.0.0.0/8` and not multicast-or-reserved `224.0.0.0/3`"
       },
       "document_literals": [],
       "entry_digests": {
-        "direct_address.192_168_16": "3948e2a70405486ea02dcf6d9f8125bdcdbc2f1acc0da15f4dbaf86804a78b07",
-        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "direct_address.192_168_16": "24eb9632362751725da328b35962512ab1e2414d0c8f4d6e5d5eb93f93cc431e",
+        "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
         "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
         "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
@@ -797,12 +948,12 @@
     {
       "citation": {
         "document": "proto/pairing.md",
-        "marker": "Verifies every candidate address is in the explicit direct-pair allow-list"
+        "marker": "Verifies every IPv4 candidate address is not the unspecified network `0.0.0.0/8` and not multicast-or-reserved `224.0.0.0/3`"
       },
       "document_literals": [],
       "entry_digests": {
-        "direct_address.192_168_16": "3948e2a70405486ea02dcf6d9f8125bdcdbc2f1acc0da15f4dbaf86804a78b07",
-        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "direct_address.192_168_16": "24eb9632362751725da328b35962512ab1e2414d0c8f4d6e5d5eb93f93cc431e",
+        "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
         "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
         "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
@@ -836,12 +987,12 @@
     {
       "citation": {
         "document": "proto/pairing.md",
-        "marker": "Verifies every candidate address is in the explicit direct-pair allow-list"
+        "marker": "Verifies every IPv4 candidate address is not the unspecified network `0.0.0.0/8` and not multicast-or-reserved `224.0.0.0/3`"
       },
       "document_literals": [],
       "entry_digests": {
-        "direct_address.rfc6598_shared": "31d7df17472728bfafb19ea3f41c2f7a9f9218e338467386334d43fcfc8882f3",
-        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "direct_address.rfc6598_shared": "cc39ba7e807a7298913db7b65d611ed957782df8a9536e5e8840d2b5ab69fe35",
+        "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
         "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
         "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
@@ -853,11 +1004,15 @@
         "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
       },
       "expected": {
-        "error": {
-          "address": "100.128.0.0",
-          "kind": "disallowed_direct_ipv4"
-        },
-        "result": "error"
+        "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
+        "candidates": [
+          {
+            "host": "100.128.0.0",
+            "port": 7070
+          }
+        ],
+        "nonce_hex": "a1b2c3d4e5f607181122334455667788",
+        "result": "direct"
       },
       "id": "direct.admission.rfc6598.above",
       "input": {
@@ -871,12 +1026,12 @@
     {
       "citation": {
         "document": "proto/pairing.md",
-        "marker": "Verifies every candidate address is in the explicit direct-pair allow-list"
+        "marker": "Verifies every IPv4 candidate address is not the unspecified network `0.0.0.0/8` and not multicast-or-reserved `224.0.0.0/3`"
       },
       "document_literals": [],
       "entry_digests": {
-        "direct_address.rfc6598_shared": "31d7df17472728bfafb19ea3f41c2f7a9f9218e338467386334d43fcfc8882f3",
-        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "direct_address.rfc6598_shared": "cc39ba7e807a7298913db7b65d611ed957782df8a9536e5e8840d2b5ab69fe35",
+        "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
         "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
         "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
@@ -888,11 +1043,15 @@
         "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
       },
       "expected": {
-        "error": {
-          "address": "100.63.255.255",
-          "kind": "disallowed_direct_ipv4"
-        },
-        "result": "error"
+        "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
+        "candidates": [
+          {
+            "host": "100.63.255.255",
+            "port": 7070
+          }
+        ],
+        "nonce_hex": "a1b2c3d4e5f607181122334455667788",
+        "result": "direct"
       },
       "id": "direct.admission.rfc6598.below",
       "input": {
@@ -906,12 +1065,12 @@
     {
       "citation": {
         "document": "proto/pairing.md",
-        "marker": "Verifies every candidate address is in the explicit direct-pair allow-list"
+        "marker": "Verifies every IPv4 candidate address is not the unspecified network `0.0.0.0/8` and not multicast-or-reserved `224.0.0.0/3`"
       },
       "document_literals": [],
       "entry_digests": {
-        "direct_address.rfc6598_shared": "31d7df17472728bfafb19ea3f41c2f7a9f9218e338467386334d43fcfc8882f3",
-        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "direct_address.rfc6598_shared": "cc39ba7e807a7298913db7b65d611ed957782df8a9536e5e8840d2b5ab69fe35",
+        "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
         "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
         "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
@@ -945,12 +1104,12 @@
     {
       "citation": {
         "document": "proto/pairing.md",
-        "marker": "Verifies every candidate address is in the explicit direct-pair allow-list"
+        "marker": "Verifies every IPv4 candidate address is not the unspecified network `0.0.0.0/8` and not multicast-or-reserved `224.0.0.0/3`"
       },
       "document_literals": [],
       "entry_digests": {
-        "direct_address.rfc6598_shared": "31d7df17472728bfafb19ea3f41c2f7a9f9218e338467386334d43fcfc8882f3",
-        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "direct_address.rfc6598_shared": "cc39ba7e807a7298913db7b65d611ed957782df8a9536e5e8840d2b5ab69fe35",
+        "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
         "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
         "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
@@ -976,6 +1135,115 @@
       "input": {
         "encoding": "blob_hex",
         "value": "0401647fffff1b9ea1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Verifies every IPv4 candidate address is not the unspecified network `0.0.0.0/8` and not multicast-or-reserved `224.0.0.0/3`"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "direct_address.reserved_unspecified": "bdf48080cf8d02cc2ce827842663b5445c2bd530ec51d205fb7b8ba89e917bc2",
+        "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
+        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
+        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
+        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
+        "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
+        "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
+        "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
+        "candidates": [
+          {
+            "host": "1.0.0.0",
+            "port": 7070
+          }
+        ],
+        "nonce_hex": "a1b2c3d4e5f607181122334455667788",
+        "result": "direct"
+      },
+      "id": "direct.admission.unspecified.above",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "0401010000001b9ea1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Verifies every IPv4 candidate address is not the unspecified network `0.0.0.0/8` and not multicast-or-reserved `224.0.0.0/3`"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "direct_address.reserved_unspecified": "bdf48080cf8d02cc2ce827842663b5445c2bd530ec51d205fb7b8ba89e917bc2",
+        "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
+        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
+        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
+        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
+        "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
+        "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
+        "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "error": {
+          "address": "0.0.0.0",
+          "kind": "disallowed_direct_ipv4"
+        },
+        "result": "error"
+      },
+      "id": "direct.admission.unspecified.lower",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "0401000000001b9ea1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
+      },
+      "kind": "recorded",
+      "operation": "parse_pair_link",
+      "unbound_reason": null
+    },
+    {
+      "citation": {
+        "document": "proto/pairing.md",
+        "marker": "Verifies every IPv4 candidate address is not the unspecified network `0.0.0.0/8` and not multicast-or-reserved `224.0.0.0/3`"
+      },
+      "document_literals": [],
+      "entry_digests": {
+        "direct_address.reserved_unspecified": "bdf48080cf8d02cc2ce827842663b5445c2bd530ec51d205fb7b8ba89e917bc2",
+        "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
+        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
+        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
+        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
+        "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
+        "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
+        "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
+        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+      },
+      "expected": {
+        "error": {
+          "address": "0.255.255.255",
+          "kind": "disallowed_direct_ipv4"
+        },
+        "result": "error"
+      },
+      "id": "direct.admission.unspecified.upper",
+      "input": {
+        "encoding": "blob_hex",
+        "value": "040100ffffff1b9ea1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
       },
       "kind": "recorded",
       "operation": "parse_pair_link",
@@ -1186,7 +1454,7 @@
         "0G0W000258DSX8DJRFAEBXG7308J4CT4ANK7F26YNPZEZJQYQAZ028T5CY4TQKFF"
       ],
       "entry_digests": {
-        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
         "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
         "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
@@ -1198,11 +1466,15 @@
         "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
       },
       "expected": {
-        "error": {
-          "address": "192.0.2.42",
-          "kind": "disallowed_direct_ipv4"
-        },
-        "result": "error"
+        "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
+        "candidates": [
+          {
+            "host": "192.0.2.42",
+            "port": 7070
+          }
+        ],
+        "nonce_hex": "a1b2c3d4e5f607181122334455667788",
+        "result": "direct"
       },
       "id": "pair.v04.canonical.admission",
       "input": {
@@ -1446,13 +1718,13 @@
     {
       "citation": {
         "document": "proto/pairing.md",
-        "marker": "`0x05`: `192.168.1.10`, `100.64.0.5`"
+        "marker": "Verifies every IPv4 candidate address is not the unspecified network `0.0.0.0/8` and not multicast-or-reserved `224.0.0.0/3`"
       },
       "document_literals": [],
       "entry_digests": {
-        "direct_address.192_168_16": "3948e2a70405486ea02dcf6d9f8125bdcdbc2f1acc0da15f4dbaf86804a78b07",
-        "direct_address.rfc6598_shared": "31d7df17472728bfafb19ea3f41c2f7a9f9218e338467386334d43fcfc8882f3",
-        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "direct_address.192_168_16": "24eb9632362751725da328b35962512ab1e2414d0c8f4d6e5d5eb93f93cc431e",
+        "direct_address.rfc6598_shared": "cc39ba7e807a7298913db7b65d611ed957782df8a9536e5e8840d2b5ab69fe35",
+        "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
         "pair_link.0x05.candidate_count": "5731b2cade010b47098404a0cb1f22d06c03d897835a156fad9b9c6c654c5c16",
         "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
         "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
@@ -1492,12 +1764,12 @@
     {
       "citation": {
         "document": "proto/pairing.md",
-        "marker": "`0x05`: `192.168.1.10`, `192.0.2.42`"
+        "marker": "Verifies every IPv4 candidate address is not the unspecified network `0.0.0.0/8` and not multicast-or-reserved `224.0.0.0/3`"
       },
       "document_literals": [],
       "entry_digests": {
-        "direct_address.192_168_16": "3948e2a70405486ea02dcf6d9f8125bdcdbc2f1acc0da15f4dbaf86804a78b07",
-        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "direct_address.192_168_16": "24eb9632362751725da328b35962512ab1e2414d0c8f4d6e5d5eb93f93cc431e",
+        "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
         "pair_link.0x05.candidate_count": "5731b2cade010b47098404a0cb1f22d06c03d897835a156fad9b9c6c654c5c16",
         "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
         "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
@@ -1509,13 +1781,21 @@
         "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
       },
       "expected": {
-        "error": {
-          "address": "192.0.2.42",
-          "kind": "disallowed_direct_ipv4"
-        },
-        "result": "error"
+        "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
+        "candidates": [
+          {
+            "host": "192.168.1.10",
+            "port": 7070
+          },
+          {
+            "host": "192.0.2.42",
+            "port": 7070
+          }
+        ],
+        "nonce_hex": "a1b2c3d4e5f607181122334455667788",
+        "result": "direct"
       },
-      "id": "pair.v05.admission.mixed-refused",
+      "id": "pair.v05.admission.mixed-private-and-public",
       "input": {
         "encoding": "blob_hex",
         "value": "0501021b9ec0a8010ac000022aa1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
@@ -1562,8 +1842,8 @@
       },
       "document_literals": [],
       "entry_digests": {
-        "direct_address.192_168_16": "3948e2a70405486ea02dcf6d9f8125bdcdbc2f1acc0da15f4dbaf86804a78b07",
-        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "direct_address.192_168_16": "24eb9632362751725da328b35962512ab1e2414d0c8f4d6e5d5eb93f93cc431e",
+        "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
         "pair_link.0x05.candidate_count": "5731b2cade010b47098404a0cb1f22d06c03d897835a156fad9b9c6c654c5c16",
         "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
         "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
@@ -1603,9 +1883,9 @@
       },
       "document_literals": [],
       "entry_digests": {
-        "direct_address.192_168_16": "3948e2a70405486ea02dcf6d9f8125bdcdbc2f1acc0da15f4dbaf86804a78b07",
-        "direct_address.rfc6598_shared": "31d7df17472728bfafb19ea3f41c2f7a9f9218e338467386334d43fcfc8882f3",
-        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "direct_address.192_168_16": "24eb9632362751725da328b35962512ab1e2414d0c8f4d6e5d5eb93f93cc431e",
+        "direct_address.rfc6598_shared": "cc39ba7e807a7298913db7b65d611ed957782df8a9536e5e8840d2b5ab69fe35",
+        "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
         "pair_link.0x05.candidate_count": "5731b2cade010b47098404a0cb1f22d06c03d897835a156fad9b9c6c654c5c16",
         "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
         "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
@@ -1680,10 +1960,10 @@
       },
       "document_literals": [],
       "entry_digests": {
-        "direct_address.10_8": "f6f046dfa3f60deacc45b30553e8de6e54312b36369fe65e74df16df7bc0125d",
-        "direct_address.192_168_16": "3948e2a70405486ea02dcf6d9f8125bdcdbc2f1acc0da15f4dbaf86804a78b07",
-        "direct_address.rfc6598_shared": "31d7df17472728bfafb19ea3f41c2f7a9f9218e338467386334d43fcfc8882f3",
-        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "direct_address.10_8": "f82715c86ff9a66ce292fd8f992452de75b1b8e975c09bd24a68013ae045bde0",
+        "direct_address.192_168_16": "24eb9632362751725da328b35962512ab1e2414d0c8f4d6e5d5eb93f93cc431e",
+        "direct_address.rfc6598_shared": "cc39ba7e807a7298913db7b65d611ed957782df8a9536e5e8840d2b5ab69fe35",
+        "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
         "pair_link.0x05.candidate_count": "5731b2cade010b47098404a0cb1f22d06c03d897835a156fad9b9c6c654c5c16",
         "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
         "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
@@ -1731,12 +2011,12 @@
       },
       "document_literals": [],
       "entry_digests": {
-        "direct_address.10_8": "f6f046dfa3f60deacc45b30553e8de6e54312b36369fe65e74df16df7bc0125d",
-        "direct_address.192_168_16": "3948e2a70405486ea02dcf6d9f8125bdcdbc2f1acc0da15f4dbaf86804a78b07",
-        "direct_address.loopback": "54fea13b4d5c794bfe7d37857c0e8182bbfa30db7d757e8fef41cc7905677996",
-        "direct_address.rfc6598_shared": "31d7df17472728bfafb19ea3f41c2f7a9f9218e338467386334d43fcfc8882f3",
-        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
-        "gap.address_policy.loopback_scope": "23820dd05cb0b24f864cc1df8066263d2d5bffb276df6edf9294eba124597ed3",
+        "direct_address.10_8": "f82715c86ff9a66ce292fd8f992452de75b1b8e975c09bd24a68013ae045bde0",
+        "direct_address.192_168_16": "24eb9632362751725da328b35962512ab1e2414d0c8f4d6e5d5eb93f93cc431e",
+        "direct_address.loopback": "ff882ed7a8b72e1ac18b6c68453b8509a4736b9b0475e4e8db7c6908d54b6b65",
+        "direct_address.rfc6598_shared": "cc39ba7e807a7298913db7b65d611ed957782df8a9536e5e8840d2b5ab69fe35",
+        "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
+        "gap.address_policy.loopback_scope": "b8f91fa1f64e1e8e6754de6db8a3b326e90ab826fd71dc5f459e1554bc225c87",
         "pair_link.0x05.candidate_count": "5731b2cade010b47098404a0cb1f22d06c03d897835a156fad9b9c6c654c5c16",
         "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
         "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
@@ -1815,11 +2095,12 @@
     {
       "citation": {
         "document": "proto/pairing.md",
-        "marker": "a link with any public-address candidate is refused as a whole"
+        "marker": "Verifies every IPv4 candidate address is not the unspecified network `0.0.0.0/8` and not multicast-or-reserved `224.0.0.0/3`"
       },
       "document_literals": [],
       "entry_digests": {
-        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "direct_address.reserved_multicast_and_above": "fc4ae2dd7652800fb681d176d547bed75aa026c0b4d12e72b4e83e6b015356bf",
+        "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
         "pair_link.0x05.candidate_count": "5731b2cade010b47098404a0cb1f22d06c03d897835a156fad9b9c6c654c5c16",
         "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
         "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
@@ -1832,7 +2113,7 @@
       },
       "expected": {
         "error": {
-          "address": "192.0.2.42",
+          "address": "224.0.0.1",
           "kind": "disallowed_direct_ipv4"
         },
         "result": "error"
@@ -1840,7 +2121,7 @@
       "id": "pair.v05.disallowed-member.first",
       "input": {
         "encoding": "blob_hex",
-        "value": "0501031b9ec000022a0a0000017f000001a1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
+        "value": "0501031b9ee00000010a0000017f000001a1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
       },
       "kind": "recorded",
       "operation": "parse_pair_link",
@@ -1849,11 +2130,12 @@
     {
       "citation": {
         "document": "proto/pairing.md",
-        "marker": "a link with any public-address candidate is refused as a whole"
+        "marker": "Verifies every IPv4 candidate address is not the unspecified network `0.0.0.0/8` and not multicast-or-reserved `224.0.0.0/3`"
       },
       "document_literals": [],
       "entry_digests": {
-        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "direct_address.reserved_multicast_and_above": "fc4ae2dd7652800fb681d176d547bed75aa026c0b4d12e72b4e83e6b015356bf",
+        "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
         "pair_link.0x05.candidate_count": "5731b2cade010b47098404a0cb1f22d06c03d897835a156fad9b9c6c654c5c16",
         "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
         "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
@@ -1866,7 +2148,7 @@
       },
       "expected": {
         "error": {
-          "address": "192.0.2.42",
+          "address": "224.0.0.1",
           "kind": "disallowed_direct_ipv4"
         },
         "result": "error"
@@ -1874,7 +2156,7 @@
       "id": "pair.v05.disallowed-member.last",
       "input": {
         "encoding": "blob_hex",
-        "value": "0501031b9e0a0000017f000001c000022aa1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
+        "value": "0501031b9e0a0000017f000001e0000001a1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
       },
       "kind": "recorded",
       "operation": "parse_pair_link",
@@ -1883,11 +2165,12 @@
     {
       "citation": {
         "document": "proto/pairing.md",
-        "marker": "a link with any public-address candidate is refused as a whole"
+        "marker": "Verifies every IPv4 candidate address is not the unspecified network `0.0.0.0/8` and not multicast-or-reserved `224.0.0.0/3`"
       },
       "document_literals": [],
       "entry_digests": {
-        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "direct_address.reserved_multicast_and_above": "fc4ae2dd7652800fb681d176d547bed75aa026c0b4d12e72b4e83e6b015356bf",
+        "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
         "pair_link.0x05.candidate_count": "5731b2cade010b47098404a0cb1f22d06c03d897835a156fad9b9c6c654c5c16",
         "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
         "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
@@ -1900,7 +2183,7 @@
       },
       "expected": {
         "error": {
-          "address": "192.0.2.42",
+          "address": "224.0.0.1",
           "kind": "disallowed_direct_ipv4"
         },
         "result": "error"
@@ -1908,7 +2191,7 @@
       "id": "pair.v05.disallowed-member.middle",
       "input": {
         "encoding": "blob_hex",
-        "value": "0501031b9e0a000001c000022a7f000001a1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
+        "value": "0501031b9e0a000001e00000017f000001a1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
       },
       "kind": "recorded",
       "operation": "parse_pair_link",
@@ -1921,8 +2204,8 @@
       },
       "document_literals": [],
       "entry_digests": {
-        "direct_address.10_8": "f6f046dfa3f60deacc45b30553e8de6e54312b36369fe65e74df16df7bc0125d",
-        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "direct_address.10_8": "f82715c86ff9a66ce292fd8f992452de75b1b8e975c09bd24a68013ae045bde0",
+        "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
         "pair_link.0x05.candidate_count": "5731b2cade010b47098404a0cb1f22d06c03d897835a156fad9b9c6c654c5c16",
         "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
         "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
@@ -1989,11 +2272,12 @@
     {
       "citation": {
         "document": "proto/pairing.md",
-        "marker": "a link with any public-address candidate is refused as a whole"
+        "marker": "Verifies every IPv4 candidate address is not the unspecified network `0.0.0.0/8` and not multicast-or-reserved `224.0.0.0/3`"
       },
       "document_literals": [],
       "entry_digests": {
-        "direct_address_policy.allow_list": "9988cb82617c9bfbcf727e11c8cc8334f7bfce329927f2652d255e58c1965f98",
+        "direct_address.reserved_multicast_and_above": "fc4ae2dd7652800fb681d176d547bed75aa026c0b4d12e72b4e83e6b015356bf",
+        "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
         "pair_link.0x05.candidate_count": "5731b2cade010b47098404a0cb1f22d06c03d897835a156fad9b9c6c654c5c16",
         "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
         "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
@@ -2006,7 +2290,7 @@
       },
       "expected": {
         "error": {
-          "address": "192.0.2.42",
+          "address": "224.0.0.1",
           "kind": "disallowed_direct_ipv4"
         },
         "result": "error"
@@ -2014,7 +2298,7 @@
       "id": "pair.v05.duplicate.disallowed",
       "input": {
         "encoding": "blob_hex",
-        "value": "0501021b9ec000022ac000022aa1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
+        "value": "0501021b9ee0000001e0000001a1b2c3d4e5f607181122334455667788deadbeefcafebabe0123456789abcdef"
       },
       "kind": "recorded",
       "operation": "parse_pair_link",

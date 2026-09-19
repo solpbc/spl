@@ -12,7 +12,7 @@ particular way. The bundle contains canonical `definition.json` and
 `bundle/manifest.json` contains the single format-level identity and SemVer,
 payload digests, and generator-input digests.
 
-The current bundle version is `7.0.0`. The stable identities are:
+The current bundle version is `8.0.0`. The stable identities are:
 
 - generator: `spl.proto.definition.generate.v1`
 - bundle schema: `spl.pair-link-definition-bundle.schema.v1`
@@ -100,7 +100,7 @@ The vocabularies are classified as follows:
 | `ca_fp_tag` | `extensible` | `unspecified_in_source_documents` |
 | relay-origin selector | `closed` | `unspecified_in_source_documents` |
 | `0x05` candidate count | `closed` | `reject` |
-| direct-address allow-list | `closed` | `reject` |
+| direct-address allow-list | `extensible` | `admit` |
 | version-and-tag pin domain | `extensible` | `unspecified_in_source_documents` |
 
 The version byte is the most consequential gap: the documents explain how to

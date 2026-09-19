@@ -93,7 +93,7 @@ Multi-candidate direct form, version `0x05` (variable length): the same LAN-dire
 | 5 + 4·count | 16 | nonce | 128-bit single-use nonce |
 | 5 + 4·count + 16 | 16 | ca_fp | first 16 bytes of SHA-256 over the CA cert DER |
 
-Total length is `5 + 4·count + 32`. A `0x05` link whose count is outside `1...4` is malformed and MUST be refused before key generation or dialing. The `0x05` form carries the same single nonce and single `ca_fp` as `0x04`; only the address list differs. The client may race or stagger connection establishment across a bounded candidate set (own-subnet proximity first), coalescing exact duplicate host/port endpoints. Across the whole candidate set it MUST begin at most one nonce-bearing pair request. It may advance to another candidate only while it knows that no request bytes were sent. The ceremony becomes committed immediately before invoking the request write; any error returned by or after that invocation — including a timeout, reset, lost or malformed response, or later verification or persistence failure — is terminal for that code and MUST NOT be retried on another candidate. The LAN-only refusal in step 3 applies to **every** candidate — a link with any public-address candidate is refused as a whole.
+Total length is `5 + 4·count + 32`. A `0x05` link whose count is outside `1...4` is malformed and MUST be refused before key generation or dialing. The `0x05` form carries the same single nonce and single `ca_fp` as `0x04`; only the address list differs. The client may race or stagger connection establishment across a bounded candidate set (own-subnet proximity first), coalescing exact duplicate host/port endpoints. Across the whole candidate set it MUST begin at most one nonce-bearing pair request. It may advance to another candidate only while it knows that no request bytes were sent. The ceremony becomes committed immediately before invoking the request write; any error returned by or after that invocation — including a timeout, reset, lost or malformed response, or later verification or persistence failure — is terminal for that code and MUST NOT be retried on another candidate. The address-admission refusal in step 3 applies to **every** candidate — a link with any disallowed-address candidate is refused as a whole.
 
 Candidate-count conformance cases:
 
@@ -114,22 +114,27 @@ Owner-visible strings (per spec):
 
 The mobile app parses the QR payload and:
 
-- Verifies every candidate address is in the explicit direct-pair allow-list (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, IPv4 link-local `169.254.0.0/16`, RFC 6598 shared address space `100.64.0.0/10`, IPv6 ULA `fc00::/7`, loopback). v1 refuses every other address at this step, including public addresses — the direct-pair constraint is enforced client-side, not just by the address the QR happens to contain. For the `0x05` multi form the whole link is refused unless **all** candidates satisfy this.
+- Verifies every IPv4 candidate address is not the unspecified network `0.0.0.0/8` and not multicast-or-reserved `224.0.0.0/3` (which also covers the broadcast address). Every other IPv4 address is a valid direct-pair candidate — private (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`), CGNAT / RFC 6598 shared address space (`100.64.0.0/10`), IPv4 link-local (`169.254.0.0/16`), loopback, and public alike: the trust anchor is the CA-fingerprint pin carried in the link and checked at TLS handshake time, not the network locality of the address the QR happens to contain (a private/public distinction was enforced here through v1.0 of this document; it added no independent security value and was dropped 2026-09-18). IPv6 candidates remain admitted only as ULA `fc00::/7`, unaffected by this change. For the `0x05` multi form the whole link is refused unless **all** candidates satisfy this.
 - Confirms with the owner: `LITERAL: "Pair with your journal over this local network?"` (showing the device label only after the next step).
 
 Address-admission conformance cases (normative policy vectors):
 
 | Candidate address or set | Required result |
 |--------------------------|-----------------|
-| `100.63.255.255` | refuse |
+| `0.0.0.0` | refuse (unspecified network) |
+| `0.255.255.255` | refuse (unspecified network) |
+| `1.0.0.0` | admit |
+| `8.8.8.8` | admit (public unicast) |
 | `100.64.0.0` | admit |
-| `100.127.255.255` | admit |
-| `100.128.0.0` | refuse |
 | `169.254.0.1` | admit as IPv4 link-local |
+| `192.168.1.9` | admit |
+| `223.255.255.255` | admit |
+| `224.0.0.0` | refuse (multicast) |
+| `255.255.255.255` | refuse (broadcast) |
 | `fd7a:115c:a1e0::1` | admit as IPv6 ULA |
-| canonical direct vector `192.0.2.42` | decode successfully, then refuse before any dial |
-| `0x05`: `192.168.1.10`, `100.64.0.5` | admit the whole link |
-| `0x05`: `192.168.1.10`, `192.0.2.42` | refuse the whole link before any dial |
+| canonical direct vector `192.0.2.42` | decode successfully, then admit |
+| `0x05`: `192.168.1.10`, `8.8.8.8` | admit the whole link |
+| `0x05`: `192.168.1.10`, `224.0.0.1` | refuse the whole link before any dial |
 
 The `0x04` and `0x05` forms currently encode IPv4 only. The IPv6 row pins address-classification policy for an address-bearing form that supports IPv6; it does not define a new wire encoding.
 
