@@ -164,10 +164,20 @@ v1 is asymmetric: the **dialing side** (mobile) drives keepalive on a direct-mod
 
 - The mobile client opens a keepalive task immediately after the mux is established on a direct-mode candidate, and pings at a fixed cadence of **500 ms**.
 - Each outstanding `PING` is tracked by its nonce. A `PONG` whose payload matches the outstanding nonce clears the pending state.
-- If **3 consecutive pings** elapse without a matching `PONG` **and the peer has sent no frame on any application stream in that window** (≈1.5 s of silence), the client treats the direct TLS path as lost and tears it down, then re-dials with relay-preferred candidates.
+- The client treats the direct TLS path as lost, tears it down, and re-dials with relay-preferred candidates only when all three of these hold:
+  - **3 consecutive pings** (≈1.5 s of silence) have elapsed without a matching `PONG`;
+  - the peer has sent **no frame on any application stream** in that window; and
+  - **no application stream is awaiting a reply**.
 - A late `PONG` by itself is not loss. The initiator's outbound scheduler puts a `PING` ahead of DATA it has not yet handed to the transport, but not ahead of DATA the transport has already buffered below the framing layer, so during a bulk transfer the `PING` reaches the peer only after those bytes do and the reply is late by the buffer's drain time. A peer that is granting `WINDOW` or writing to a stream in that same window is provably alive. The client keeps pinging through it and treats the path as lost only once no `PONG` has matched for a bounded wall-clock limit (30 s in the shipped mobile client), which stays under the outer HTTP probe watchdog so a path that is truly wedged is still caught.
+- A stream is **awaiting a reply** when the initiator has sent DATA on it and has received no frame of any kind on it since. That state suppresses the loss decision above and nothing else: it does not reset the ping counter, and the bounded wall-clock limit still applies. An initiator that defers on this state must bound it, measured from the first DATA it has had no answer to, and a stream past that bound no longer suppresses loss. The Swift client (`spl-swift`) implements this on `main`, reusing its 30 s wall-clock limit as the bound; no tagged release carries it yet.
 
 These cadences are mobile-side policy; the framing layer does not encode them. A future version MAY change the cadence or add SETTINGS-style negotiation. Receivers MUST tolerate `PING` at any cadence — including bursts — without rate-limiting.
+
+### why a stream awaiting a reply is not silence
+
+A receiver may be silent on a stream while it works. Credit-return policy belongs to the receiver (see *flow control*), so an initiator cannot count on a trailing `WINDOW` grant once the body has been consumed, and a response that is still being produced emits nothing at all. A large transfer therefore ends in an interval where the initiator has proof only that it delivered bytes, and an initiator that reads that interval as silence tears down a working path while the peer is still doing the work it asked for.
+
+Bounding the state is what keeps the rule from becoming an idle gate. One stream whose reply never arrives must not hold the initiator's dead-path detection open indefinitely, and a stream awaiting a reply cannot be assumed to get retired by anything else: an idle-reclaim policy that skips a stream with a request in flight will never reach it.
 
 ### why streamID==0 ping/pong, not HTTP HEAD
 
