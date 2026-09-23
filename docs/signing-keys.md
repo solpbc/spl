@@ -13,7 +13,7 @@ Before a routine signing-key change, pause device enrollment and drain the accep
 | layer | algorithm | what it protects | where the keys live |
 |---|---|---|---|
 | **JWT signing layer** (this document) | **Ed25519 / EdDSA** | rendezvous: authorizes a WebSocket open to `spl-relay` | private: `env.SIGNING_JWK` (Worker secret); public: `env.JWKS_PUBLIC` (Worker secret + `/.well-known/jwks.json`) |
-| **mTLS layer** (see [`../proto/pairing.md`](../proto/pairing.md), [`../proto/session.md`](../proto/session.md)) | **ECDSA-P256** | data: authorizes the actual byte exchange between mobile and home | home CA private key on the home machine, encrypted at rest under the owner's solstone unlock secret; mobile client cert in iOS Keychain |
+| **mTLS layer** (see [`../proto/pairing.md`](../proto/pairing.md), [`../proto/session.md`](../proto/session.md)) | **ECDSA-P256** | data: authorizes the actual byte exchange between mobile and home | home CA private key on the home machine, in a file readable only by the owner's account; mobile client private key in the platform keychain |
 
 The two layers are independent. The signing key never appears in any TLS handshake. The home CA never signs a JWT. **A compromise of one is not a compromise of the other.**
 

@@ -4,7 +4,7 @@ How a mobile device first becomes able to dial a particular home solstone throug
 
 The end state of a successful pairing:
 
-- The mobile device holds a **client cert** signed by the home's local CA, with the matching private key in the platform keychain. The **iOS** client stores it with `kSecAttrAccessibleAfterFirstUnlock` — **deliberately backup-migratable** (a researched UX choice so pairing survives a device restore/migration); device-instance identity is anchored by the device-local observer ingest keys rather than by making the pairing bundle non-migratable. The **macOS** client stores it in the Data Protection keychain with `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly` (device-bound). Both are `AfterFirstUnlock` so background delivery keeps working while the device is locked.
+- The mobile device holds a **client cert** signed by the home's local CA, with the matching private key in the platform keychain. The **iOS** client stores it with `kSecAttrAccessibleAfterFirstUnlock` — **deliberately backup-migratable** (a researched UX choice so pairing survives a device restore/migration). The **macOS** client stores it in the Data Protection keychain with `kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly` (device-bound). Both are `AfterFirstUnlock` so background delivery keeps working while the device is locked.
 - The home holds the device's cert **fingerprint** in `authorized_clients.json`, alongside the device label and pair date.
 - When relay access is available, the mobile holds an instance capability delivered by the home, or a compatible legacy device token. Successful direct pairing does not require relay access.
 - Future connections authenticate at the data plane with the TLS client certificate. Relay connections also present their admission capability to the rendezvous.
@@ -32,7 +32,7 @@ On first run, solstone generates a self-signed CA on the home machine:
 
 - **Algorithm:** ECDSA-P256 (per spec decision log 2026-04-18 — Node/Bun TLS defaults don't advertise Ed25519 in signature schemes; ECDSA-P256 is the cross-stack baseline).
 - **Validity:** 10 years.
-- **Key storage:** the CA private key lives on disk, encrypted at rest under a key derived from the owner's existing solstone unlock secret. Never transmitted, never escrowed.
+- **Key storage:** the CA private key lives on the home's disk in a file readable only by the owner's account (mode `0600`). solstone adds no encryption of its own. Never transmitted, never escrowed.
 - **Certs issued by this CA** are the mobile client certs signed during pairing.
 
 The CA is per-home. Two solstone installs have two unrelated CAs; mobile devices paired with one cannot speak to the other.
