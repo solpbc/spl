@@ -14,12 +14,14 @@ import { base64UrlDecode, verifyToken } from "../src/tokens";
 import { genCaKeypair, genClientCertDer, mintAttestation } from "../test/fixtures";
 import { applyRelayD1Migrations } from "./apply-migrations";
 
-declare module "cloudflare:test" {
-	interface ProvidedEnv {
-		DB: D1Database;
-		SIGNING_JWK: string;
-		JWKS_PUBLIC: string;
-		ISSUER: string;
+declare global {
+	namespace Cloudflare {
+		interface Env {
+			DB: D1Database;
+			SIGNING_JWK: string;
+			JWKS_PUBLIC: string;
+			ISSUER: string;
+		}
 	}
 }
 

@@ -4,8 +4,8 @@
 import { defineConfig } from "vitest/config";
 
 // Unit tests run under node — they exercise the pure crypto/verification
-// helpers. Integration tests against Miniflare+DO live in a separate project
-// once we wire them up (see @cloudflare/vitest-pool-workers).
+// helpers. Integration tests against Miniflare+DO run from the
+// vitest.workers.*.config.ts projects (@cloudflare/vitest-plugin).
 export default defineConfig({
 	test: {
 		include: ["test/**/*.test.ts"],

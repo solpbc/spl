@@ -49,7 +49,7 @@ Runs the Worker under Miniflare. No CF account required. Secrets can be set in a
 make test
 ```
 
-Two suites, both run via `bun run test` (vitest, driven by bun). Unit tests (`test/`) cover the pure crypto helpers — JWT verify/mint, attestation verify, fingerprinting. Integration tests (`test-integration/`, `@cloudflare/vitest-pool-workers`) spin up the real Worker under Miniflare with D1 and InstanceDO bindings and exercise the full request path, WebSocket pairing, cardinality enforcement, and pending-buffer overflow.
+Two suites, both run via `bun run test` (vitest, driven by bun). Unit tests (`test/`) cover the pure crypto helpers — JWT verify/mint, attestation verify, fingerprinting. Integration tests (`test-integration/`, `@cloudflare/vitest-plugin`) spin up the real Worker under Miniflare with D1 and InstanceDO bindings and exercise the full request path, WebSocket pairing, cardinality enforcement, and pending-buffer overflow.
 
 A fresh Ed25519 signing keypair is minted at config-load time in `vitest.workers.config.ts`; no keys are committed. Full CI (`make ci`) runs typecheck + biome + both suites.
 

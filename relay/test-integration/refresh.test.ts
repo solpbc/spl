@@ -15,12 +15,14 @@ const VALID_FP = `sha256:${"a".repeat(64)}`;
 const DEVICE_TOKEN_TTL_SECONDS = 60 * 24 * 60 * 60;
 const REFRESH_GRACE_SECONDS = 30 * 86400;
 
-declare module "cloudflare:test" {
-	interface ProvidedEnv {
-		DB: D1Database;
-		SIGNING_JWK: string;
-		JWKS_PUBLIC: string;
-		ISSUER: string;
+declare global {
+	namespace Cloudflare {
+		interface Env {
+			DB: D1Database;
+			SIGNING_JWK: string;
+			JWKS_PUBLIC: string;
+			ISSUER: string;
+		}
 	}
 }
 

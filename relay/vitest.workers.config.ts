@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 // Copyright (c) 2026 sol pbc
 
-import { defineWorkersConfig } from "@cloudflare/vitest-pool-workers/config";
-import { configDefaults } from "vitest/config";
+import { existsSync } from "node:fs";
+import { cloudflareTest } from "@cloudflare/vitest-plugin";
+import { configDefaults, defineConfig } from "vitest/config";
 
 // Integration-style tests that run under Miniflare with the real InstanceDO
 // + D1 bindings. Used for WS-pairing, cardinality, and pending-buffer
@@ -13,9 +14,31 @@ import { configDefaults } from "vitest/config";
 // any deployed relay. Tests can import the same keypair via
 // `./test/test-keys.json` (written when this config loads).
 
+
+// Miniflare keeps test D1 and Durable Object storage in SQLite under the OS temp dir and
+// syncs it on every query. The storage is thrown away after each run, so on Linux keep it in memory.
+if (process.platform === "linux" && existsSync("/dev/shm")) process.env.TMPDIR = "/dev/shm";
 const { privateJwkRaw, jwksPublicRaw } = await genSigningKeypair();
 
-export default defineWorkersConfig({
+export default defineConfig({
+	plugins: [
+		cloudflareTest({
+			main: "./src/index.ts",
+			remoteBindings: false,
+			miniflare: {
+				compatibilityDate: "2026-04-01",
+				compatibilityFlags: ["nodejs_compat"],
+				durableObjects: { INSTANCE: { className: "InstanceDO", useSQLite: true } },
+				d1Databases: ["DB"],
+				bindings: {
+					ENVIRONMENT: "test",
+					ISSUER: "spl.test",
+					SIGNING_JWK: privateJwkRaw,
+					JWKS_PUBLIC: jwksPublicRaw,
+				},
+			},
+		}),
+	],
 	test: {
 		include: ["test-integration/**/*.test.ts"],
 		exclude: [
@@ -25,29 +48,6 @@ export default defineWorkersConfig({
 			"**/owner-purge.test.ts",
 			"**/owner-purge.contract.test.ts",
 		],
-		poolOptions: {
-			workers: {
-				main: "./src/index.ts",
-				// Per-test storage snapshots don't play nicely with DO SQLite
-				// classes — the snapshot/restore cycle can't always find the DO
-				// instance to pop its state. The test suite handles its own
-				// cleanup via beforeEach() deletes against D1, so we trade the
-				// framework's guard rail for a known one.
-				isolatedStorage: false,
-				miniflare: {
-					compatibilityDate: "2026-04-01",
-					compatibilityFlags: ["nodejs_compat"],
-					durableObjects: { INSTANCE: { className: "InstanceDO", useSQLite: true } },
-					d1Databases: ["DB"],
-					bindings: {
-						ENVIRONMENT: "test",
-						ISSUER: "spl.test",
-						SIGNING_JWK: privateJwkRaw,
-						JWKS_PUBLIC: jwksPublicRaw,
-					},
-				},
-			},
-		},
 	},
 });
 

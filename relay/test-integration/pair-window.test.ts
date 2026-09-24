@@ -11,13 +11,15 @@ import { mintDeviceToken, mintServiceToken } from "../src/tokens";
 import { genCaKeypair } from "../test/fixtures";
 import { applyRelayD1Migrations } from "./apply-migrations";
 
-declare module "cloudflare:test" {
-	interface ProvidedEnv {
-		DB: D1Database;
-		INSTANCE: DurableObjectNamespace;
-		SIGNING_JWK: string;
-		JWKS_PUBLIC: string;
-		ISSUER: string;
+declare global {
+	namespace Cloudflare {
+		interface Env {
+			DB: D1Database;
+			INSTANCE: DurableObjectNamespace;
+			SIGNING_JWK: string;
+			JWKS_PUBLIC: string;
+			ISSUER: string;
+		}
 	}
 }
 

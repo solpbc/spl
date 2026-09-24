@@ -5,7 +5,7 @@
 // with PRESENCE_HOLD_ENABLED set at Worker/DO env-bindings load time.
 
 import { SELF, env, runInDurableObject } from "cloudflare:test";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { type MockInstance, beforeAll, describe, expect, it, vi } from "vitest";
 import { tagListen, tagTunnelHome, tagTunnelMobile, tagWaiting } from "../src/instance-do";
 import { mintDeviceToken, mintServiceToken } from "../src/tokens";
 import { applyRelayD1Migrations } from "./apply-migrations";
@@ -27,13 +27,15 @@ interface MobileAttachment {
 	retired?: boolean;
 }
 
-declare module "cloudflare:test" {
-	interface ProvidedEnv {
-		DB: D1Database;
-		SIGNING_JWK: string;
-		JWKS_PUBLIC: string;
-		ISSUER: string;
-		PRESENCE_HOLD_ENABLED: string;
+declare global {
+	namespace Cloudflare {
+		interface Env {
+			DB: D1Database;
+			SIGNING_JWK: string;
+			JWKS_PUBLIC: string;
+			ISSUER: string;
+			PRESENCE_HOLD_ENABLED: string;
+		}
 	}
 }
 
@@ -103,6 +105,8 @@ async function wsHeldDial(url: string, token: string): Promise<WebSocket> {
 }
 
 function onMessage(ws: WebSocket): Promise<string | ArrayBuffer> {
+	// The standard default binaryType is "blob"; read frames as bytes like a real client.
+	ws.binaryType = "arraybuffer";
 	return new Promise((resolve, reject) => {
 		const timer = setTimeout(() => reject(new Error("onMessage timeout")), 5000);
 		ws.addEventListener(
@@ -194,7 +198,7 @@ function parseIncoming(signal: string | ArrayBuffer): string {
 	return parsed.tunnel_id;
 }
 
-function logLines(spy: ReturnType<typeof vi.spyOn>): string {
+function logLines(spy: MockInstance<(...args: unknown[]) => unknown>): string {
 	return spy.mock.calls.map(([arg]) => String(arg)).join("\n");
 }
 

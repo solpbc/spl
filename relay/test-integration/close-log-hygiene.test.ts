@@ -2,7 +2,7 @@
 // Copyright (c) 2026 sol pbc
 
 import { SELF, env } from "cloudflare:test";
-import { describe, expect, it, vi } from "vitest";
+import { type MockInstance, describe, expect, it, vi } from "vitest";
 import { mintDeviceToken, mintServiceToken } from "../src/tokens";
 
 const VALID_FP = `sha256:${"a".repeat(64)}`;
@@ -80,7 +80,7 @@ async function pairedTunnel(): Promise<{
 	return { home, mobile, homeTunnel, tunnelId };
 }
 
-function records(spy: ReturnType<typeof vi.spyOn>): LogRecord[] {
+function records(spy: MockInstance<(...args: unknown[]) => unknown>): LogRecord[] {
 	return spy.mock.calls
 		.map(([arg]) => arg)
 		.filter((arg): arg is string => typeof arg === "string")

@@ -5,13 +5,15 @@ import { SELF, env } from "cloudflare:test";
 import { base64UrlEncode } from "../src/tokens";
 import fixture from "../test-fixtures/owner-purge-v1.json";
 
-declare module "cloudflare:test" {
-	interface ProvidedEnv {
-		DB: D1Database;
-		PURGE_SECRET: string;
-		GRANT_SECRET: string;
-		OWNER_PURGE_HMAC_KEY_V1: string;
-		OWNER_PURGE_HMAC_KEY_V2: string;
+declare global {
+	namespace Cloudflare {
+		interface Env {
+			DB: D1Database;
+			PURGE_SECRET: string;
+			GRANT_SECRET: string;
+			OWNER_PURGE_HMAC_KEY_V1: string;
+			OWNER_PURGE_HMAC_KEY_V2: string;
+		}
 	}
 }
 
