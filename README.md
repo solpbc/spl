@@ -1,6 +1,6 @@
 # sol private link (spl)
 
-**Blind byte-relay rendezvous service.** Two paired endpoints meet through Cloudflare's edge without Cloudflare — or sol pbc — ever seeing inside the tunnel.
+**Blind byte-relay rendezvous service.** Two paired endpoints meet through Cloudflare's edge without Cloudflare or sol pbc ever seeing inside the tunnel. sol pbc, which runs the hosted relay, and Cloudflare, which hosts it, do see connection metadata: which endpoints connect, when, and how much traffic flows. See [what the operator can see](docs/architecture.md#what-the-operator-can-see).
 
 > spl is blind by construction. Cloudflare and sol pbc hold no key that could decrypt traffic inside the tunnel. Revocation is local. Open source so you can verify.
 
@@ -10,7 +10,7 @@ spl gives two paired endpoints (today: a solstone home server and a paired mobil
 
 - **Operator:** sol pbc (hosted `spl-relay` relay at `link.solstone.app`). Or run your own — the whole server is in this repo.
 - **License:** [AGPL-3.0-only](LICENSE).
-- **Status:** pre-MVP, closed alpha approaching. Architecture vetted end-to-end by prototype (2026-04-18). The roadmap is not yet published.
+- **Status:** in production use by the solstone apps listed under [implementations](#implementations).
 
 ## architecture
 
