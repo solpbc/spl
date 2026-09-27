@@ -6,7 +6,7 @@ This file is the developer guide for the `spl` repository. Read it before writin
 
 ## 1. What spl is
 
-A blind rendezvous service. Two paired endpoints meet through Cloudflare's edge without Cloudflare — or sol pbc — ever seeing inside the tunnel. See [`README.md`](README.md) for the architecture diagram and product framing.
+A blind rendezvous service. Two paired endpoints meet through Cloudflare's edge without Cloudflare or sol pbc ever seeing inside the tunnel. sol pbc, which runs the hosted relay, and Cloudflare, which hosts it, do see connection metadata: which endpoints connect, when, and how much traffic flows ([what the operator can see](docs/architecture.md#what-the-operator-can-see)). See [`README.md`](README.md) for the architecture diagram and product framing.
 
 Read the architecture section of the README before writing code. If the change you're making wouldn't survive reading that section out loud to a user, it's the wrong change.
 
@@ -44,10 +44,10 @@ These are architectural, not aspirational. A PR that violates any of them is dec
 - Self-hosting `spl-relay` against a clean CF account must produce a working tunnel by following a README. A contributor running it on their own infra is not a second-class path — they are the product in a different hosting mode.
 - No hidden dependencies on sol-pbc-proprietary infrastructure, closed SaaS, or internal services. If you reach for one, stop; there's a wrong turn upstream.
 
-### minimum-delta MVP
+### minimum delta
 
-- This repo starts as scaffolding, not ported prototype code. Prototype learnings (tracked in sol pbc's internal engineering notes) inform structure, not contents.
-- v1 is one use case: solstone mobile ↔ home convey, iOS-only, LAN-pair only. Not two platforms. Not off-LAN pairing. Not observer-over-tunnel.
+- This repo started as scaffolding, not ported prototype code. Prototype learnings informed its structure, not its contents.
+- v1 is one use case: a solstone client reaching its owner's home journal through the relay. Clients ship for iOS, watchOS, macOS, Android and Windows from separate client repositories (see [`README.md`](README.md#implementations)). Pairing has two forms: LAN-direct ([`proto/pairing.md`](proto/pairing.md)) and the off-LAN pairing window ([`proto/pair-window.md`](proto/pair-window.md)). Observer-over-tunnel is not in v1.
 - When in doubt, ship less. A reviewer who pushes back with "is this v1 scope?" is doing the right thing.
 
 ## 4. Safety rails — what an agent must never do here
@@ -114,12 +114,12 @@ Additional targets (`make dev`, `make deploy` in `relay/`) are fine. These five 
 - No force-push to `main`. If something is wrong, new commit.
 - No deploy pipeline on push. Production deploys happen manually by an authenticated operator.
 
-## 6. Working the MVP
+## 6. Working on v1
 
-The v1 build is a future phase. This repo is scaffolded, not implemented. When MVP work begins:
+v1 is built. The relay in this repo serves the hosted instance at `link.solstone.app`, and the clients listed in [`README.md`](README.md#implementations) use it in production.
 
-- Engineering work arrives as small focused changes against spec acceptance criteria.
-- Operational dependencies (paid CF resources, production DNS, token signing keys, ToS, brand) are tracked separately and scoped before they block MVP work.
+- Engineering work arrives as small focused changes against the protocol documents in [`proto/`](proto/) and the pair-link definition bundle and its test vectors in [`proto/definition/`](proto/definition/).
+- Operational dependencies (paid CF resources, production DNS, token signing keys, ToS, brand) are tracked separately and scoped before a change depends on them.
 
 ## 7. If something's off
 

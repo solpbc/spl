@@ -4,11 +4,11 @@ Running your own `spl-relay` relay against a clean Cloudflare account is a first
 
 ## status
 
-Scaffold only. The full walk-through lands with the MVP build. The intent for this document is to get a reader from *clean CF account* to *working tunnel* without having to read the source.
+These steps deploy the same relay code that serves `link.solstone.app`. This guide is still an outline: the steps below are approximate, and the topics under [not yet written](#not-yet-written) are to come. The aim is to get a reader from *clean CF account* to *working tunnel* without having to read the source.
 
 ## shape of the path
 
-Approximate steps, subject to revision as the MVP lands:
+Approximate steps:
 
 1. **Clone the repo.** `git clone https://github.com/solpbc/spl && cd spl`
 2. **Prerequisites.** Node 20+ (or bun) for `relay/`. `make install` covers it. Also install **wrangler globally** (`npm install -g wrangler` or `bun add -g wrangler`) — `npx wrangler` is acceptable for local Miniflare dev only; it loses the OAuth session and breaks R2/D1 commands. The deploy target in `relay/Makefile` invokes the global binary.
@@ -24,9 +24,9 @@ Approximate steps, subject to revision as the MVP lands:
 10. **Home side.** Point your solstone journal at your relay by setting `SPL_RELAY_ENDPOINT` in its environment and bootstrapping with a service token signed by your key. See [`solpbc/solstone-journal`](https://github.com/solpbc/solstone-journal).
 11. **Mobile.** Update the app's `AppConfig` with the new relay endpoint and public signing key (or rebuild against them). Pair on LAN as usual.
 
-## placeholder sections
+## not yet written
 
-Once MVP ships, this doc will cover:
+This guide does not yet cover:
 
 - Concrete wrangler.toml diffs for self-host
 - Token issuance patterns (manual, scripted, control-plane)

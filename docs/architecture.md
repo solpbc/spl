@@ -2,7 +2,7 @@
 
 ## overview
 
-See the diagram in [`../README.md`](../README.md#architecture). This document will carry the deeper version once the MVP build lands — component boundaries, data-flow, and the full rendezvous sequence. The trust-boundary analysis is below.
+See the diagram in [`../README.md`](../README.md#architecture). This document covers the trust boundaries and what the operator can and cannot see. The wire-level contracts, including the rendezvous sequence, live in the [`../proto/`](../proto/) documents.
 
 ## trust boundaries
 
@@ -66,6 +66,6 @@ Full statement, rationale, and examples in [`../proto/session.md`](../proto/sess
 - Any key that would let the operator decrypt a past or present session (no key escrow).
 - Any authentication material that would let the operator impersonate either endpoint (no mTLS material at the relay).
 
-## placeholder
+## not yet written
 
-The detailed architecture — sequence diagrams, state machines, wake-latency bounds, pending-buffer policy, framing edge cases — will be filled in as the MVP lands. Until then, [`../README.md`](../README.md) and [`../AGENTS.md`](../AGENTS.md) carry the invariants, and the [`../proto/`](../proto/) docs carry the wire-format contracts.
+The relay is in production, but this document does not yet carry the detailed architecture: sequence diagrams, state machines, wake-latency bounds, pending-buffer policy and framing edge cases. Until it does, [`../README.md`](../README.md) and [`../AGENTS.md`](../AGENTS.md) carry the invariants, and the [`../proto/`](../proto/) docs carry the wire-format contracts.
