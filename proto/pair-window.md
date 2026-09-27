@@ -94,6 +94,12 @@ Carries `RK` in the `Sec-Pair-Key` upgrade header, routes to the same pairing DO
 
 `/enroll/device`, `/session/listen`, `/session/dial`, entitlement, and revocation remain addressed by **`instance_id`**. The client reaches `/enroll/device` *after* it has learned `instance_id` from the inner TLS.
 
+## the pin holds before `S` is sent
+
+The client MUST verify the inner TLS peer against `ca_fp_spki` inside the handshake, before it writes the pair request. The presented chain MUST include a self-signed certificate whose SPKI matches the pin, and that certificate MUST have signed the presented leaf for server authentication. The pair request carries `S`, so it MUST NOT be written to a peer that has not passed this check.
+
+A client that sends first and checks the pin against the `PairResponse` afterwards has already handed `S` to whoever terminated the inner TLS. On this form that can be the relay, or anyone in its position, and that party can use `S` to pair a CSR of its own. `RK` keeps `S` from the relay only while the client sends `S` to no one but the pinned home, so a late check undoes the blind-relay property above.
+
 ## client learns `instance_id` from the inner TLS
 
 The pair-link carries no `instance_id`. After the inner pinned-TLS handshake (pinned to `ca_fp_spki` from the link), the home returns `instance_id` in the inner `PairResponse` (as today). Because the inner channel is cryptographically bound to the pinned CA, that value is trustworthy. The equality below always holds for a conforming home, because the home's `instance_id` **is** its jid ([`identity.md`](identity.md)), so a mismatch means the pinned CA and the returned identity disagree and the ceremony has no trustworthy home. The client:

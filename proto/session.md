@@ -176,7 +176,7 @@ From this point, the relay is a pure byte pump. Bytes received on the home WS ar
 
 ### 7. inner TLS handshake
 
-With the byte pipe open, the mobile initiates TLS 1.3 toward the home. The mobile presents the paired client cert (from Keychain). The home's TLS server presents its self-signed cert (from the local CA). The home checks the SHA-256 fingerprint of the client cert against `authorized_clients.json` **inside the handshake**, so an unauthorized device never reaches the application.
+With the byte pipe open, the mobile initiates TLS 1.3 toward the home. The mobile presents the paired client cert (from Keychain). The home's TLS server presents its server certificate, signed by the local CA, followed by the self-signed CA cert. The home checks the SHA-256 fingerprint of the client cert against `authorized_clients.json` **inside the handshake**, so an unauthorized device never reaches the application.
 
 Three outcomes at a home implementing this section, and the two that abort carry different alerts:
 
