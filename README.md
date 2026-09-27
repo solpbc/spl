@@ -67,7 +67,7 @@ Every implementation below is open source and in production use. Read these inst
 | Shared client and home library | Rust | [`solpbc/spl-rust`](https://github.com/solpbc/spl-rust) |
 | Shared client library | Swift | [`solpbc/spl-swift`](https://github.com/solpbc/spl-swift) |
 | Home (journal) | Rust | [`solpbc/solstone-journal`](https://github.com/solpbc/solstone-journal), through `spl-home` from [`solpbc/spl-rust`](https://github.com/solpbc/spl-rust) |
-| Client — iOS, watchOS, macOS | Swift | [`solpbc/solstone-swift`](https://github.com/solpbc/solstone-swift) · [`solpbc/solstone-macos`](https://github.com/solpbc/solstone-macos) |
+| Client — iOS, macOS | Swift | [`solpbc/solstone-swift`](https://github.com/solpbc/solstone-swift) · [`solpbc/solstone-macos`](https://github.com/solpbc/solstone-macos) |
 | Client — Android | Kotlin | [`solpbc/solstone-android`](https://github.com/solpbc/solstone-android) |
 | Client — Windows | Rust | [`solpbc/solstone-windows`](https://github.com/solpbc/solstone-windows) |
 

@@ -47,7 +47,7 @@ These are architectural, not aspirational. A PR that violates any of them is dec
 ### minimum delta
 
 - This repo started as scaffolding, not ported prototype code. Prototype learnings informed its structure, not its contents.
-- v1 is one use case: a solstone client reaching its owner's home journal through the relay. Clients ship for iOS, watchOS, macOS, Android and Windows from separate client repositories (see [`README.md`](README.md#implementations)). Pairing has two forms: LAN-direct ([`proto/pairing.md`](proto/pairing.md)) and the off-LAN pairing window ([`proto/pair-window.md`](proto/pair-window.md)). Observer-over-tunnel is not in v1.
+- v1 is one use case: a solstone client reaching its owner's home journal through the relay. Clients ship for iOS, macOS, Android and Windows from separate client repositories (see [`README.md`](README.md#implementations)). Pairing has two forms: LAN-direct ([`proto/pairing.md`](proto/pairing.md)) and the off-LAN pairing window ([`proto/pair-window.md`](proto/pair-window.md)). Observer-over-tunnel is not in v1.
 - When in doubt, ship less. A reviewer who pushes back with "is this v1 scope?" is doing the right thing.
 
 ## 4. Safety rails — what an agent must never do here
