@@ -109,7 +109,7 @@ wrangler secret put OWNER_PURGE_HMAC_KEY_V2 --env production
 
 Read in the Worker via `env.SIGNING_JWK`, `env.JWKS_PUBLIC`, `env.PURGE_SECRET`, `env.OWNER_PURGE_HMAC_KEY_V1`, and `env.OWNER_PURGE_HMAC_KEY_V2`. The private signing key is the root of trust for relay JWTs; see [`../docs/signing-keys.md`](../docs/signing-keys.md) for its lifecycle (generation, rotation, compromise response).
 
-Run `npm run gen-key` to mint a self-host keypair — it writes to `~/.spl/signing-keypair.json` with mode 0600 and prints the exact `wrangler secret put` commands.
+Run `bun run gen-key` to mint a self-host keypair — it writes to `~/.spl/signing-keypair.json` with mode 0600 and prints the exact `wrangler secret put` commands.
 
 ## configuration
 

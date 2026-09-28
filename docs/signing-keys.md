@@ -54,10 +54,10 @@ For self-hosters, the bundled generator script is the supported path:
 
 ```sh
 cd relay
-npm run gen-key
+bun run gen-key
 ```
 
-(Or invoke directly: `npm run gen-key -- --out ~/.spl/alternate-keypair.json` to override the path.)
+(Or invoke directly: `bun run gen-key -- --out ~/.spl/alternate-keypair.json` to override the path.)
 
 The script:
 
@@ -116,7 +116,7 @@ Default cadence: **12 months**, with a **90-day overlap window** measured from t
 
 The mechanism:
 
-1. **Generate the new keypair to a new path:** `npm run gen-key -- --out ~/.spl/signing-keypair-<date>.json`. New `kid`. ⚠ Do not re-run the bare command — it refuses to overwrite an existing keypair file and exits non-zero, and the `--force` that would let it through would destroy the very key step 6 tells you to archive.
+1. **Generate the new keypair to a new path:** `bun run gen-key -- --out ~/.spl/signing-keypair-<date>.json`. New `kid`. ⚠ Do not re-run the bare command — it refuses to overwrite an existing keypair file and exits non-zero, and the `--force` that would let it through would destroy the very key step 6 tells you to archive.
 2. **Push the new JWKS containing both keys.** The new JSON is `{ "keys": [<old public>, <new public>] }`. Paste it into:
 
    ```sh

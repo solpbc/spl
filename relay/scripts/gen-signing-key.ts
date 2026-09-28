@@ -3,7 +3,7 @@
 
 // Self-host generator for the spl JWT signing key.
 //
-// Run via: `npm run gen-key` (or `npm run gen-key -- --out <path>`).
+// Run via: `bun run gen-key` (or `bun run gen-key -- --out <path>`).
 // Generates an Ed25519 keypair in JWK format, writes it to disk with
 // 0600 perms, and prints the exact `wrangler secret put` commands the
 // operator must run next.
@@ -71,9 +71,9 @@ function printHelp(): void {
 			"gen-signing-key — generate an Ed25519 JWK keypair for spl-relay JWT signing",
 			"",
 			"usage:",
-			"  npm run gen-key                        write to ~/.spl/signing-keypair.json",
-			"  npm run gen-key -- --out <path>        write to a custom path",
-			"  npm run gen-key -- --force             overwrite an existing file",
+			"  bun run gen-key                        write to ~/.spl/signing-keypair.json",
+			"  bun run gen-key -- --out <path>        write to a custom path",
+			"  bun run gen-key -- --force             overwrite an existing file",
 			"",
 			"output:",
 			"  A JSON file with { kid, created_at, publicKey, privateKey } in JWK format.",
