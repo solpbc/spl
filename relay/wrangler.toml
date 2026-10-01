@@ -106,6 +106,13 @@ database_name = "spl-relay"
 database_id = "989a04e6-09b0-4176-a228-e49b61401908"
 migrations_dir = "migrations"
 
+# Owner-purge alert on use (src/purge-signal.ts): one key per successful purge
+# transition naming only service, disposition and time, expiring with the
+# purge binding. Optional; a relay without this binding writes no signal.
+[[env.production.kv_namespaces]]
+binding = "OWNER_PURGE_SIGNAL"
+id = "a0d4cf29723e4c4c868bc0ade1d0efb5"
+
 [[env.production.durable_objects.bindings]]
 name = "INSTANCE"
 class_name = "InstanceDO"

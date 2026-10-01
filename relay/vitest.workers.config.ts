@@ -47,6 +47,7 @@ export default defineConfig({
 			"**/*.presence.test.ts",
 			"**/owner-purge.test.ts",
 			"**/owner-purge.contract.test.ts",
+			"**/owner-purge.signal.test.ts",
 		],
 	},
 });

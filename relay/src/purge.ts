@@ -4,11 +4,14 @@
 // Canonical owner-purge v1 relay endpoint. It retains only opaque operation
 // fingerprints and canonical request digests; it never records an owner
 // association, raw operation id, envelope, integrity value, or target snapshot.
+// Each successful transition also writes an identifier-free alert-on-use key
+// (purge-signal.ts).
 
 import { INSTANCE_ID_RE, hasValidBearer } from "./entitlement";
 import type { Env } from "./env";
 import { json, readJson } from "./http";
 import { log } from "./logging";
+import { signalPurgeUse } from "./purge-signal";
 import { base64UrlDecode, base64UrlEncode } from "./tokens";
 
 const PURGE_ROUTE = "/internal/deletion/purge";
@@ -311,6 +314,7 @@ export async function handlePurge(request: Request, env: Env, now = unixNow()): 
 		return retryable(context, keys, completed);
 	}
 
+	await signalPurgeUse(env.OWNER_PURGE_SIGNAL, SERVICE, "complete", raw.expires_at, now);
 	return complete(context, keys, completed);
 }
 
@@ -421,6 +425,7 @@ export async function handlePurgeConfirm(
 		return retryable(context, keys, 0);
 	}
 
+	await signalPurgeUse(env.OWNER_PURGE_SIGNAL, SERVICE, "confirmed", envelope.expires_at, now);
 	return confirmed(context, keys);
 }
 

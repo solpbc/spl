@@ -48,6 +48,10 @@ export interface Env {
 	// confirmation with the account-side implementation; it is not a new secret.
 	PURGE_SECRET?: string;
 
+	// Owner-purge alert on use (see purge-signal.ts). Optional: when it is
+	// unbound, no signal is written.
+	OWNER_PURGE_SIGNAL?: KVNamespace;
+
 	// Admin grant endpoint bearer secret — provisioned via
 	// `wrangler secret put GRANT_SECRET`; never committed.
 	GRANT_SECRET?: string;

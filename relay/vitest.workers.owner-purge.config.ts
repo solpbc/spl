@@ -19,6 +19,7 @@ export default defineConfig({
 				compatibilityFlags: ["nodejs_compat"],
 				durableObjects: { INSTANCE: { className: "InstanceDO", useSQLite: true } },
 				d1Databases: ["DB"],
+				kvNamespaces: ["OWNER_PURGE_SIGNAL"],
 				bindings: {
 					ENVIRONMENT: "test",
 					ISSUER: "spl.test",
@@ -35,6 +36,7 @@ export default defineConfig({
 		include: [
 			"test-integration/owner-purge.test.ts",
 			"test-integration/owner-purge.contract.test.ts",
+			"test-integration/owner-purge.signal.test.ts",
 		],
 		maxWorkers: 1,
 		isolate: false,
