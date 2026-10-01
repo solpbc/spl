@@ -52,6 +52,12 @@ export interface Env {
 	// unbound, no signal is written.
 	OWNER_PURGE_SIGNAL?: KVNamespace;
 
+	// Owner-purge origin check: a service binding to the account portal's
+	// OwnerPurgeOrigin entrypoint, which answers whether the portal originated a
+	// purge. Optional: a relay without it (any self-hosted relay) skips the check,
+	// and its readiness says so.
+	ORIGINATOR?: OwnerPurgeOriginator;
+
 	// Admin grant endpoint bearer secret — provisioned via
 	// `wrangler secret put GRANT_SECRET`; never committed.
 	GRANT_SECRET?: string;
@@ -64,4 +70,17 @@ export interface Env {
 	// dial WS open when no home is listening (instead of 503); unset/off by
 	// default so behavior is unchanged. See proto/session.md §reconnect-semantics.
 	PRESENCE_HOLD_ENABLED?: string;
+}
+
+export interface OwnerPurgeOriginFrame {
+	version: number;
+	key_version: number;
+	service: string;
+	operation_id: string;
+	issued_at: number;
+	integrity: string;
+}
+
+export interface OwnerPurgeOriginator {
+	originated(frame: OwnerPurgeOriginFrame): Promise<{ originated: boolean }>;
 }

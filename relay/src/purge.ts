@@ -5,10 +5,12 @@
 // fingerprints and canonical request digests; it never records an owner
 // association, raw operation id, envelope, integrity value, or target snapshot.
 // Each successful transition also writes an identifier-free alert-on-use key
-// (purge-signal.ts).
+// (purge-signal.ts). Before a first receipt binds or deletes anything, the
+// relay asks the account portal whether it originated the operation, and
+// refuses one it did not.
 
 import { INSTANCE_ID_RE, hasValidBearer } from "./entitlement";
-import type { Env } from "./env";
+import type { Env, OwnerPurgeOriginFrame } from "./env";
 import { json, readJson } from "./http";
 import { log } from "./logging";
 import { signalPurgeUse } from "./purge-signal";
@@ -31,6 +33,7 @@ const SERVICE = "relay";
 const PURGE_INTERNAL_HOST = `${SERVICE}.internal`;
 const REQUEST_MAX_LIFETIME_MS = 7 * 24 * 60 * 60 * 1000;
 const ATTESTATION_MAX_LIFETIME_MS = 5 * 60 * 1000;
+const KEY_VERSIONS = [1, 2] as const;
 const REQUEST_FIELDS = [
 	"version",
 	"key_version",
@@ -59,7 +62,8 @@ const BASE64URL_SHA256_RE = /^[A-Za-z0-9_-]{43}$/;
 type KeyVersion = 1 | 2;
 type PurgeDisposition = "retryable" | "complete" | "confirmed" | "expired" | "refused";
 type BindingDisposition = Exclude<PurgeDisposition, "expired" | "refused">;
-type IntegrityKind = "request" | "confirm" | "response";
+type IntegrityKind = "request" | "confirm" | "response" | "origin";
+type OriginAnswer = "originated" | "unoriginated" | "unavailable" | "unbound";
 type RequestFailure = "malformed" | "digest_mismatch" | "instance_limit" | "lifetime" | "expired";
 
 interface PurgeKeys {
@@ -206,17 +210,22 @@ export async function handlePurgeReadiness(request: Request, env: Env): Promise<
 		});
 	}
 
+	// The proofs sign whether the origin check answered a live probe, so the
+	// account portal can refuse to start deletions against a relay without one.
+	const originCheck = await originCheckAnswers(env, provisioning.keys, unixNow());
 	const canonicalV1 = canonicalizeOwnerPurgeJson({
 		version: PROTOCOL_VERSION,
 		key_version: 1,
 		service: SERVICE,
 		nonce,
+		origin_check: originCheck,
 	});
 	const canonicalV2 = canonicalizeOwnerPurgeJson({
 		version: PROTOCOL_VERSION,
 		key_version: 2,
 		service: SERVICE,
 		nonce,
+		origin_check: originCheck,
 	});
 
 	const frameV1 = ownerPurgeIntegrityFrame("solpbc-owner-purge-v1:relay:readiness", canonicalV1);
@@ -270,14 +279,31 @@ export async function handlePurge(request: Request, env: Env, now = unixNow()): 
 	const operationHash = await hashOperationId(raw.operation_id);
 	let binding: PurgeOperation | null;
 	try {
-		await env.DB.prepare(
-			"INSERT INTO purge_operations (operation_id_hash, request_digest, disposition, expires_at) VALUES (?, ?, 'retryable', ?) ON CONFLICT(operation_id_hash) DO NOTHING",
-		)
-			.bind(operationHash, raw.request_digest, raw.expires_at)
-			.run();
 		binding = await loadPurgeOperation(operationHash, env);
 	} catch {
 		return retryable(context, keys, 0);
+	}
+	if (!binding) {
+		// First receipt. An existing binding is itself proof of an earlier pass,
+		// so only an operation the relay has never bound is checked.
+		const origin = await askOriginator(env, keys, raw.key_version, raw.operation_id, now);
+		if (origin === "unavailable") {
+			return retryable(context, keys, 0, "owner_purge_origin_unavailable");
+		}
+		if (origin === "unoriginated") {
+			await signalPurgeUse(env.OWNER_PURGE_SIGNAL, SERVICE, "refused_unoriginated", now);
+			return refused(context, keys, "owner_purge_unoriginated", 409);
+		}
+		try {
+			await env.DB.prepare(
+				"INSERT INTO purge_operations (operation_id_hash, request_digest, disposition, expires_at) VALUES (?, ?, 'retryable', ?) ON CONFLICT(operation_id_hash) DO NOTHING",
+			)
+				.bind(operationHash, raw.request_digest, raw.expires_at)
+				.run();
+			binding = await loadPurgeOperation(operationHash, env);
+		} catch {
+			return retryable(context, keys, 0);
+		}
 	}
 
 	if (!binding) return retryable(context, keys, 0);
@@ -314,7 +340,7 @@ export async function handlePurge(request: Request, env: Env, now = unixNow()): 
 		return retryable(context, keys, completed);
 	}
 
-	await signalPurgeUse(env.OWNER_PURGE_SIGNAL, SERVICE, "complete", raw.expires_at, now);
+	await signalPurgeUse(env.OWNER_PURGE_SIGNAL, SERVICE, "complete", now);
 	return complete(context, keys, completed);
 }
 
@@ -425,8 +451,73 @@ export async function handlePurgeConfirm(
 		return retryable(context, keys, 0);
 	}
 
-	await signalPurgeUse(env.OWNER_PURGE_SIGNAL, SERVICE, "confirmed", envelope.expires_at, now);
+	await signalPurgeUse(env.OWNER_PURGE_SIGNAL, SERVICE, "confirmed", now);
 	return confirmed(context, keys);
+}
+
+// Asks the account portal, over the ORIGINATOR binding, whether it originated
+// this operation. The frame is signed with the envelope's own key version under
+// the origin purpose. Any error or malformed answer is "unavailable", which the
+// caller turns into a retry: nothing is bound or deleted on it.
+async function askOriginator(
+	env: Env,
+	keys: PurgeKeys,
+	keyVersion: KeyVersion,
+	operationId: string,
+	now: number,
+): Promise<OriginAnswer> {
+	if (!env.ORIGINATOR) return "unbound";
+	try {
+		const answer = await env.ORIGINATOR.originated(
+			await originFrame(keys, keyVersion, operationId, now),
+		);
+		if (answer?.originated === true) return "originated";
+		if (answer?.originated === false) return "unoriginated";
+		return "unavailable";
+	} catch {
+		return "unavailable";
+	}
+}
+
+export async function originFrame(
+	keys: PurgeKeys,
+	keyVersion: KeyVersion,
+	operationId: string,
+	now: number,
+): Promise<OwnerPurgeOriginFrame> {
+	const unsigned = {
+		version: PROTOCOL_VERSION,
+		key_version: keyVersion,
+		service: SERVICE,
+		operation_id: operationId,
+		issued_at: now,
+	};
+	const integrity = base64UrlEncode(
+		await hmacSha256(
+			ownerPurgeIntegrityFrame(domain("origin"), canonicalizeOwnerPurgeJson(unsigned)),
+			keys[keyVersion],
+		),
+	);
+	return { ...unsigned, integrity };
+}
+
+// Readiness's live probe: the portal must answer "no" for a fresh random id
+// under each retained key version. That proves the binding reaches the origin
+// check and the keys agree, before any deletion is started against this relay.
+async function originCheckAnswers(env: Env, keys: PurgeKeys, now: number): Promise<boolean> {
+	if (!env.ORIGINATOR) return false;
+	const answers = await Promise.all(
+		KEY_VERSIONS.map((version) =>
+			askOriginator(
+				env,
+				keys,
+				version,
+				base64UrlEncode(crypto.getRandomValues(new Uint8Array(32))),
+				now,
+			),
+		),
+	);
+	return answers.every((answer) => answer === "unoriginated");
 }
 
 export function canonicalizeOwnerPurgeJson(value: unknown): string {
@@ -594,7 +685,7 @@ async function verifyIntegrity(
 	try {
 		const frame = ownerPurgeIntegrityFrame(domain(kind), canonicalWithoutIntegrity(envelope));
 		let matchingVersion: KeyVersion | null = null;
-		for (const version of [1, 2] as const) {
+		for (const version of KEY_VERSIONS) {
 			const expected = await hmacSha256(frame, keys[version]);
 			if (crypto.subtle.timingSafeEqual(expected, supplied)) matchingVersion = version;
 		}
@@ -683,8 +774,11 @@ async function retryable(
 	context: ResponseContext,
 	keys: PurgeKeys,
 	_count: number,
+	reason:
+		| "owner_purge_database_error"
+		| "owner_purge_origin_unavailable" = "owner_purge_database_error",
 ): Promise<Response> {
-	log({ event: "owner_purge_retryable", reason: "owner_purge_database_error" });
+	log({ event: "owner_purge_retryable", reason });
 	return signedResponse(context, keys, "retryable", 503);
 }
 
@@ -709,7 +803,8 @@ async function refused(
 		| "owner_purge_request_lifetime"
 		| "owner_purge_attestation_lifetime"
 		| "owner_purge_binding_mismatch"
-		| "owner_purge_binding_absent",
+		| "owner_purge_binding_absent"
+		| "owner_purge_unoriginated",
 	status: number,
 ): Promise<Response> {
 	log({ event: "owner_purge_refused", reason });

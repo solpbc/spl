@@ -2,6 +2,7 @@
 // Copyright (c) 2026 sol pbc
 
 import { SELF, env } from "cloudflare:test";
+import type { OwnerPurgeOriginFrame } from "../src/env";
 import { base64UrlEncode } from "../src/tokens";
 import fixture from "../test-fixtures/owner-purge-v1.json";
 
@@ -118,8 +119,8 @@ export const CONFIRM_ROUTE = ownerPurgeFixture.routes.confirm;
 export const READY_ROUTE = "/internal/deletion/purge/ready";
 export const READINESS_ROUTE = READY_ROUTE;
 export const READINESS_NONCE = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8";
-export const READINESS_PROOF_V1 = "jnLWxA0xnA0nhsNh5uKEivAHp49huPFd-dTr4KdBpMQ";
-export const READINESS_PROOF_V2 = "oYp3FXG9CiKGrD1e7iMpUWiyVmXMaDfQnpoYDR3hDTo";
+export const READINESS_PROOF_V1 = "AhTXsf15un83QcGgiaA9n8g7FiRWtJuZfdq6eLPxJpg";
+export const READINESS_PROOF_V2 = "n3DMJnBYNzLgFy0XOscp5L_MPw9dAOHFo0TFGPamNcU";
 export const NOW = transcript(
 	"relay_retained_key_v1_first_confirmation_and_lost_response_retry",
 ).request_received_at;
@@ -219,6 +220,10 @@ export interface PostOptions {
 	bearer?: string;
 	headers?: HeadersInit;
 	method?: string;
+	// Whether the portal stand-in should treat the request's operation as one it
+	// sent. Defaults to true: a purge in this suite is the portal's unless a test
+	// says otherwise.
+	originated?: boolean;
 }
 
 export function post(path: string, body: unknown, options: PostOptions = {}): Promise<Response> {
@@ -233,11 +238,15 @@ export function postRaw(path: string, body: string, options: PostOptions = {}): 
 // constructed against "relay.internal" (see src/purge.ts PURGE_INTERNAL_HOST).
 // Every test in this suite exercises that legitimate path by default; the
 // dedicated reachability tests construct their own public-style host instead.
-export function request(
+export async function request(
 	path: string,
 	body: string | undefined,
 	options: PostOptions = {},
 ): Promise<Response> {
+	if (path === REQUEST_ROUTE && options.originated !== false) {
+		const operationId = requestOperationId(body);
+		if (operationId !== null) await registerOrigin(operationId);
+	}
 	const headers = new Headers(options.headers);
 	headers.set("authorization", `Bearer ${options.bearer ?? env.PURGE_SECRET}`);
 	if (body !== undefined && !headers.has("content-type"))
@@ -247,6 +256,40 @@ export function request(
 		headers,
 		body,
 	});
+}
+
+function requestOperationId(body: string | undefined): string | null {
+	try {
+		const parsed = JSON.parse(body ?? "") as { operation_id?: unknown };
+		return typeof parsed.operation_id === "string" ? parsed.operation_id : null;
+	} catch {
+		return null;
+	}
+}
+
+// The stand-in portal's bindings. Kept off the global Env so test envs still
+// convert to the relay's own Env type.
+export function originControl(): Fetcher {
+	return (env as unknown as { ORIGIN_CONTROL: Fetcher }).ORIGIN_CONTROL;
+}
+
+export async function registerOrigin(operationId: string): Promise<void> {
+	await originControl().fetch("http://account.test/control/register", {
+		method: "POST",
+		body: JSON.stringify({ operation_id: operationId }),
+	});
+}
+
+export async function setOriginMode(mode: "portal" | "throw" | "malformed"): Promise<void> {
+	await originControl().fetch("http://account.test/control/mode", {
+		method: "POST",
+		body: JSON.stringify({ mode }),
+	});
+}
+
+export async function originFrames(): Promise<OwnerPurgeOriginFrame[]> {
+	const result = await originControl().fetch("http://account.test/control/frames");
+	return (await result.json()) as OwnerPurgeOriginFrame[];
 }
 
 export async function response(
@@ -398,6 +441,7 @@ export async function clearRows(): Promise<void> {
 	await env.DB.prepare("DELETE FROM pending_grants").run();
 	await env.DB.prepare("DELETE FROM instances").run();
 	for (const signal of await purgeSignals()) await env.OWNER_PURGE_SIGNAL.delete(signal.name);
+	await originControl().fetch("http://account.test/control/reset", { method: "POST" });
 }
 
 export async function purgeSignals(): Promise<{ name: string; expiration?: number }[]> {

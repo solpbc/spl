@@ -84,7 +84,9 @@ type AuthorizedReason =
 	| "owner_purge_binding_absent"
 	| "owner_purge_database_error"
 	| "owner_purge_public_host"
-	| "owner_purge_signal_failed";
+	| "owner_purge_signal_failed"
+	| "owner_purge_unoriginated"
+	| "owner_purge_origin_unavailable";
 
 export interface LogFields {
 	event: LogEvent;

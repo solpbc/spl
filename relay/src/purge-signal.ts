@@ -5,16 +5,19 @@
 // transition writes one key to the operator's signal namespace. The key names
 // only the service, the disposition and the time. It has no value, no
 // metadata, no operation fingerprint, no request digest and no owner
-// association, so it can say that a purge happened but never whose. The key
-// expires with the purge binding it reports and never outlives it. A
+// association, so it can say that a purge happened but never whose. A refused
+// purge the account portal never originated writes a `refused_unoriginated`
+// key the same way. Every key expires a fixed seven days after it is written,
+// the ceiling of the purge binding's own class. The lifetime is never taken
+// from the envelope, because whoever signs the envelope chooses its expiry, and
+// a forger must not be able to shorten the record of their own purge. A
 // deployment without the binding (any self-hosted relay) writes nothing.
 
 import { log } from "./logging";
 
-export type PurgeSignalDisposition = "complete" | "confirmed";
+export type PurgeSignalDisposition = "complete" | "confirmed" | "refused_unoriginated";
 
-// Workers KV refuses a TTL under 60 seconds.
-const MIN_TTL_SECONDS = 60;
+export const PURGE_SIGNAL_TTL_SECONDS = 7 * 24 * 60 * 60;
 
 export function purgeSignalKey(
 	service: string,
@@ -31,16 +34,16 @@ export async function signalPurgeUse(
 	kv: KVNamespace | undefined,
 	service: string,
 	disposition: PurgeSignalDisposition,
-	bindingExpiresAtMs: number,
 	nowMs: number,
 ): Promise<void> {
 	if (!kv) return;
-	const expirationTtl = Math.max(MIN_TTL_SECONDS, Math.floor((bindingExpiresAtMs - nowMs) / 1000));
 	try {
-		await kv.put(purgeSignalKey(service, disposition, nowMs), "", { expirationTtl });
+		await kv.put(purgeSignalKey(service, disposition, nowMs), "", {
+			expirationTtl: PURGE_SIGNAL_TTL_SECONDS,
+		});
 	} catch {
-		// The purge already happened and cannot be undone, so a lost signal must
-		// not turn a finished purge into a retry.
+		// A lost signal must not change the disposition: a finished purge cannot
+		// be undone, and a refusal stands either way.
 		log({ event: "internal_error", reason: "owner_purge_signal_failed" });
 	}
 }

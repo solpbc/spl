@@ -9,7 +9,7 @@ import type { Env } from "../src/env";
 import { evaluatePurgeProvisioning, extractCheckExpressions } from "../src/purge";
 import { base64UrlDecode, base64UrlEncode } from "../src/tokens";
 
-const READINESS_FIXTURE_SHA256 = "e6456d20243c7a73542bacd8a31a2c1f321f08bee7034584d03977b6e0ba0ef4";
+const READINESS_FIXTURE_SHA256 = "66bbdef1860c0899ccb9a8eafb9334e6c4a5c4d5e51f74574859cb04ead74a03";
 const VENDORED_FIXTURE = join(process.cwd(), "test-fixtures", "owner-purge-readiness-v1.json");
 const CANONICAL_FIXTURE = join(process.cwd(), "..", "proto", "owner-purge-readiness-v1.json");
 
@@ -90,6 +90,7 @@ describe("owner-purge readiness v1 canonical conformance", () => {
 		const objV1 = {
 			key_version: 1,
 			nonce: sample.nonce,
+			origin_check: true,
 			service: fixture.service,
 			version: fixture.version,
 		};
@@ -105,6 +106,7 @@ describe("owner-purge readiness v1 canonical conformance", () => {
 		const objV2 = {
 			key_version: 2,
 			nonce: sample.nonce,
+			origin_check: true,
 			service: fixture.service,
 			version: fixture.version,
 		};
@@ -149,6 +151,7 @@ describe("owner-purge readiness v1 canonical conformance", () => {
 		const diffNonceObj = {
 			key_version: 1,
 			nonce: "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+			origin_check: true,
 			service: fixture.service,
 			version: fixture.version,
 		};
@@ -177,12 +180,14 @@ describe("owner-purge readiness v1 canonical conformance", () => {
 		const objV1 = {
 			key_version: 1,
 			nonce: sample.nonce,
+			origin_check: true,
 			service: fixture.service,
 			version: fixture.version,
 		};
 		const objV2 = {
 			key_version: 2,
 			nonce: sample.nonce,
+			origin_check: true,
 			service: fixture.service,
 			version: fixture.version,
 		};

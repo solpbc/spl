@@ -5,6 +5,7 @@ import { env } from "cloudflare:test";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Env } from "../src/env";
 import { handlePurge } from "../src/purge";
+import { PURGE_SIGNAL_TTL_SECONDS } from "../src/purge-signal";
 import { applyRelayD1Migrations } from "./apply-migrations";
 import {
 	CONFIRM_ROUTE,
@@ -17,8 +18,10 @@ import {
 	fixtureRequest,
 	post,
 	purgeSignals,
+	registerOrigin,
 	response,
 	seedInstance,
+	signedAttestation,
 	signedRequest,
 	transcript,
 } from "./owner-purge.helpers";
@@ -62,7 +65,7 @@ describe("owner-purge alert on use", () => {
 		expect(dispositions(await purgeSignals())).toEqual(["complete", "confirmed"]);
 	});
 
-	it("carries only service, disposition and time, and expires with the binding", async () => {
+	it("carries only service, disposition and time, and expires seven days after the write", async () => {
 		const operation = "signal-hygiene-operation";
 		const instanceId = "00000000-0000-4000-8000-000000000097";
 		await seedInstance(instanceId);
@@ -87,17 +90,57 @@ describe("owner-purge alert on use", () => {
 		expect(stored.value).toBe("");
 		expect(stored.metadata).toBeNull();
 		// Miniflare stamps the expiry on the real clock while the Worker runs on
-		// the fixture's, so compare the TTL it asked for with the binding's
-		// remaining life at NOW.
-		const bindingLifeSeconds = Math.floor((request.expires_at - NOW) / 1000);
-		expect(signal.expiration).toBeGreaterThanOrEqual(beforeRealSeconds + bindingLifeSeconds);
-		expect(signal.expiration).toBeLessThanOrEqual(afterRealSeconds + bindingLifeSeconds);
+		// the fixture's, so compare against the real clock around the write.
+		expect(PURGE_SIGNAL_TTL_SECONDS).toBe(7 * 24 * 60 * 60);
+		expect(signal.expiration).toBeGreaterThanOrEqual(beforeRealSeconds + PURGE_SIGNAL_TTL_SECONDS);
+		expect(signal.expiration).toBeLessThanOrEqual(afterRealSeconds + PURGE_SIGNAL_TTL_SECONDS);
+	});
+
+	it("keeps the fixed lifetime when the signer chooses a short envelope", async () => {
+		// The envelope's expiry is the signer's choice, down to a minute. A forger
+		// must not be able to shorten the record of their own purge with it.
+		const instanceId = "00000000-0000-4000-8000-000000000094";
+		await seedInstance(instanceId);
+		const request = await signedRequest({
+			operationId: "signal-short-envelope",
+			instanceIds: [instanceId],
+			issuedAt: NOW,
+			expiresAt: NOW + 61_000,
+		});
+		vi.useRealTimers();
+		const beforeRealSeconds = Math.floor(Date.now() / 1000);
+		vi.useFakeTimers();
+		vi.setSystemTime(NOW);
+		expect((await response(post(REQUEST_ROUTE, request))).body.disposition).toBe("complete");
+		const wrapper = confirmationWrapper(
+			request,
+			await signedAttestation({
+				operationId: request.operation_id,
+				requestDigest: request.request_digest,
+				keyVersion: request.key_version,
+				issuedAt: NOW,
+				expiresAt: NOW + 60_000,
+			}),
+		);
+		expect((await response(post(CONFIRM_ROUTE, wrapper))).body.disposition).toBe("confirmed");
+		vi.useRealTimers();
+		const afterRealSeconds = Math.ceil(Date.now() / 1000);
+
+		const signals = await purgeSignals();
+		expect(dispositions(signals)).toEqual(["complete", "confirmed"]);
+		for (const signal of signals) {
+			expect(signal.expiration).toBeGreaterThanOrEqual(
+				beforeRealSeconds + PURGE_SIGNAL_TTL_SECONDS,
+			);
+			expect(signal.expiration).toBeLessThanOrEqual(afterRealSeconds + PURGE_SIGNAL_TTL_SECONDS);
+		}
 	});
 
 	it("keeps a finished purge complete when the signal cannot be written", async () => {
 		const instanceId = "00000000-0000-4000-8000-000000000096";
 		await seedInstance(instanceId);
 		const request = await signedRequest({ operationId: "signal-down", instanceIds: [instanceId] });
+		await registerOrigin(request.operation_id);
 		const failing = {
 			put: () => Promise.reject(new Error("kv unavailable")),
 		} as unknown as KVNamespace;
@@ -131,6 +174,7 @@ describe("owner-purge alert on use", () => {
 			operationId: "signal-unbound",
 			instanceIds: [instanceId],
 		});
+		await registerOrigin(request.operation_id);
 		const result = await handlePurge(
 			new Request(`https://relay.internal${REQUEST_ROUTE}`, {
 				method: "POST",

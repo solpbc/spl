@@ -2,7 +2,7 @@
 	"version": 1,
 	"service": "relay",
 	"route": "/internal/deletion/purge/ready",
-	"description": "Owner-purge v1 relay readiness probe contract and canonical transcripts. Validates operational readiness, zero-row D1 schema capability, and generates cryptographic key proofs without mutating state.",
+	"description": "Owner-purge v1 relay readiness probe contract and canonical transcripts. Validates operational readiness, zero-row D1 schema capability and a live origin-check probe, and generates cryptographic key proofs without mutating state.",
 	"domain": "solpbc-owner-purge-v1:relay:readiness",
 	"integrity": {
 		"non_production_test_keys_utf8": {
@@ -12,11 +12,51 @@
 	},
 	"sample_readiness": {
 		"nonce": "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
-		"canonical_v1": "{\"key_version\":1,\"nonce\":\"AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8\",\"service\":\"relay\",\"version\":1}",
-		"canonical_v2": "{\"key_version\":2,\"nonce\":\"AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8\",\"service\":\"relay\",\"version\":1}",
-		"frame_hex_v1": "0000000000000025736f6c7062632d6f776e65722d70757267652d76313a72656c61793a72656164696e65737300000000000000657b226b65795f76657273696f6e223a312c226e6f6e6365223a2241414543417751464267634943516f4c4441304f4478415245684d554652595847426b6147787764486838222c2273657276696365223a2272656c6179222c2276657273696f6e223a317d",
-		"frame_hex_v2": "0000000000000025736f6c7062632d6f776e65722d70757267652d76313a72656c61793a72656164696e65737300000000000000657b226b65795f76657273696f6e223a322c226e6f6e6365223a2241414543417751464267634943516f4c4441304f4478415245684d554652595847426b6147787764486838222c2273657276696365223a2272656c6179222c2276657273696f6e223a317d",
-		"proof_v1": "jnLWxA0xnA0nhsNh5uKEivAHp49huPFd-dTr4KdBpMQ",
-		"proof_v2": "oYp3FXG9CiKGrD1e7iMpUWiyVmXMaDfQnpoYDR3hDTo"
+		"canonical_v1": "{\"key_version\":1,\"nonce\":\"AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8\",\"origin_check\":true,\"service\":\"relay\",\"version\":1}",
+		"canonical_v2": "{\"key_version\":2,\"nonce\":\"AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8\",\"origin_check\":true,\"service\":\"relay\",\"version\":1}",
+		"frame_hex_v1": "0000000000000025736f6c7062632d6f776e65722d70757267652d76313a72656c61793a72656164696e65737300000000000000797b226b65795f76657273696f6e223a312c226e6f6e6365223a2241414543417751464267634943516f4c4441304f4478415245684d554652595847426b6147787764486838222c226f726967696e5f636865636b223a747275652c2273657276696365223a2272656c6179222c2276657273696f6e223a317d",
+		"frame_hex_v2": "0000000000000025736f6c7062632d6f776e65722d70757267652d76313a72656c61793a72656164696e65737300000000000000797b226b65795f76657273696f6e223a322c226e6f6e6365223a2241414543417751464267634943516f4c4441304f4478415245684d554652595847426b6147787764486838222c226f726967696e5f636865636b223a747275652c2273657276696365223a2272656c6179222c2276657273696f6e223a317d",
+		"proof_v1": "AhTXsf15un83QcGgiaA9n8g7FiRWtJuZfdq6eLPxJpg",
+		"proof_v2": "n3DMJnBYNzLgFy0XOscp5L_MPw9dAOHFo0TFGPamNcU"
+	},
+	"origin_check": {
+		"description": "The proofs sign origin_check: true only when the relay's ORIGINATOR binding answered a live probe, a fresh random operation id under each key version, with originated false. A relay without the binding signs false. The account portal requires true.",
+		"domain": "solpbc-owner-purge-v1:relay:origin",
+		"frame_fields": [
+			"version",
+			"key_version",
+			"service",
+			"operation_id",
+			"issued_at",
+			"integrity"
+		],
+		"max_skew_ms": 300000,
+		"answer": "{ originated: boolean }",
+		"sample_frames": {
+			"v1": {
+				"frame": {
+					"version": 1,
+					"key_version": 1,
+					"service": "relay",
+					"operation_id": "ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8",
+					"issued_at": 1790000000000,
+					"integrity": "imK5dzullaMzeMkbJYzkNR5oy9tCQSkmDoe2qPix5Ao"
+				},
+				"canonical_without_integrity": "{\"issued_at\":1790000000000,\"key_version\":1,\"operation_id\":\"ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8\",\"service\":\"relay\",\"version\":1}",
+				"frame_hex": "0000000000000022736f6c7062632d6f776e65722d70757267652d76313a72656c61793a6f726967696e00000000000000867b226973737565645f6174223a313739303030303030303030302c226b65795f76657273696f6e223a312c226f7065726174696f6e5f6964223a22494345694979516c4a69636f4b536f724c4330754c7a41784d6a4d304e5459334f446b364f7a7739506a38222c2273657276696365223a2272656c6179222c2276657273696f6e223a317d"
+			},
+			"v2": {
+				"frame": {
+					"version": 1,
+					"key_version": 2,
+					"service": "relay",
+					"operation_id": "ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8",
+					"issued_at": 1790000000000,
+					"integrity": "IkzUmPPSxCle_Bj_MW6Rf7K9bBRgJI7xhsQIBtZ7VIo"
+				},
+				"canonical_without_integrity": "{\"issued_at\":1790000000000,\"key_version\":2,\"operation_id\":\"ICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8\",\"service\":\"relay\",\"version\":1}",
+				"frame_hex": "0000000000000022736f6c7062632d6f776e65722d70757267652d76313a72656c61793a6f726967696e00000000000000867b226973737565645f6174223a313739303030303030303030302c226b65795f76657273696f6e223a322c226f7065726174696f6e5f6964223a22494345694979516c4a69636f4b536f724c4330754c7a41784d6a4d304e5459334f446b364f7a7739506a38222c2273657276696365223a2272656c6179222c2276657273696f6e223a317d"
+			}
+		}
 	}
 }

@@ -18,7 +18,7 @@ const FIXTURE_SHA256 = "716133ca9dd49b0d938720a52b8c46122d73fa2c99085eac3a4100af
 const VENDORED_FIXTURE = join(process.cwd(), "test-fixtures", "owner-purge-v1.json");
 const CANONICAL_FIXTURE = join(process.cwd(), "..", "proto", "owner-purge-v1.json");
 
-const READINESS_FIXTURE_SHA256 = "e6456d20243c7a73542bacd8a31a2c1f321f08bee7034584d03977b6e0ba0ef4";
+const READINESS_FIXTURE_SHA256 = "66bbdef1860c0899ccb9a8eafb9334e6c4a5c4d5e51f74574859cb04ead74a03";
 const VENDORED_READINESS_FIXTURE = join(
 	process.cwd(),
 	"test-fixtures",
@@ -95,6 +95,7 @@ describe("owner-purge v1 canonical conformance", () => {
 				key_version: keyVersion,
 				service: "relay",
 				nonce,
+				origin_check: true,
 			});
 			expect(canonical).toBe(fixture.sample_readiness[`canonical_v${keyVersion}`]);
 

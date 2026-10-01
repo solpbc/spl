@@ -106,12 +106,25 @@ database_name = "spl-relay"
 database_id = "989a04e6-09b0-4176-a228-e49b61401908"
 migrations_dir = "migrations"
 
-# Owner-purge alert on use (src/purge-signal.ts): one key per successful purge
-# transition naming only service, disposition and time, expiring with the
-# purge binding. Optional; a relay without this binding writes no signal.
+# Owner-purge alert on use (src/purge-signal.ts): one key per purge transition
+# or refused unoriginated purge, naming only service, disposition and time, and
+# expiring seven days after the write. Optional; a relay without this binding
+# writes no signal.
 [[env.production.kv_namespaces]]
 binding = "OWNER_PURGE_SIGNAL"
 id = "a0d4cf29723e4c4c868bc0ade1d0efb5"
+
+# Owner-purge origin check (src/purge.ts): before a first receipt binds or
+# deletes anything, ask the account portal whether it originated the purge. The
+# binding names the portal's OwnerPurgeOrigin entrypoint, which has one method
+# and no fetch, so it cannot reach any portal route. Bindings do not inherit
+# into this env, so it is declared here; readiness signs whether it answers,
+# and the portal starts no deletion against a relay without it. Optional for a
+# self-hosted relay, which skips the check.
+[[env.production.services]]
+binding = "ORIGINATOR"
+service = "account-portal"
+entrypoint = "OwnerPurgeOrigin"
 
 [[env.production.durable_objects.bindings]]
 name = "INSTANCE"

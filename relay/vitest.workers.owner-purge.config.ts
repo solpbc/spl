@@ -20,6 +20,21 @@ export default defineConfig({
 				durableObjects: { INSTANCE: { className: "InstanceDO", useSQLite: true } },
 				d1Databases: ["DB"],
 				kvNamespaces: ["OWNER_PURGE_SIGNAL"],
+				// A stand-in for the account portal. ORIGINATOR names its OwnerPurgeOrigin
+				// entrypoint, as production does; ORIGIN_CONTROL reaches its default handler
+				// so tests can say which operations the portal "sent".
+				workers: [
+					{
+						name: "account-portal",
+						modules: true,
+						scriptPath: "./test-integration/support/originator-stand-in.js",
+						compatibilityDate: "2026-04-01",
+					},
+				],
+				serviceBindings: {
+					ORIGINATOR: { name: "account-portal", entrypoint: "OwnerPurgeOrigin" },
+					ORIGIN_CONTROL: "account-portal",
+				},
 				bindings: {
 					ENVIRONMENT: "test",
 					ISSUER: "spl.test",
@@ -37,6 +52,7 @@ export default defineConfig({
 			"test-integration/owner-purge.test.ts",
 			"test-integration/owner-purge.contract.test.ts",
 			"test-integration/owner-purge.signal.test.ts",
+			"test-integration/owner-purge.origin.test.ts",
 		],
 		maxWorkers: 1,
 		isolate: false,
