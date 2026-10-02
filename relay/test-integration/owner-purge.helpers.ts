@@ -14,7 +14,6 @@ declare global {
 			GRANT_SECRET: string;
 			OWNER_PURGE_HMAC_KEY_V1: string;
 			OWNER_PURGE_HMAC_KEY_V2: string;
-			OWNER_PURGE_SIGNAL: KVNamespace;
 		}
 	}
 }
@@ -440,13 +439,7 @@ export async function clearRows(): Promise<void> {
 	await env.DB.prepare("DELETE FROM purge_operations").run();
 	await env.DB.prepare("DELETE FROM pending_grants").run();
 	await env.DB.prepare("DELETE FROM instances").run();
-	for (const signal of await purgeSignals()) await env.OWNER_PURGE_SIGNAL.delete(signal.name);
 	await originControl().fetch("http://account.test/control/reset", { method: "POST" });
-}
-
-export async function purgeSignals(): Promise<{ name: string; expiration?: number }[]> {
-	const listed = await env.OWNER_PURGE_SIGNAL.list();
-	return listed.keys.map(({ name, expiration }) => ({ name, expiration }));
 }
 
 export async function rowCount(

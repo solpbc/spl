@@ -5,7 +5,6 @@ import { SELF, env } from "cloudflare:test";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Env } from "../src/env";
 import { canonicalizeOwnerPurgeJson, handlePurge, ownerPurgeIntegrityFrame } from "../src/purge";
-import { PURGE_SIGNAL_TTL_SECONDS } from "../src/purge-signal";
 import { base64UrlEncode } from "../src/tokens";
 import readinessFixture from "../test-fixtures/owner-purge-readiness-v1.json";
 import { applyRelayD1Migrations } from "./apply-migrations";
@@ -23,7 +22,6 @@ import {
 	originControl,
 	originFrames,
 	post,
-	purgeSignals,
 	registerOrigin,
 	response,
 	rowCount,
@@ -32,9 +30,6 @@ import {
 	signedAttestation,
 	signedRequest,
 } from "./owner-purge.helpers";
-
-const REFUSED_KEY_RE =
-	/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\/relay\/refused_unoriginated\/[0-9a-f]{8}$/;
 
 beforeAll(async () => {
 	await applyRelayD1Migrations();
@@ -146,24 +141,16 @@ describe("owner-purge origin check", () => {
 		);
 	});
 
-	it("refuses an unoriginated operation, deletes nothing and writes one refused key", async () => {
+	it("refuses an unoriginated operation and deletes nothing", async () => {
 		const instanceId = "00000000-0000-4000-8000-000000000082";
 		await seedInstance(instanceId);
-		// A signer picks its own envelope expiry, here one minute. The refusal
-		// record must still keep its fixed seven days.
 		const request = await signedRequest({
 			operationId: "origin-no",
 			instanceIds: [instanceId],
 			issuedAt: NOW,
 			expiresAt: NOW + 61_000,
 		});
-		vi.useRealTimers();
-		const beforeRealSeconds = Math.floor(Date.now() / 1000);
-		vi.useFakeTimers();
-		vi.setSystemTime(NOW);
 		const refused = await response(post(REQUEST_ROUTE, request, { originated: false }));
-		vi.useRealTimers();
-		const afterRealSeconds = Math.ceil(Date.now() / 1000);
 
 		expect(refused.status).toBe(409);
 		expect(refused.body.disposition).toBe("refused");
@@ -182,17 +169,6 @@ describe("owner-purge origin check", () => {
 		expect(await rowCount("instances", instanceId)).toBe(1);
 		expect(await rowCount("pending_grants", instanceId)).toBe(1);
 		expect(await bindingCount()).toBe(0);
-
-		const signals = await purgeSignals();
-		expect(signals).toHaveLength(1);
-		expect(signals[0].name).toMatch(REFUSED_KEY_RE);
-		for (const secret of ["origin-no", instanceId, request.request_digest, request.integrity]) {
-			expect(signals[0].name).not.toContain(secret);
-		}
-		expect(signals[0].expiration).toBeGreaterThanOrEqual(
-			beforeRealSeconds + PURGE_SIGNAL_TTL_SECONDS,
-		);
-		expect(signals[0].expiration).toBeLessThanOrEqual(afterRealSeconds + PURGE_SIGNAL_TTL_SECONDS);
 	});
 
 	it("retries without binding or deleting when the portal cannot answer", async () => {
@@ -210,7 +186,6 @@ describe("owner-purge origin check", () => {
 			expect(result.body.disposition).toBe("retryable");
 			expect(await rowCount("instances", instanceId)).toBe(1);
 			expect(await bindingCount()).toBe(0);
-			expect(await purgeSignals()).toEqual([]);
 		}
 	});
 

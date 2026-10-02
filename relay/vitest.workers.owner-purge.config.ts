@@ -19,7 +19,6 @@ export default defineConfig({
 				compatibilityFlags: ["nodejs_compat"],
 				durableObjects: { INSTANCE: { className: "InstanceDO", useSQLite: true } },
 				d1Databases: ["DB"],
-				kvNamespaces: ["OWNER_PURGE_SIGNAL"],
 				// A stand-in for the account portal. ORIGINATOR names its OwnerPurgeOrigin
 				// entrypoint, as production does; ORIGIN_CONTROL reaches its default handler
 				// so tests can say which operations the portal "sent".
@@ -51,7 +50,6 @@ export default defineConfig({
 		include: [
 			"test-integration/owner-purge.test.ts",
 			"test-integration/owner-purge.contract.test.ts",
-			"test-integration/owner-purge.signal.test.ts",
 			"test-integration/owner-purge.origin.test.ts",
 		],
 		maxWorkers: 1,

@@ -4,8 +4,7 @@
 // Canonical owner-purge v1 relay endpoint. It retains only opaque operation
 // fingerprints and canonical request digests; it never records an owner
 // association, raw operation id, envelope, integrity value, or target snapshot.
-// Each successful transition also writes an identifier-free alert-on-use key
-// (purge-signal.ts). Before a first receipt binds or deletes anything, the
+// Before a first receipt binds or deletes anything, the
 // relay asks the account portal whether it originated the operation, and
 // refuses one it did not.
 
@@ -13,7 +12,6 @@ import { INSTANCE_ID_RE, hasValidBearer } from "./entitlement";
 import type { Env, OwnerPurgeOriginFrame } from "./env";
 import { json, readJson } from "./http";
 import { log } from "./logging";
-import { signalPurgeUse } from "./purge-signal";
 import { base64UrlDecode, base64UrlEncode } from "./tokens";
 
 const PURGE_ROUTE = "/internal/deletion/purge";
@@ -291,7 +289,6 @@ export async function handlePurge(request: Request, env: Env, now = unixNow()): 
 			return retryable(context, keys, 0, "owner_purge_origin_unavailable");
 		}
 		if (origin === "unoriginated") {
-			await signalPurgeUse(env.OWNER_PURGE_SIGNAL, SERVICE, "refused_unoriginated", now);
 			return refused(context, keys, "owner_purge_unoriginated", 409);
 		}
 		try {
@@ -340,7 +337,6 @@ export async function handlePurge(request: Request, env: Env, now = unixNow()): 
 		return retryable(context, keys, completed);
 	}
 
-	await signalPurgeUse(env.OWNER_PURGE_SIGNAL, SERVICE, "complete", now);
 	return complete(context, keys, completed);
 }
 
@@ -451,7 +447,6 @@ export async function handlePurgeConfirm(
 		return retryable(context, keys, 0);
 	}
 
-	await signalPurgeUse(env.OWNER_PURGE_SIGNAL, SERVICE, "confirmed", now);
 	return confirmed(context, keys);
 }
 

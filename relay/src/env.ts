@@ -48,10 +48,6 @@ export interface Env {
 	// confirmation with the account-side implementation; it is not a new secret.
 	PURGE_SECRET?: string;
 
-	// Owner-purge alert on use (see purge-signal.ts). Optional: when it is
-	// unbound, no signal is written.
-	OWNER_PURGE_SIGNAL?: KVNamespace;
-
 	// Owner-purge origin check: a service binding to the account portal's
 	// OwnerPurgeOrigin entrypoint, which answers whether the portal originated a
 	// purge. Optional: a relay without it (any self-hosted relay) skips the check,

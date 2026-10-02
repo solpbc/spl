@@ -11,7 +11,7 @@ MVP build — Worker + Durable Object implement the full v1 protocol surface:
 - `/enroll/home` and `/enroll/device` control-plane endpoints with Ed25519 JWT issuance and ES256 home-attestation verification (see [`../proto/tokens.md`](../proto/tokens.md))
 - `/session/listen`, `/session/dial`, `/tunnel/<id>` WebSocket routes with JWT verify, WS-tag cardinality, and 16 MiB pending-buffer cap with 1009 close on overflow
 - `/.well-known/jwks.json` transparency mirror
-- `/internal/deletion/purge` and `/internal/deletion/purge/confirm` service-to-service owner-purge v1 controls, separately bearer- and HMAC-authenticated; they retain no portal-owner association. Before a first receipt binds or deletes anything, the relay asks the operator's account portal, over the optional `ORIGINATOR` service binding, whether the portal originated that purge, and refuses with `409` one it did not. Each successful purge transition, and each refused unoriginated purge, writes one alert-on-use key, naming only the service, disposition and time, to the optional `OWNER_PURGE_SIGNAL` KV namespace. The key expires seven days after it is written. A relay without `ORIGINATOR` skips the check.
+- `/internal/deletion/purge` and `/internal/deletion/purge/confirm` service-to-service owner-purge v1 controls, separately bearer- and HMAC-authenticated; they retain no portal-owner association. Before a first receipt binds or deletes anything, the relay asks the operator's account portal, over the optional `ORIGINATOR` service binding, whether the portal originated that purge, and refuses with `409` one it did not. A relay without `ORIGINATOR` skips the check.
 - D1 schema (`migrations/`) for instance admission, entitlement and bounded purge receipts — no payload bytes, ever
 - Blind forwarding: the DO holds `ArrayBuffer`s and forwards them without parsing; no code path reads a relayed frame
 
@@ -119,7 +119,7 @@ Run `bun run gen-key` to mint a self-host keypair — it writes to `~/.spl/signi
 
 ## logging policy
 
-Successful enrollment, refresh, session activity and forwarded frames produce no application logs. A successful owner purge is signalled through `OWNER_PURGE_SIGNAL`, not the log; the signal names no instance, operation or digest. Errors use fixed event/reason/route classifications, without identifiers, traffic sizes, durations, payloads or credentials. Workers Logs persistence, invocation logs and traces are disabled. This configuration does not remove older provider-retained copies or hide routing, addresses and traffic patterns from the network.
+Successful enrollment, refresh, session activity, owner purges and forwarded frames produce no application logs. Errors use fixed event/reason/route classifications, without identifiers, traffic sizes, durations, payloads or credentials. Workers Logs persistence, invocation logs and traces are disabled. This configuration does not remove older provider-retained copies or hide routing, addresses and traffic patterns from the network.
 
 Upgrading an existing relay requires the enrollment drain before migration 0011; follow [the token migration procedure](../proto/tokens.md#stateless-enrollment-transition).
 
