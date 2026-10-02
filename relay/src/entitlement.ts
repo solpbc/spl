@@ -5,6 +5,7 @@
 
 import type { Env } from "./env";
 import { json, readJson } from "./http";
+import type { InstanceDO } from "./instance-do";
 import { log } from "./logging";
 
 const ROUTE = "/admin/entitlement";
@@ -78,6 +79,13 @@ export async function handleSetEntitlement(request: Request, env: Env): Promise<
 			.run();
 
 		return json({ ok: true, pending: true });
+	}
+
+	const now = Math.floor(Date.now() / 1000);
+	if (resolved.entitledUntil === null || resolved.entitledUntil <= now) {
+		const namespace = env.INSTANCE as unknown as DurableObjectNamespace<InstanceDO>;
+		const stub = namespace.get(namespace.idFromName(body.instance_id));
+		await stub.closeUnentitled(body.instance_id);
 	}
 
 	return json({ ok: true });

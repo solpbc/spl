@@ -462,6 +462,26 @@ export class InstanceDO extends DurableObject<Env> {
 		}
 	}
 
+	// Called after a grant push leaves the instance without an entitlement. The
+	// listen and dial gates refuse only new sockets, so without this a live
+	// listener, its tunnels and any held dial outlive the grant for as long as
+	// either side keeps them open.
+	async closeUnentitled(instanceId: string): Promise<void> {
+		if (this.env.ENTITLEMENT_REQUIRED !== "true") return;
+		if (await this.isEntitled(instanceId)) return;
+		for (const tunnelId of [...this.attachLeases.keys()]) this.clearAttachLease(tunnelId);
+		this.pending.clear();
+		for (const ws of this.ctx.getWebSockets()) {
+			const att = ws.deserializeAttachment() as Attachment | null;
+			if (!att || att.instance_id !== instanceId) continue;
+			att.retired = true;
+			ws.serializeAttachment(att);
+			try {
+				ws.close(CLOSE_CODE_NOT_ENTITLED, "not entitled");
+			} catch {}
+		}
+	}
+
 	// Helpers
 
 	private async isEntitled(instanceId: string): Promise<boolean> {

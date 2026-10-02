@@ -144,6 +144,20 @@ function onMessage(ws: WebSocket): Promise<string> {
 	});
 }
 
+function onClose(ws: WebSocket): Promise<number> {
+	return new Promise((resolve, reject) => {
+		const timer = setTimeout(() => reject(new Error("onClose timeout")), 5000);
+		ws.addEventListener(
+			"close",
+			(ev) => {
+				clearTimeout(timer);
+				resolve(ev.code);
+			},
+			{ once: true },
+		);
+	});
+}
+
 async function expectNotEntitled(res: Response): Promise<void> {
 	expect(res.status).toBe(402);
 	expect(res.headers.get("x-close-code")).toBe(CLOSE_CODE_NOT_ENTITLED);
@@ -523,5 +537,59 @@ describe("entitlement gate on", () => {
 			listenToken,
 		);
 		await expectNotEntitled(afterRevoke);
+	});
+
+	it("closes a live listener and its tunnel when a revoke lands", async () => {
+		const instanceId = newInstanceId();
+		await enrollHome(instanceId);
+		await postEntitlement({
+			instance_id: instanceId,
+			entitled_until: Math.floor(Date.now() / 1000) + 3600,
+		});
+
+		const home = await wsOpen(
+			`http://spl.test/session/listen?instance=${instanceId}`,
+			await mintService(instanceId),
+		);
+		const incoming = onMessage(home);
+		const mobile = await wsOpen(
+			`http://spl.test/session/dial?instance=${instanceId}`,
+			await mintDevice(instanceId),
+		);
+		const signal = JSON.parse(await incoming) as { tunnel_id: string };
+		const tunnelHome = await wsOpen(
+			`http://spl.test/tunnel/${signal.tunnel_id}?instance=${instanceId}`,
+			await mintService(instanceId),
+		);
+		const closes = [home, mobile, tunnelHome].map(onClose);
+
+		const revoke = await postEntitlement({ instance_id: instanceId, entitled_until: 0 });
+		expect(revoke.status).toBe(200);
+		expect(await Promise.all(closes)).toEqual([4402, 4402, 4402]);
+	});
+
+	it("leaves live sockets open when a grant is renewed", async () => {
+		const instanceId = newInstanceId();
+		await enrollHome(instanceId);
+		const until = Math.floor(Date.now() / 1000) + 3600;
+		await postEntitlement({ instance_id: instanceId, entitled_until: until });
+		const home = await wsOpen(
+			`http://spl.test/session/listen?instance=${instanceId}`,
+			await mintService(instanceId),
+		);
+		let closed = false;
+		home.addEventListener("close", () => {
+			closed = true;
+		});
+
+		const renew = await postEntitlement({ instance_id: instanceId, entitled_until: until + 3600 });
+		expect(renew.status).toBe(200);
+		const incoming = onMessage(home);
+		await wsOpen(
+			`http://spl.test/session/dial?instance=${instanceId}`,
+			await mintDevice(instanceId),
+		);
+		expect(JSON.parse(await incoming).type).toBe("incoming");
+		expect(closed).toBe(false);
 	});
 });
