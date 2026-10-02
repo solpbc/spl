@@ -41,6 +41,8 @@ import {
 	response,
 	rowCount,
 	seedInstance,
+	submit,
+	submitRaw,
 	transcript,
 } from "./owner-purge.helpers";
 
@@ -122,9 +124,7 @@ describe("owner-purge v1 admission boundaries", () => {
 		const requestEnvelope = fixtureRequest(RELAY_V1_NAME);
 		for (const instanceId of fixtureInstanceIds(requestEnvelope)) await seedInstance(instanceId);
 
-		expect(
-			await response(post(REQUEST_ROUTE, requestEnvelope, { bearer: env.GRANT_SECRET })),
-		).toEqual({
+		expect(await response(submit(requestEnvelope, { bearer: env.GRANT_SECRET }))).toEqual({
 			status: 401,
 			body: { error: "unauthorized" },
 		});
@@ -152,7 +152,7 @@ describe("owner-purge v1 admission boundaries", () => {
 		const requestEnvelope = fixtureRequest(RELAY_V1_NAME);
 		expect(
 			await response(
-				post(REQUEST_ROUTE, requestEnvelope, {
+				submit(requestEnvelope, {
 					bearer: "wrong-purge-bearer",
 					headers,
 				}),
@@ -183,7 +183,7 @@ describe("owner-purge v1 admission boundaries", () => {
 		const signerSpy = vi.spyOn(responseSigner, "sign");
 
 		try {
-			const submitRes = await post(REQUEST_ROUTE, requestEnvelope, {
+			const submitRes = await submit(requestEnvelope, {
 				bearer: env.PURGE_SECRET,
 				headers,
 			});
@@ -239,7 +239,7 @@ describe("owner-purge v1 admission boundaries", () => {
 					authorization: `Bearer ${env.PURGE_SECRET}`,
 					"content-type": "application/json",
 				},
-				body: JSON.stringify(requestEnvelope),
+				body: JSON.stringify({ envelope: requestEnvelope }),
 			});
 			expect(submitRes.status).toBe(401);
 			expect(await submitRes.json()).toEqual({ error: "unauthorized" });
@@ -850,15 +850,29 @@ describe("owner-purge v1 admission boundaries", () => {
 		}
 	});
 
+	it("refuses a submit whose envelope is not wrapped the way the account portal sends it", async () => {
+		const requestEnvelope = fixtureRequest(RELAY_V1_NAME);
+		for (const instanceId of fixtureInstanceIds(requestEnvelope)) await seedInstance(instanceId);
+
+		expect(await response(post(REQUEST_ROUTE, requestEnvelope))).toEqual({
+			status: 400,
+			body: { error: "bad request" },
+		});
+		expect(await response(submit(requestEnvelope))).toMatchObject({
+			status: 200,
+			body: { disposition: "complete" },
+		});
+	});
+
 	it("rejects unknown and wrong-typed submit envelope fields before binding", async () => {
 		const unknown = { ...fixtureRequest(RELAY_V1_NAME), unexpected: true };
 		const wrongType = { ...fixtureRequest(RELAY_V1_NAME), version: "1" };
 
-		expect(await response(post(REQUEST_ROUTE, unknown))).toEqual({
+		expect(await response(submit(unknown))).toEqual({
 			status: 400,
 			body: { error: "bad request" },
 		});
-		expect(await response(post(REQUEST_ROUTE, wrongType))).toEqual({
+		expect(await response(submit(wrongType))).toEqual({
 			status: 400,
 			body: { error: "bad request" },
 		});
@@ -868,7 +882,7 @@ describe("owner-purge v1 admission boundaries", () => {
 	it("rejects duplicate submit-envelope members in hand-crafted raw JSON", async () => {
 		const requestEnvelope = fixtureRequest(RELAY_V1_NAME);
 		const raw = duplicateFieldJson(requestEnvelope, "expires_at", requestEnvelope.expires_at + 1);
-		expect(await response(postRaw(REQUEST_ROUTE, raw))).toEqual({
+		expect(await response(submitRaw(raw))).toEqual({
 			status: 401,
 			body: { error: "unauthorized" },
 		});
@@ -877,7 +891,7 @@ describe("owner-purge v1 admission boundaries", () => {
 
 	it("rejects non-finite submit-envelope numbers in hand-crafted raw JSON", async () => {
 		const raw = nonFiniteIssuedAtJson(fixtureRequest(RELAY_V1_NAME));
-		expect(await response(postRaw(REQUEST_ROUTE, raw))).toEqual({
+		expect(await response(submitRaw(raw))).toEqual({
 			status: 400,
 			body: { error: "bad request" },
 		});
@@ -955,7 +969,7 @@ describe("owner-purge v1 integrity separation", () => {
 			await resignRequest(requestEnvelope, { domainService: supportService }),
 			await resignRequest(requestEnvelope, { signingKeyVersion: 2 }),
 		]) {
-			expect(await response(post(REQUEST_ROUTE, altered))).toEqual({
+			expect(await response(submit(altered))).toEqual({
 				status: 401,
 				body: { error: "unauthorized" },
 			});
@@ -1126,7 +1140,7 @@ describe("owner-purge v1 binding invariants", () => {
 		const original = fixtureRequest(RELAY_V1_NAME);
 		const mismatch = await resignRequest(original, { expiresAt: original.expires_at + 1 });
 
-		expect((await response(post(REQUEST_ROUTE, mismatch))).body.disposition).toBe("refused");
+		expect((await response(submit(mismatch))).body.disposition).toBe("refused");
 		await expectRetainedCompleteBinding(control, purgedInstanceIds);
 	});
 
@@ -1141,8 +1155,8 @@ describe("owner-purge v1 binding invariants", () => {
 			associationSnapshot: { instance_ids: [...instanceIds, instanceIds[0]] },
 		});
 
-		expect((await response(post(REQUEST_ROUTE, reordered))).body.disposition).toBe("refused");
-		expect((await response(post(REQUEST_ROUTE, duplicate))).body.disposition).toBe("refused");
+		expect((await response(submit(reordered))).body.disposition).toBe("refused");
+		expect((await response(submit(duplicate))).body.disposition).toBe("refused");
 		await expectRetainedCompleteBinding(control, purgedInstanceIds);
 	});
 
@@ -1152,7 +1166,7 @@ describe("owner-purge v1 binding invariants", () => {
 		const v2 = fixtureRequest(RELAY_V2_NAME);
 		const mismatch = await resignRequest(v2, { operationId: v1.operation_id });
 
-		expect((await response(post(REQUEST_ROUTE, mismatch))).body.disposition).toBe("refused");
+		expect((await response(submit(mismatch))).body.disposition).toBe("refused");
 		await expectRetainedCompleteBinding(control, purgedInstanceIds);
 	});
 
@@ -1209,7 +1223,7 @@ async function completeRelayV1Binding(): Promise<{
 	for (const instanceId of purgedInstanceIds) await seedInstance(instanceId);
 	const control = "00000000-0000-4000-8000-000000000097";
 	await seedInstance(control);
-	expect(await response(post(REQUEST_ROUTE, requestEnvelope))).toEqual({
+	expect(await response(submit(requestEnvelope))).toEqual({
 		status: 200,
 		body: fixtureResponse(RELAY_V1_NAME, "submit_response"),
 	});

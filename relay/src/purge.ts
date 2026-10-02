@@ -54,6 +54,10 @@ const ATTESTATION_FIELDS = [
 	"expires_at",
 	"integrity",
 ] as const;
+// The account portal posts every owner-purge body wrapped: a submit carries
+// { envelope }, a confirmation { envelope, attestation }. The support target
+// reads the same shapes, so a bare envelope is malformed here too.
+const SUBMISSION_WRAPPER_FIELDS = ["envelope"] as const;
 const CONFIRMATION_WRAPPER_FIELDS = ["envelope", "attestation"] as const;
 const BASE64URL_SHA256_RE = /^[A-Za-z0-9_-]{43}$/;
 
@@ -261,7 +265,9 @@ export async function handlePurge(request: Request, env: Env, now = unixNow()): 
 
 	const body = await readJson<unknown>(request, MAX_PURGE_BODY_BYTES);
 	if (!body.ok) return plainRefusal("owner_purge_malformed", 400);
-	const raw = parseRequestEnvelope(body.value);
+	const wrapper = exactRecord(body.value, SUBMISSION_WRAPPER_FIELDS);
+	if (!wrapper || !isRecord(wrapper.envelope)) return plainRefusal("owner_purge_malformed", 400);
+	const raw = parseRequestEnvelope(wrapper.envelope);
 	if (!raw) return plainRefusal("owner_purge_malformed", 400);
 	if (raw.service !== SERVICE) return plainRefusal("owner_purge_wrong_service", 400);
 

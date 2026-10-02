@@ -29,6 +29,7 @@ import {
 	setOriginMode,
 	signedAttestation,
 	signedRequest,
+	submit,
 } from "./owner-purge.helpers";
 
 beforeAll(async () => {
@@ -87,7 +88,7 @@ function readiness(): Promise<Response> {
 	});
 }
 
-function directPurge(body: unknown, overrides: Partial<Env>): Promise<Response> {
+function directPurge(envelope: unknown, overrides: Partial<Env>): Promise<Response> {
 	return handlePurge(
 		new Request(`https://relay.internal${REQUEST_ROUTE}`, {
 			method: "POST",
@@ -95,7 +96,7 @@ function directPurge(body: unknown, overrides: Partial<Env>): Promise<Response> 
 				authorization: `Bearer ${env.PURGE_SECRET}`,
 				"content-type": "application/json",
 			},
-			body: JSON.stringify(body),
+			body: JSON.stringify({ envelope }),
 		}),
 		{ ...(env as unknown as Env), ...overrides },
 		NOW,
@@ -125,7 +126,7 @@ describe("owner-purge origin check", () => {
 		await seedInstance(instanceId);
 		const request = await signedRequest({ operationId: "origin-yes", instanceIds: [instanceId] });
 
-		expect((await response(post(REQUEST_ROUTE, request))).body.disposition).toBe("complete");
+		expect((await response(submit(request))).body.disposition).toBe("complete");
 		expect(await rowCount("instances", instanceId)).toBe(0);
 		const frames = await originFrames();
 		expect(frames).toHaveLength(1);
@@ -150,7 +151,7 @@ describe("owner-purge origin check", () => {
 			issuedAt: NOW,
 			expiresAt: NOW + 61_000,
 		});
-		const refused = await response(post(REQUEST_ROUTE, request, { originated: false }));
+		const refused = await response(submit(request, { originated: false }));
 
 		expect(refused.status).toBe(409);
 		expect(refused.body.disposition).toBe("refused");
@@ -181,7 +182,7 @@ describe("owner-purge origin check", () => {
 				instanceIds: [instanceId],
 			});
 			await setOriginMode(mode);
-			const result = await response(post(REQUEST_ROUTE, request));
+			const result = await response(submit(request));
 			expect(result.status).toBe(503);
 			expect(result.body.disposition).toBe("retryable");
 			expect(await rowCount("instances", instanceId)).toBe(1);
@@ -196,12 +197,12 @@ describe("owner-purge origin check", () => {
 			operationId: "origin-replay",
 			instanceIds: [instanceId],
 		});
-		expect((await response(post(REQUEST_ROUTE, request))).body.disposition).toBe("complete");
+		expect((await response(submit(request))).body.disposition).toBe("complete");
 
 		// The portal is now unreachable: a replay and the confirmation still settle,
 		// because the existing binding is the proof of the earlier check.
 		await setOriginMode("throw");
-		expect((await response(post(REQUEST_ROUTE, request))).body.disposition).toBe("complete");
+		expect((await response(submit(request))).body.disposition).toBe("complete");
 		const wrapper = confirmationWrapper(
 			request,
 			await signedAttestation({

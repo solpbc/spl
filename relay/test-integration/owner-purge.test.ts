@@ -7,7 +7,6 @@ import { applyRelayD1Migrations } from "./apply-migrations";
 import {
 	CONFIRM_ROUTE,
 	NOW,
-	REQUEST_ROUTE,
 	bindingCount,
 	bindingDisposition,
 	clearRows,
@@ -27,6 +26,7 @@ import {
 	seedInstance,
 	signedAttestation,
 	signedRequest,
+	submit,
 	transcript,
 } from "./owner-purge.helpers";
 
@@ -64,7 +64,7 @@ describe("owner-purge v1 relay wire transcripts", () => {
 		const control = "00000000-0000-4000-8000-000000000099";
 		await seedInstance(control);
 
-		expect(await response(post(REQUEST_ROUTE, request))).toEqual({
+		expect(await response(submit(request))).toEqual({
 			status: 200,
 			body: fixtureResponse(RELAY_V1_NAME, "submit_response"),
 		});
@@ -91,7 +91,7 @@ describe("owner-purge v1 relay wire transcripts", () => {
 	it("executes current-key v2 submit and confirmation", async () => {
 		const request = fixtureRequest(RELAY_V2_NAME);
 		for (const id of fixtureInstanceIds(request)) await seedInstance(id);
-		expect(await response(post(REQUEST_ROUTE, request))).toEqual({
+		expect(await response(submit(request))).toEqual({
 			status: 200,
 			body: fixtureResponse(RELAY_V2_NAME, "submit_response"),
 		});
@@ -113,7 +113,7 @@ describe("owner-purge v1 relay rejection vectors", () => {
 		const request = fixtureRequest(RELAY_V1_NAME);
 		for (const id of fixtureInstanceIds(request)) await seedInstance(id);
 		const gateHeaders = { "x-test-owner-purge-race-gate": "insert" };
-		const gated = await post(REQUEST_ROUTE, request, { headers: gateHeaders });
+		const gated = await submit(request, { headers: gateHeaders });
 
 		expect(gated.headers.get("x-test-owner-purge-race-gate-arrivals")).toBe(
 			String(vector.deliveries),
@@ -133,7 +133,7 @@ describe("owner-purge v1 relay rejection vectors", () => {
 		for (const id of fixtureInstanceIds(request)) await seedInstance(id);
 		const control = "00000000-0000-4000-8000-000000000096";
 		await seedInstance(control);
-		expect(await response(post(REQUEST_ROUTE, request))).toEqual({
+		expect(await response(submit(request))).toEqual({
 			status: 200,
 			body: fixtureResponse(RELAY_V1_NAME, "submit_response"),
 		});
@@ -167,11 +167,11 @@ describe("owner-purge v1 relay rejection vectors", () => {
 		await seedInstance(first);
 		await seedInstance(second);
 		const initial = await response(
-			post(REQUEST_ROUTE, await signedRequest({ operationId: "same-op", instanceIds: [first] })),
+			submit(await signedRequest({ operationId: "same-op", instanceIds: [first] })),
 		);
 		expect(initial.body.disposition).toBe("complete");
 		const changed = await response(
-			post(REQUEST_ROUTE, await signedRequest({ operationId: "same-op", instanceIds: [second] })),
+			submit(await signedRequest({ operationId: "same-op", instanceIds: [second] })),
 		);
 		expect(changed.body.disposition).toBe(fixtureDisposition(vector));
 		expect(await rowCount("instances", second)).toBe(1);
@@ -180,7 +180,7 @@ describe("owner-purge v1 relay rejection vectors", () => {
 	it("wrong_service_or_digest_never_advances", async () => {
 		const vector = rejectionVector("wrong_service_or_digest_never_advances");
 		const support = fixtureRequest(SUPPORT_V1_NAME);
-		expect(await response(post(REQUEST_ROUTE, support))).toEqual({
+		expect(await response(submit(support))).toEqual({
 			status: 400,
 			body: { error: "bad request" },
 		});
@@ -193,7 +193,7 @@ describe("owner-purge v1 relay rejection vectors", () => {
 			invalidUnsigned,
 			invalidDigest.key_version,
 		);
-		expect((await response(post(REQUEST_ROUTE, invalidDigest))).body.disposition).toBe(
+		expect((await response(submit(invalidDigest))).body.disposition).toBe(
 			fixtureDisposition(vector),
 		);
 		expect(await bindingCount()).toBe(0);
@@ -206,7 +206,7 @@ describe("owner-purge v1 relay rejection vectors", () => {
 			// Deliberately invalid integrity sentinel, not signed-protocol authority.
 			integrity: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
 		};
-		expect(await response(post(REQUEST_ROUTE, malformed))).toEqual({
+		expect(await response(submit(malformed))).toEqual({
 			status: 401,
 			body: { error: "unauthorized" },
 		});
@@ -232,7 +232,7 @@ describe("owner-purge v1 relay rejection vectors", () => {
 		const vector = rejectionVector("response_signed_with_non_original_key_version_remains_pending");
 		const request = fixtureRequest(RELAY_V2_NAME);
 		for (const id of fixtureInstanceIds(request)) await seedInstance(id);
-		expect(await response(post(REQUEST_ROUTE, request))).toEqual({
+		expect(await response(submit(request))).toEqual({
 			status: 200,
 			body: fixtureResponse(RELAY_V2_NAME, "submit_response"),
 		});
@@ -260,9 +260,7 @@ describe("owner-purge v1 relay rejection vectors", () => {
 			issuedAt: fixtureNumber(vector, "issued_at"),
 			expiresAt: fixtureNumber(vector, "expires_at"),
 		});
-		expect((await response(post(REQUEST_ROUTE, request))).body.disposition).toBe(
-			fixtureDisposition(vector),
-		);
+		expect((await response(submit(request))).body.disposition).toBe(fixtureDisposition(vector));
 	});
 
 	it("request_future_issued_is_refused_before_lookup", async () => {
@@ -274,9 +272,7 @@ describe("owner-purge v1 relay rejection vectors", () => {
 			issuedAt: fixtureNumber(vector, "issued_at"),
 			expiresAt: fixtureNumber(vector, "expires_at"),
 		});
-		expect((await response(post(REQUEST_ROUTE, request))).body.disposition).toBe(
-			fixtureDisposition(vector),
-		);
+		expect((await response(submit(request))).body.disposition).toBe(fixtureDisposition(vector));
 		expect(await bindingCount()).toBe(0);
 	});
 
@@ -289,9 +285,7 @@ describe("owner-purge v1 relay rejection vectors", () => {
 			issuedAt: fixtureNumber(vector, "issued_at"),
 			expiresAt: fixtureNumber(vector, "expires_at"),
 		});
-		expect((await response(post(REQUEST_ROUTE, request))).body.disposition).toBe(
-			fixtureDisposition(vector),
-		);
+		expect((await response(submit(request))).body.disposition).toBe(fixtureDisposition(vector));
 		expect(await bindingCount()).toBe(0);
 	});
 
@@ -301,7 +295,7 @@ describe("owner-purge v1 relay rejection vectors", () => {
 			(_, index) => `00000000-0000-4000-8000-${index.toString().padStart(12, "0")}`,
 		);
 		const request = await signedRequest({ operationId: "over-cap", instanceIds });
-		expect((await response(post(REQUEST_ROUTE, request))).body.disposition).toBe("refused");
+		expect((await response(submit(request))).body.disposition).toBe("refused");
 		expect(await bindingCount()).toBe(0);
 	});
 
@@ -312,14 +306,14 @@ describe("owner-purge v1 relay rejection vectors", () => {
 			issuedAt: NOW,
 			expiresAt: NOW + 300_000,
 		});
-		expect((await response(post(REQUEST_ROUTE, request))).body.disposition).toBe("complete");
+		expect((await response(submit(request))).body.disposition).toBe("complete");
 		const widened = await signedRequest({
 			operationId: "immutable-expiry",
 			instanceIds: [],
 			issuedAt: NOW,
 			expiresAt: NOW + 300_001,
 		});
-		expect((await response(post(REQUEST_ROUTE, widened))).body.disposition).toBe("refused");
+		expect((await response(submit(widened))).body.disposition).toBe("refused");
 	});
 
 	it("attestation_at_maximum_lifetime_is_accepted", async () => {
@@ -332,7 +326,7 @@ describe("owner-purge v1 relay rejection vectors", () => {
 			issuedAt: receivedAt,
 			expiresAt: fixtureNumber(vector, "expires_at"),
 		});
-		expect((await response(post(REQUEST_ROUTE, request))).body.disposition).toBe("complete");
+		expect((await response(submit(request))).body.disposition).toBe("complete");
 		const attestation = await signedAttestation({
 			operationId: request.operation_id,
 			requestDigest: request.request_digest,
@@ -358,7 +352,7 @@ describe("owner-purge v1 relay rejection vectors", () => {
 			issuedAt: firstCase.received_at,
 			expiresAt: firstCase.received_at + 1,
 		});
-		expect((await response(post(REQUEST_ROUTE, request))).body.disposition).toBe("complete");
+		expect((await response(submit(request))).body.disposition).toBe("complete");
 		for (const timing of vector.cases ?? []) {
 			const attestation = await signedAttestation({
 				operationId: request.operation_id,
@@ -380,7 +374,7 @@ describe("owner-purge v1 relay rejection vectors", () => {
 		const request = await signedRequest({ operationId: operation, instanceIds: [instanceId] });
 		const spy = vi.spyOn(console, "log").mockImplementation(() => {});
 		try {
-			expect((await response(post(REQUEST_ROUTE, request))).body.disposition).toBe("complete");
+			expect((await response(submit(request))).body.disposition).toBe("complete");
 			const attestation = await signedAttestation({
 				operationId: request.operation_id,
 				requestDigest: request.request_digest,

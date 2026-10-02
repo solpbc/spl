@@ -233,6 +233,15 @@ export function postRaw(path: string, body: string, options: PostOptions = {}): 
 	return request(path, body, options);
 }
 
+// A submit as the account portal sends it: the signed envelope inside { envelope }.
+export function submit(envelope: unknown, options: PostOptions = {}): Promise<Response> {
+	return post(REQUEST_ROUTE, { envelope }, options);
+}
+
+export function submitRaw(rawEnvelope: string, options: PostOptions = {}): Promise<Response> {
+	return postRaw(REQUEST_ROUTE, `{"envelope":${rawEnvelope}}`, options);
+}
+
 // The only legitimate caller reaches purge/confirm over a service binding
 // constructed against "relay.internal" (see src/purge.ts PURGE_INTERNAL_HOST).
 // Every test in this suite exercises that legitimate path by default; the
@@ -259,8 +268,9 @@ export async function request(
 
 function requestOperationId(body: string | undefined): string | null {
 	try {
-		const parsed = JSON.parse(body ?? "") as { operation_id?: unknown };
-		return typeof parsed.operation_id === "string" ? parsed.operation_id : null;
+		const parsed = JSON.parse(body ?? "") as { envelope?: { operation_id?: unknown } };
+		const operationId = parsed.envelope?.operation_id;
+		return typeof operationId === "string" ? operationId : null;
 	} catch {
 		return null;
 	}
