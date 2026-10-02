@@ -430,6 +430,10 @@ export class InstanceDO extends DurableObject<Env> {
 		_reason: string,
 		_wasClean: boolean,
 	): Promise<void> {
+		// 1005 and 1006 describe received closes; neither can be sent on the wire.
+		const peerCode = code === 1005 || code === 1006 ? CLOSE_CODE_NORMAL : code;
+		// Complete the originating handshake on compatibility dates before 2026-04-07.
+		ws.close(peerCode, "peer_closed");
 		const att = ws.deserializeAttachment() as Attachment | null;
 		if (!att) return;
 		if (att.retired) return;
@@ -437,7 +441,7 @@ export class InstanceDO extends DurableObject<Env> {
 		if (att.role === "tunnel_home" || att.role === "tunnel_mobile") {
 			const tunnelId = att.tunnel_id;
 			if (!tunnelId) return;
-			this.closeTunnel(tunnelId, code === 1006 ? CLOSE_CODE_NORMAL : code, "peer_closed", att.role);
+			this.closeTunnel(tunnelId, peerCode, "peer_closed", att.role);
 		}
 	}
 

@@ -130,6 +130,39 @@ describe("/session/listen auth", () => {
 });
 
 describe("pair signal + tunnel pairing", () => {
+	it.each(["home", "mobile"])("propagates a %s close without a status code", async (side) => {
+		const instanceId = newInstanceId();
+		const listenToken = await mintService(instanceId);
+		const dialToken = await mintDevice(instanceId);
+		const home = await wsOpen(`http://spl.test/session/listen?instance=${instanceId}`, listenToken);
+		const incoming = onMessage(home);
+		const mobile = await wsOpen(`http://spl.test/session/dial?instance=${instanceId}`, dialToken);
+		const { tunnel_id } = JSON.parse((await incoming) as string);
+		const homeTunnel = await wsOpen(
+			`http://spl.test/tunnel/${tunnel_id}?instance=${instanceId}`,
+			listenToken,
+		);
+		const origin = side === "home" ? homeTunnel : mobile;
+		const peer = side === "home" ? mobile : homeTunnel;
+		let timer: ReturnType<typeof setTimeout> | undefined;
+		try {
+			const closed = new Promise<[CloseEvent, CloseEvent]>((resolve, reject) => {
+				timer = setTimeout(() => reject(new Error("peer remained open after close")), 2000);
+				Promise.all([onClose(origin), onClose(peer)]).then(resolve, reject);
+			});
+			origin.close();
+			const [originEvent, event] = await closed;
+			expect(originEvent.code).toBe(1000);
+			expect(event.code).toBe(1000);
+			expect(event.reason).toBe("peer_closed");
+		} finally {
+			clearTimeout(timer);
+			homeTunnel.close(1000, "test_done");
+			mobile.close(1000, "test_done");
+			home.close(1000, "test_done");
+		}
+	});
+
 	it("minted dial triggers an incoming message on the home listen WS", async () => {
 		const instanceId = newInstanceId();
 		const listenToken = await mintService(instanceId);

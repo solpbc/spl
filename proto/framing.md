@@ -2,7 +2,7 @@
 
 The wire format that lets one tunnel WebSocket carry many concurrent logical streams. Lives between the TLS 1.3 record layer and whatever application-layer bytes the endpoints decide to send through it.
 
-This is the SSH-channel-style multiplex. The prototype (notes §13.1, meaning sol pbc's internal engineering notes, which are not published) ran one request per tunnel — fine for vetting the relay, TLS, and hibernation paths, but not what v1 ships. v1 needs to load a journal page that pulls images, holds a server-sent-event stream, and opens a WebSocket for live updates concurrently. All of that has to multiplex onto the single WebSocket each side holds open through `spl-relay`.
+This is the SSH-channel-style multiplex. The prototype ran one request per tunnel — fine for vetting the relay, TLS, and hibernation paths, but not what v1 ships. v1 needs to load a journal page that pulls images, holds a server-sent-event stream, and opens a WebSocket for live updates concurrently. All of that has to multiplex onto the single WebSocket each side holds open through `spl-relay`.
 
 This document is the contract between the production endpoint implementations — the home side through `spl-home` in [`solpbc/spl-rust`](https://github.com/solpbc/spl-rust), which `solstone-journal` links, and the Apple client side through `SPLTunnel` in [`solpbc/spl-swift`](https://github.com/solpbc/spl-swift), which the macOS and iOS apps link — together with the Kotlin and Rust clients listed in the repository README, and any future port. The relay (`spl-relay`) does not parse frames — it forwards opaque bytes — so the contract is **between the two endpoints only**. That is the load-bearing fact: any framing change is a coordinated endpoint upgrade. The relay does not need a deploy.
 
@@ -65,7 +65,7 @@ An OPEN frame's initial payload (with or without `DATA`) counts against the open
 |-----:|------|---------|
 | `0x01` | `PROTOCOL_ERROR` | malformed frame, illegal flag combination, unknown stream |
 | `0x02` | `FLOW_CONTROL_ERROR` | peer sent more data than the window allowed |
-| `0x03` | `STREAM_LIMIT_EXCEEDED` | peer opened more concurrent streams than the agreed cap |
+| `0x03` | `STREAM_LIMIT_EXCEEDED` | peer opened more concurrent streams than the receiver's local cap |
 | `0x04` | `INTERNAL_ERROR` | endpoint-local failure unrelated to the peer |
 | `0x05` | `CANCEL` | application-initiated abort (e.g., owner navigated away) |
 | `0xff` | `UNSPECIFIED` | reserved fallback; senders SHOULD prefer a specific code |
@@ -115,7 +115,7 @@ Once a stream is forgotten (fully closed or reset), frames referencing its id ma
 
 Either side MAY enforce a maximum number of concurrent open streams. If the peer attempts to OPEN beyond the cap, RESET that stream immediately with `STREAM_LIMIT_EXCEEDED`.
 
-v1 default cap: **256 concurrent streams per direction.** This is generous for a journal app (a heavy page rarely exceeds 30) and tight enough to bound memory under a misbehaving peer. The cap is a local policy, not negotiated; future versions MAY add a SETTINGS exchange.
+The cap is a local policy, not negotiated. The Swift client defaults to **256 concurrent streams**; solstone's paired-device door limits each carrier to **16 concurrent streams**. A client must tolerate a lower peer cap and a per-stream refusal. Future versions MAY add a SETTINGS exchange.
 
 ## flow control and backpressure
 
@@ -126,7 +126,7 @@ Without per-stream flow control, one fat upload would head-of-line block every o
 - The sender adds the granted credit to its remaining window. If credit ever exceeds 2³¹ − 1, RESET with `FLOW_CONTROL_ERROR` (this would only happen on a buggy peer).
 - A sender with zero credit MUST NOT send DATA. It MAY send `CLOSE` (carrying no payload) or `RESET` regardless of credit.
 
-The 1 MiB initial window is sized so a single TLS record (typically ≤16 KiB after fragmentation) never blocks waiting for a window update on an uncongested tunnel. For a streaming upload, the receiver's policy SHOULD grant credit as it drains the application — typical implementation: grant whatever is consumed every 64 KiB or every 100 ms, whichever comes first.
+The 1 MiB initial window is sized so a single TLS record (typically ≤16 KiB after fragmentation) never blocks waiting for a window update on an uncongested tunnel. The receiver SHOULD return credit as the application consumes bytes. Grant thresholds are local policy: the Swift client grants at **64 KiB** consumed; the Rust home grants at **512 KiB**, half the initial window. Neither implementation requires a periodic 100 ms grant. A sender cannot assume a trailing WINDOW after the receiver has consumed less than its threshold.
 
 There is **no tunnel-wide credit window in v1.** The relay enforces no flow control across streams; the underlying WebSocket and TCP carry the only tunnel-level backpressure. This is sufficient because both endpoints are TLS terminators, and TLS handles record-level backpressure naturally. If a future version surfaces tunnel-wide head-of-line blocking, a tunnel-level WINDOW (`stream_id = 0`) is the obvious extension point.
 
@@ -169,7 +169,7 @@ v1 is asymmetric: the **dialing side** (mobile) drives keepalive on a direct-mod
   - the peer has sent **no frame on any application stream** in that window; and
   - **no application stream is awaiting a reply**.
 - A late `PONG` by itself is not loss. The initiator's outbound scheduler puts a `PING` ahead of DATA it has not yet handed to the transport, but not ahead of DATA the transport has already buffered below the framing layer, so during a bulk transfer the `PING` reaches the peer only after those bytes do and the reply is late by the buffer's drain time. A peer that is granting `WINDOW` or writing to a stream in that same window is provably alive. The client keeps pinging through it and treats the path as lost only once no `PONG` has matched for a bounded wall-clock limit (30 s in the shipped mobile client), which stays under the outer HTTP probe watchdog so a path that is truly wedged is still caught.
-- A stream is **awaiting a reply** when the initiator has sent DATA on it and has received no frame of any kind on it since. That state suppresses the loss decision above and nothing else: it does not reset the ping counter, and the bounded wall-clock limit still applies. An initiator that defers on this state must bound it, measured from the first DATA it has had no answer to, and a stream past that bound no longer suppresses loss. The Swift client (`spl-swift`) implements this on `main`, reusing its 30 s wall-clock limit as the bound; no tagged release carries it yet.
+- A stream is **awaiting a reply** when the initiator has sent DATA on it and has received no frame of any kind on it since. That state suppresses the loss decision above and nothing else: it does not reset the ping counter, and the bounded wall-clock limit still applies. An initiator that defers on this state must bound it, measured from the first DATA it has had no answer to, and a stream past that bound no longer suppresses loss. The Swift client (`spl-swift`) shipped this in **v0.7.5**, reusing its 30 s wall-clock limit as the bound.
 
 These cadences are mobile-side policy; the framing layer does not encode them. A future version MAY change the cadence or add SETTINGS-style negotiation. Receivers MUST tolerate `PING` at any cadence — including bursts — without rate-limiting.
 
@@ -205,7 +205,7 @@ Application writes do not map 1:1 to frames. The framing layer fragments large w
 - **Coalescing:** small writes MAY be coalesced into one DATA frame, provided ordering within the stream is preserved.
 - **Empty DATA frames** (length = 0) are legal and MAY be used as a heartbeat-style nudge, but SHOULD be rare. Receivers MUST tolerate them.
 
-64 KiB is the recommended max chunk because it matches the TLS record size cap (after fragmentation) and avoids surprising the WebSocket layer with a single very large message. Larger chunks are legal up to the 16 MiB hard limit.
+64 KiB is the recommended max chunk to avoid sending a single very large WebSocket message. A mux chunk can span multiple TLS records. Larger chunks are legal up to the 16 MiB hard limit.
 
 ## relationship to the relay
 

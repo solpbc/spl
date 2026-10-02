@@ -16,9 +16,7 @@ Five WebSocket endpoints on `spl-relay`:
 
 Pair-window admission is specified in [`pair-window.md`](pair-window.md).
 
-The asymmetry is deliberate. The mobile opens **one** WebSocket per dial (the dial WS becomes the tunnel WS — single-WS-per-side, notes §11.1, saves ~40-80 ms per cold request). The home opens **one** persistent listen WS plus **one** transient tunnel WS per active tunnel.
-
-⚠ **This document carries two `§` numbering schemes, and they collide.** A citation written **notes §N** points into sol pbc's internal engineering notes, which are not published: you cannot open the section, and no requirement in this document is stated only there. A bare **§ N** points at a numbered step of *the dance, step by step*, below. Both schemes have a §3 and a §7, so the `notes` prefix is the only thing separating them.
+The asymmetry is deliberate. The mobile opens **one** WebSocket per dial; the dial WS becomes the tunnel WS. The home opens **one** persistent listen WS plus **one** transient tunnel WS per active tunnel.
 
 ## endpoint shapes
 
@@ -224,16 +222,9 @@ A home that regenerated its CA does **not** land here either. It sends no refusa
 
 After TLS, the mobile speaks HTTP (with multiplexed streams per [`framing.md`](framing.md)) toward the home's app — convey on solstone, or any other HTTP server the operator runs.
 
-The link service on the home side is a **dumb byte pipe**. For each incoming stream it opens a plain TCP connection to `127.0.0.1:<app_port>` and pumps bytes bidirectionally:
+The home terminates the inner TLS and accepts mux streams. How it serves HTTP on those streams is an endpoint implementation choice. solstone's Rust paired-device door serves each stream directly through its in-process HTTP router; it does not open a loopback TCP connection per stream or dispatch through a Python service.
 
-```
-tunnel stream reader ──► socket writer
-socket reader        ──► tunnel stream writer
-```
-
-No HTTP parsing, no WSGI environ, no internal hand-off through a framework's request object. Half-close on the tunnel stream (stream CLOSE) translates to `shutdown(SHUT_WR)` on the TCP socket, and half-close on the TCP socket (EOF) translates to stream CLOSE. A stream RESET closes the socket abruptly; a socket error RESETs the stream with `INTERNAL_ERROR`.
-
-This choice is load-bearing. Image loads, SSE feeds, and **WebSocket upgrades** all flow through the same tunnel WS, multiplexed by stream id, because the tunnel layer sits below HTTP. Frameworks that hijack the underlying socket to service a protocol upgrade (`flask-sock`, `starlette`'s WebSocket endpoints, `Hypercorn` / `uvicorn` with HTTP/2 push, chunked-transfer responses) work without special cases in the link service — they would not work through a WSGI callable, which cannot surrender a socket.
+Another home implementation may forward each stream to a local HTTP server. Stream half-close and reset must retain their framing-layer meanings in either implementation. HTTP upgrade support belongs to the endpoint's HTTP server and must be verified there.
 
 ## off-LAN pairing (pair-window + pair-dial)
 
@@ -258,12 +249,7 @@ The home admits the cert-less tunnel and runs its pairing handshake (`/pair` + `
 
 ### blindness is structural
 
-The link service on the home side never parses, interprets, or transforms the application-layer protocol (HTTP, WS, SSE, HTTP/2, raw bytes) flowing through it. Its only two operations on stream contents are `socket.read` and `socket.write`. This is the blindness invariant made structural, not promise-based:
-
-- The relay cannot see TLS plaintext because it holds no key.
-- The link service cannot see application semantics because its code contains no parser.
-
-A code reviewer looking at either layer can verify blindness by reading a small amount of code — not by auditing every commit for "did someone add logging that includes payload bytes?" The shape of the pipe prevents the class of mistake.
+The relay forwards inner-TLS ciphertext and holds no endpoint TLS key. Its WebSocket handlers do not parse application traffic. The home and device are the TLS endpoints, so they can read application plaintext; the home's HTTP server must interpret requests to serve them. The relay's blindness does not extend to those endpoints.
 
 ## WS-layer minimality
 
@@ -309,7 +295,7 @@ Cloudflare hibernates idle Hibernatable WebSockets after ~10 seconds of inactivi
 
 - **Listen WS:** hibernates between dials. Wake on the next `incoming` signal pre-empt; transport Ping/Pong control frames do not wake it (see *no app heartbeat* below).
 - **Tunnel WS:** hibernates between bursts. Every mobile request after ≥10 s of inactivity pays wake cost.
-- **Wake cost is low, and nothing measured grows with idle duration.** Prototype measurements (notes §3): 1-min idle p50 = 157 ms, 5-min idle p50 = 37 ms. Both sit well under the 500 ms criterion, and the longer idle measured *faster* than the shorter one (notes §11.2). ⚠ Two p50 points are not a curve. Read this as the absence of an observed penalty, not as a measured flat line, and do not budget against the exact figures.
+- Wake latency depends on the runtime and deployment. Measure it for the client and relay under test; this specification does not guarantee a latency bound.
 
 The 30-min and 2-hr profiles weren't measured in the prototype session; the 30+ min listen WS held open without app heartbeats is observational evidence that hibernation works at those durations too. Confirmed measurements of the 2-hr profile remain a v1 alpha follow-up (not blocking).
 
@@ -335,7 +321,7 @@ The listen WS may disconnect for any reason — network flap on the home machine
 - Reset to 1 s only after the reconnected listen WS remains established without transport failure for 60 s. Connection establishment alone does not reset backoff; a connection that fails before the stability interval advances to the next delay.
 - Jitter: ±25% on each delay to avoid synchronized reconnect storms after a CF deploy.
 
-While the listen WS is down, the home cannot receive `incoming` signals. By default (`PRESENCE_HOLD_ENABLED` off), new dials from a paired mobile fail at the relay (the DO marks the home as not-ready and the dial returns 503). With `PRESENCE_HOLD_ENABLED` enabled, the relay holds the dial WS open and brokers it when the home's listen WS reconnects. The mobile's reconnect logic handles this; the owner sees `LITERAL: "Reconnecting…"` for the brief outage and `LITERAL: "Offline — check your connection."` if it persists past a small grace window.
+While the listen WS is down, the home cannot receive `incoming` signals. By default (`PRESENCE_HOLD_ENABLED` off), new dials from a paired mobile fail at the relay (the DO marks the home as not-ready and the dial returns 503). With `PRESENCE_HOLD_ENABLED` enabled, the relay holds the dial WS open and brokers it when the home's listen WS reconnects. The client owns retry behavior and how it presents connection state.
 
 ### mobile reconnect — dial WS / tunnel WS
 
@@ -364,12 +350,12 @@ Every `spl-relay` Worker redeploy disconnects every WebSocket. This is a CF prop
 
 Behavior:
 
-- Both sides observe a clean WebSocket close (typically code 1006 abnormal closure or 1012 service restart).
+- Both sides lose their WebSocket connection. A peer may observe 1006 (abnormal closure) or 1012 (service restart); a deploy does not guarantee a clean closing handshake.
 - Both sides reconnect per the backoff rules above.
 - **Pair state is not preserved.** All in-flight `tunnel_id`s are invalidated. The mobile's next dial mints a new `tunnel_id`; the home opens a fresh tunnel WS in response to the new `incoming`.
 - **Pairing material is preserved.** The home's CA, the mobile's client cert, the device tokens, and the service tokens all survive — they live in their respective stores, not in the Worker. **No re-enrollment is required.**
 
-Acceptance criterion (per spec): clients reconnect within 10 seconds of a Worker redeploy without requiring re-pair. The prototype did not measure this directly (notes §7); MVP test suite covers it.
+Acceptance criterion: clients reconnect within 10 seconds of a Worker redeploy without requiring re-pair. This requires a client recovery test against a relay restart or deploy. The relay's Worker integration tests alone do not establish a client recovery time.
 
 Operational implication: deploy cadence on `spl-relay` is low. We don't ship features weekly. Every deploy is a customer-visible blip; only ship when it's worth that.
 
@@ -381,7 +367,7 @@ The DO uses `getWebSockets(tag)` to look up sockets by tag. The relay tags socke
 - `tunnel_home:<tunnel_id>` for the home tunnel WS.
 - `tunnel_mobile:<tunnel_id>` for the mobile dial-turned-tunnel WS.
 
-Each tag MUST resolve to exactly one offerable WebSocket. CLOSING sockets returned by `getWebSockets()` are not offerable. Listen attachments carry a persisted, strictly increasing generation; only the highest offerable generation may offer or re-offer an unpaired held tunnel ID. If a duplicate WS attaches under any of these tags (e.g., a home reconnects without the previous WS having been observed as closed), the relay closes the duplicate and keeps the most recently attached. Prototype finding, notes §11.4 — the API doesn't enforce cardinality, the application must.
+Each tag MUST resolve to exactly one offerable WebSocket. CLOSING sockets returned by `getWebSockets()` are not offerable. Listen attachments carry a persisted, strictly increasing generation; only the highest offerable generation may offer or re-offer an unpaired held tunnel ID. If a duplicate WS attaches under any of these tags (e.g., a home reconnects without the previous WS having been observed as closed), the relay closes the duplicate and keeps the most recently attached. The API does not enforce cardinality; the application must.
 
 Presence-hold also uses `waiting_dial:<instance_id>` as a many-valued discovery tag for held dials. It is intentionally excluded from the exact-one cardinality invariant: one instance may have N waiting dials.
 
@@ -405,6 +391,8 @@ Both sides may close at any time. The relay propagates close events across the p
 
 - Home tunnel WS closes → relay closes mobile tunnel WS with the same close code.
 - Mobile tunnel WS closes → relay closes home tunnel WS with the same close code.
+
+The received statuses **1005** (no status supplied) and **1006** (abnormal closure) cannot be sent in a close frame. The relay maps either to **1000** for the paired socket. It sends the fixed reason `peer_closed`, never peer-supplied close text, and completes the originating socket's closing handshake when the runtime requires a manual reply.
 
 The listen WS closing does **not** close active tunnel WSes — those continue until either side hangs up. The relay does, however, refuse new dials while the listen WS is down.
 
