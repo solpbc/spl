@@ -5,6 +5,10 @@
     "purge": "/internal/deletion/purge",
     "confirm": "/internal/deletion/purge/confirm"
   },
+  "request_bodies": {
+    "purge": ["envelope"],
+    "confirm": ["envelope", "attestation"]
+  },
   "canonicalization": {
     "json": "recursive JSON; object keys sorted by UTF-8 bytes; arrays retain supplied order; no whitespace",
     "request_digest": "base64url(SHA-256(UTF-8(canonical_json({version,key_version,service,association_snapshot}))))",

@@ -14,7 +14,7 @@ import {
 } from "../src/purge";
 import { base64UrlEncode } from "../src/tokens";
 
-const FIXTURE_SHA256 = "716133ca9dd49b0d938720a52b8c46122d73fa2c99085eac3a4100af04bc1066";
+const FIXTURE_SHA256 = "1bc9cbb9bec3999d3f199caf03d22ed4a541d943a07af26f6a6c49cd46cb86fe";
 const VENDORED_FIXTURE = join(process.cwd(), "test-fixtures", "owner-purge-v1.json");
 const CANONICAL_FIXTURE = join(process.cwd(), "..", "proto", "owner-purge-v1.json");
 

@@ -850,17 +850,31 @@ describe("owner-purge v1 admission boundaries", () => {
 		}
 	});
 
-	it("refuses a submit whose envelope is not wrapped the way the account portal sends it", async () => {
+	it("takes exactly the request bodies the wire contract names, and refuses a bare envelope", async () => {
 		const requestEnvelope = fixtureRequest(RELAY_V1_NAME);
+		const parts: Record<string, unknown> = {
+			envelope: requestEnvelope,
+			attestation: fixtureAttestation(RELAY_V1_NAME),
+		};
+		const body = (route: "purge" | "confirm") =>
+			Object.fromEntries(fixture.request_bodies[route].map((name) => [name, parts[name]]));
 		for (const instanceId of fixtureInstanceIds(requestEnvelope)) await seedInstance(instanceId);
 
 		expect(await response(post(REQUEST_ROUTE, requestEnvelope))).toEqual({
 			status: 400,
 			body: { error: "bad request" },
 		});
-		expect(await response(submit(requestEnvelope))).toMatchObject({
+		expect(body("confirm")).toEqual(
+			confirmationWrapper(requestEnvelope, fixtureAttestation(RELAY_V1_NAME)),
+		);
+		expect(await response(post(REQUEST_ROUTE, body("purge")))).toMatchObject({
 			status: 200,
 			body: { disposition: "complete" },
+		});
+		vi.setSystemTime(transcript(RELAY_V1_NAME).attestation_received_at);
+		expect(await response(post(CONFIRM_ROUTE, body("confirm")))).toMatchObject({
+			status: 200,
+			body: { disposition: "confirmed" },
 		});
 	});
 
