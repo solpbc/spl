@@ -232,7 +232,7 @@ The successful encrypted pair response includes an additive `relay_access` objec
 
 Existing required pair-response fields remain present. Direct pairing may omit `relay_access` when unavailable; it must never be null. No capability acquisition is awaited after the pair is committed. Existing clients ignore the added object.
 
-The authenticated access API returns the same ready object, or `{ "protocol_version": 2, "status": "not_configured" }` without relay contact when disabled, or a bounded 503 when configured access is unavailable. Only currently authorized linked clients can call it. Pairing peers cannot. Clients validate the paired instance, allowed relay origin, explicit version, decoded v2 claims and matching usable expiry before replacing their cache. Optional failures preserve usable access; an authenticated `not_configured` clears it. Asynchronous writes must belong to the current pairing/configuration generation.
+The authenticated access API returns the same ready object, or `{ "protocol_version": 2, "status": "not_configured" }` without relay contact when disabled, or a bounded 503 when configured access is unavailable. Only currently authorized linked clients can call it. Pairing peers cannot. Clients validate the paired instance, allowed relay origin, explicit version, decoded v2 claims and matching usable expiry before replacing their cache. Optional failures preserve usable access; an authenticated `not_configured` clears it. Asynchronous writes to this relay-access cache must belong to the current pairing/configuration generation. That rule covers the cache only, not application data still awaiting delivery, which is not bound to any pairing ([`session.md`](session.md) § 7).
 
 New clients pairing off-LAN with an older home may use `/enroll/device` with its attestation and `protocol_version: 2`. An older relay may return unversioned legacy credentials; that is compatible access, not a completed v2 upgrade. New direct pairing to an older home remains locally usable until the home provides the access API; it does not silently enroll the device with the relay.
 
@@ -248,6 +248,8 @@ Revoking a device is a one-step operation **on the home, not on `spl-relay`.**
 4. The next dial from the revoked device opens the tunnel WS through `spl-relay` (rendezvous still works — the device token is still valid), but the home refuses the client cert inside the TLS handshake. Which alert it sends, and what the mobile shows the owner, are specified in [`session.md`](session.md) § 7.
 
 This is the authoritative revocation point. The device token at `spl-relay` may remain valid; it confers no data access without the TLS handshake succeeding. v1 does not propagate revocation to `spl-relay`. Instance capabilities deliberately do not provide a per-device relay revocation mechanism.
+
+Revocation ends the device's credential, not its data. What the device does with application data still awaiting delivery is specified in [`session.md`](session.md) § 7.
 
 The TLS-layer rejection is **not** an app-layer post-handshake drop. The prototype found (notes §8 + §11.3, meaning sol pbc's internal engineering notes, which are not published — ⚠ **not** this document's own step 8) that app-layer fingerprint checks produce silent disconnects with no clean error semantics, so the check runs inside the handshake, where a refusal has an alert to travel on and the mobile can tell one refusal from another.
 
