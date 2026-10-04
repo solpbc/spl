@@ -1,6 +1,6 @@
 {
   "bundle_schema_identity": "spl.pair-link-definition-bundle.schema.v1",
-  "bundle_semver": "8.0.2",
+  "bundle_semver": "8.0.3",
   "files": [
     {
       "path": "definition.json",
@@ -25,7 +25,7 @@
       "id": "definition.authored_source",
       "path": "proto/definition/definition.toml",
       "role": "authored_source",
-      "sha256": "e937c0501e4cc44a0700095ce989f8d069736c5eb98bfb82bdc1e10a390a268a"
+      "sha256": "81ec6581451a8e9a4766a177a1f22560769ce7ab049b8d8cbc2f4356524b4bbc"
     },
     {
       "id": "definition.conformance_corpus",
@@ -55,7 +55,7 @@
       "id": "source.pairing",
       "path": "proto/pairing.md",
       "role": "normative_source_document",
-      "sha256": "9084be18487be23f4e2cfb6fdd9453a7264b58d5239fbe8b124501a879332128"
+      "sha256": "a2888ac8cdfcd78a20f28f3f8856fe9bddedff9bf1f724f842ad47fd3ec2a672"
     }
   ],
   "schema_dialect_uri": "https://json-schema.org/draft/2020-12/schema"

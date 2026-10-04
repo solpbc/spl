@@ -188,7 +188,7 @@ This section assigns two codes, and both are new, so no home in the field sends 
 
 A client MUST discriminate on the alert code. Two codes carry the meanings above; every other code is one rule:
 
-- `access_denied` (49) — unpaired. Present `LITERAL: "This device was unpaired from your solstone."`, require a re-pair, and stop retrying.
+- `access_denied` (49) — unpaired. Present `LITERAL: "This device was unpaired from your journal."`, require a re-pair, and stop retrying.
 - `certificate_unknown` (46) — retry on the schedule under *mobile reconnect* and keep the credential. Present no unpaired message; the reconnect banners there still apply. ⚠ This branch is deliberately unbounded, unlike the one below: the credential is still valid and the home is expected to recover, so there is nothing for the owner to do and nothing to warn them about.
 - **every other code** — retry on that same schedule, and once refusals under this branch have continued long enough, present the unpaired message and stop retrying.
 

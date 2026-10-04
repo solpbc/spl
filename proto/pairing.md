@@ -107,7 +107,7 @@ The rest of this ceremony describes the direct LAN completion path (identical fo
 
 Owner-visible strings (per spec):
 
-- `LITERAL: "Scan this code with sol on your phone over the same wi-fi or your own vpn."`
+- `LITERAL: "Scan this code with solstone mobile on your phone over the same wi-fi or your own vpn."`
 - `LITERAL: "This code expires in 5 minutes and only works once."`
 
 ### 3. mobile scans
@@ -170,7 +170,7 @@ The pair server checks the nonce:
 - Exists in the in-memory table → continue.
 - Not yet used → mark `used = true` immediately (single-use enforcement, before any further work).
 - `expires_at > now` → continue.
-- Otherwise → 410 Gone, no body. The mobile sees `LITERAL: "This pairing code has expired. Generate a new one on your solstone."`.
+- Otherwise → 410 Gone, no body. The mobile sees `LITERAL: "This pairing code has expired. Generate a new one on your journal."`.
 
 If the nonce passes, the home signs the CSR with the local CA → a mobile **client cert** with:
 
@@ -200,12 +200,14 @@ Response body:
   "client_cert": "<PEM>",
   "ca_chain": ["<home CA PEM>"],
   "instance_id": "<home_instance_id>",
-  "home_label": "<owner-named home, e.g. 'living room mac'>",
+  "home_label": "<the journal's mark words, e.g. 'afoot·unfixed'>",
   "home_attestation": "<compact JWS, ES256>"
 }
 ```
 
 `home_attestation` is a short-lived JWT signed by the local CA private key and scoped to this particular pair ceremony. Shape, claims, and validation are specified in [`tokens.md`](tokens.md) §"POST /enroll/device". Legacy clients forward it verbatim to `/enroll/device` in step 8; the home never stores it and never signs a second one for the same device without a fresh pair ceremony.
+
+`home_label` is retained for compatibility and carries the two words of the journal's mark. It is not a name: a client never displays it as one, because the journal's mark (derived from `instance_id`) is its only identity. Nor is it the mark an owner compares at pairing, which a client takes from the journal's key, never from this field.
 
 The mobile stores `client_cert`, the matching private key (already in Keychain from step 4), and `ca_chain` (used to validate the home's TLS server cert during everyday tunnel use). It also stores `instance_id` — this is the address it will dial through `spl-relay`.
 
