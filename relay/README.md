@@ -75,7 +75,7 @@ The checked-in `wrangler.toml` deliberately contains **no `account_id`**. This a
 2. **Environment variable.** Export `CLOUDFLARE_ACCOUNT_ID=<your-account-id>` in your shell profile, or set it in a local `.env.local` (gitignored) and source it before deploying.
 3. **Per-invocation flag.** Pass `--account-id=<your-account-id>` on every `wrangler deploy`. Verbose, but explicit.
 
-For sol pbc operators: option 1 is the standard. The founder workstation is already authenticated.
+For sol pbc operators: option 1 is the standard.
 
 For self-hosters: any of the three is fine. Option 1 is the cleanest and matches the way wrangler is designed to work.
 
