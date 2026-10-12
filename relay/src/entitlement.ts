@@ -33,7 +33,7 @@ type ResolvedEntitlement = { ok: true; entitledUntil: number | null } | { ok: fa
 export async function handleSetEntitlement(request: Request, env: Env): Promise<Response> {
 	if (!env.GRANT_SECRET) return json({ error: "relay not provisioned" }, 503);
 
-	if (!hasValidBearer(request, env.GRANT_SECRET)) {
+	if (!hasValidBearer(request, env.GRANT_SECRET, env.GRANT_SECRET_PREVIOUS)) {
 		log({ event: "unauthorized", route: ROUTE, reason: "bad_bearer" });
 		return json({ error: "unauthorized" }, 401);
 	}
@@ -94,7 +94,7 @@ export async function handleSetEntitlement(request: Request, env: Env): Promise<
 export async function handleListInstances(request: Request, env: Env): Promise<Response> {
 	if (!env.GRANT_SECRET) return json({ error: "relay not provisioned" }, 503);
 
-	if (!hasValidBearer(request, env.GRANT_SECRET)) {
+	if (!hasValidBearer(request, env.GRANT_SECRET, env.GRANT_SECRET_PREVIOUS)) {
 		log({ event: "unauthorized", route: INSTANCES_ROUTE, reason: "bad_bearer" });
 		return json({ error: "unauthorized" }, 401);
 	}
@@ -115,7 +115,7 @@ export async function handleShowInstance(
 ): Promise<Response> {
 	if (!env.GRANT_SECRET) return json({ error: "relay not provisioned" }, 503);
 
-	if (!hasValidBearer(request, env.GRANT_SECRET)) {
+	if (!hasValidBearer(request, env.GRANT_SECRET, env.GRANT_SECRET_PREVIOUS)) {
 		log({ event: "unauthorized", route: INSTANCES_ROUTE, reason: "bad_bearer" });
 		return json({ error: "unauthorized" }, 401);
 	}
@@ -132,17 +132,22 @@ export async function handleShowInstance(
 	return json(toInstanceView(row, Math.floor(Date.now() / 1000)));
 }
 
-export function hasValidBearer(request: Request, secret: string): boolean {
+export function hasValidBearer(request: Request, secret: string, previousSecret?: string): boolean {
 	const header = request.headers.get("authorization") ?? "";
 	const match = header.match(/^Bearer\s+(.+)$/i);
 	if (!match) return false;
 
 	const encoder = new TextEncoder();
 	const supplied = encoder.encode(match[1].trim());
-	const expected = encoder.encode(secret);
-	if (supplied.byteLength !== expected.byteLength) return false;
-
-	return crypto.subtle.timingSafeEqual(supplied, expected);
+	const matches = (candidate: string): boolean => {
+		if (!candidate) return false;
+		const expected = encoder.encode(candidate);
+		if (supplied.byteLength !== expected.byteLength) return false;
+		return crypto.subtle.timingSafeEqual(supplied, expected);
+	};
+	const currentMatches = matches(secret);
+	const previousMatches = matches(previousSecret ?? "");
+	return currentMatches || previousMatches;
 }
 
 function toInstanceView(row: InstanceRow, now: number) {

@@ -57,6 +57,7 @@ export interface Env {
 	// Admin grant endpoint bearer secret — provisioned via
 	// `wrangler secret put GRANT_SECRET`; never committed.
 	GRANT_SECRET?: string;
+	GRANT_SECRET_PREVIOUS?: string;
 
 	// Session entitlement gate. Only the exact string "true" enables the gate;
 	// unset/off by default so self-hosted relays are unaffected.

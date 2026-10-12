@@ -6,6 +6,7 @@
 
 import { SELF, env } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
+import { hasValidBearer } from "../src/entitlement";
 import { mintDeviceToken, mintServiceToken } from "../src/tokens";
 import { genCaKeypair } from "../test/fixtures";
 import { applyRelayD1Migrations } from "./apply-migrations";
@@ -18,6 +19,7 @@ declare global {
 			JWKS_PUBLIC: string;
 			ISSUER: string;
 			GRANT_SECRET: string;
+			GRANT_SECRET_PREVIOUS: string;
 			ENTITLEMENT_REQUIRED: string;
 		}
 	}
@@ -592,4 +594,40 @@ describe("entitlement gate on", () => {
 		expect(JSON.parse(await incoming).type).toBe("incoming");
 		expect(closed).toBe(false);
 	});
+});
+
+describe("admin grant credential rotation", () => {
+	it.each(["current", "previous"])(
+		"accepts the %s credential on all grant admin routes",
+		async (which) => {
+			const bearer = which === "current" ? env.GRANT_SECRET : env.GRANT_SECRET_PREVIOUS;
+			const id = newInstanceId();
+			expect(
+				(await postEntitlement({ instance_id: id, entitled_until: null }, bearer)).status,
+			).toBe(200);
+			expect((await getAdmin("/admin/instances", bearer)).status).toBe(200);
+			expect((await getAdmin(`/admin/instances/${id}`, bearer)).status).toBe(404);
+		},
+	);
+
+	it.each([undefined, ""])("refuses the old credential after the overlap ends (%s)", (previous) => {
+		const request = (bearer: string) =>
+			new Request("http://spl.test/admin/instances", {
+				headers: { Authorization: `Bearer ${bearer}` },
+			});
+		expect(hasValidBearer(request(env.GRANT_SECRET), env.GRANT_SECRET, previous)).toBe(true);
+		expect(hasValidBearer(request(env.GRANT_SECRET_PREVIOUS), env.GRANT_SECRET, previous)).toBe(
+			false,
+		);
+		expect(hasValidBearer(request(" "), env.GRANT_SECRET, previous)).toBe(false);
+	});
+
+	it.each(["x".repeat(17), "x".repeat(21), "short"])(
+		"refuses an unrelated credential (%s)",
+		async (bearer) => {
+			expect((await postEntitlement({}, bearer)).status).toBe(401);
+			expect((await getAdmin("/admin/instances", bearer)).status).toBe(401);
+			expect((await getAdmin(`/admin/instances/${newInstanceId()}`, bearer)).status).toBe(401);
+		},
+	);
 });

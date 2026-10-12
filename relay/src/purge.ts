@@ -128,6 +128,7 @@ export function evaluatePurgeProvisioning(env: Env): { secret: string; keys: Pur
 		return null;
 	}
 	if (env.GRANT_SECRET && env.PURGE_SECRET === env.GRANT_SECRET) return null;
+	if (env.GRANT_SECRET_PREVIOUS && env.PURGE_SECRET === env.GRANT_SECRET_PREVIOUS) return null;
 	if (
 		env.PURGE_SECRET === env.OWNER_PURGE_HMAC_KEY_V1 ||
 		env.PURGE_SECRET === env.OWNER_PURGE_HMAC_KEY_V2

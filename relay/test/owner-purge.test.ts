@@ -235,6 +235,24 @@ describe("owner-purge v1 provisioning evaluation", () => {
 		).toBeNull();
 	});
 
+	it("refuses when PURGE_SECRET collides with the previous grant secret", () => {
+		expect(
+			evaluatePurgeProvisioning({
+				...baseEnv,
+				GRANT_SECRET_PREVIOUS: baseEnv.PURGE_SECRET,
+			}),
+		).toBeNull();
+	});
+
+	it.each([undefined, "", "previous-grant-secret"])(
+		"keeps purge provisioned with a distinct previous grant secret (%s)",
+		(previous) => {
+			expect(
+				evaluatePurgeProvisioning({ ...baseEnv, GRANT_SECRET_PREVIOUS: previous }),
+			).not.toBeNull();
+		},
+	);
+
 	it("refuses when PURGE_SECRET collides with either HMAC key", () => {
 		expect(
 			evaluatePurgeProvisioning({

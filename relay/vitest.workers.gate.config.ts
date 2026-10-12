@@ -8,7 +8,6 @@ import { defineConfig } from "vitest/config";
 // Gate-on integration tests run under a dedicated config because Worker and DO
 // env bindings are load-time values in this test harness.
 
-
 // Miniflare keeps test D1 and Durable Object storage in SQLite under the OS temp dir and
 // syncs it on every query. The storage is thrown away after each run, so on Linux keep it in memory.
 if (process.platform === "linux" && existsSync("/dev/shm")) process.env.TMPDIR = "/dev/shm";
@@ -30,6 +29,7 @@ export default defineConfig({
 					SIGNING_JWK: privateJwkRaw,
 					JWKS_PUBLIC: jwksPublicRaw,
 					GRANT_SECRET: "test-grant-secret",
+					GRANT_SECRET_PREVIOUS: "previous-grant-secret",
 					ENTITLEMENT_REQUIRED: "true",
 				},
 			},
