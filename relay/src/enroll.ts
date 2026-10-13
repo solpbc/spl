@@ -25,6 +25,7 @@ const MAX_ENROLL_DEVICE_BYTES = 16 * 1024;
 interface EnrollHomeBody {
 	instance_id?: string;
 	ca_pubkey?: string;
+	mode?: unknown;
 }
 
 interface EnrollDeviceBody {
@@ -69,6 +70,20 @@ export async function handleEnrollHome(request: Request, env: Env): Promise<Resp
 		});
 		return json({ error: "instance_id and ca_pubkey required" }, 400);
 	}
+
+	// `mode: "renew"` marks an unattended renewal by a home that is already
+	// enrolled. It rotates an existing record exactly like a repeat enroll,
+	// but never creates one: a record the owner deleted stays deleted until
+	// the owner enables the link again.
+	if (body.mode !== undefined && body.mode !== "renew") {
+		log({
+			event: "enroll_rejected",
+			route: "/enroll/home",
+			reason: "bad_mode",
+		});
+		return json({ error: "unsupported mode" }, 400);
+	}
+	const renewOnly = body.mode === "renew";
 
 	// Reject obviously bad instance_id shapes to keep D1 primary-key safe.
 	if (!/^[0-9a-fA-F-]{10,64}$/.test(body.instance_id)) {
@@ -133,6 +148,13 @@ export async function handleEnrollHome(request: Request, env: Env): Promise<Resp
 		)
 			.bind(caFp, minted.jti, minted.iat, body.instance_id)
 			.run();
+	} else if (renewOnly) {
+		log({
+			event: "enroll_rejected",
+			route: "/enroll/home",
+			reason: "not_enrolled",
+		});
+		return json({ error: "not_enrolled" }, 404);
 	} else {
 		try {
 			await env.DB.prepare(

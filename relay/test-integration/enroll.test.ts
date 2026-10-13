@@ -158,6 +158,99 @@ describe("POST /enroll/home", () => {
 		expect(res.status).toBe(400);
 	});
 
+	it("renew mode rotates an enrolled home's token like a repeat enroll", async () => {
+		const ca = await genCaKeypair();
+		const instanceId = newInstanceId();
+		const r1 = await SELF.fetch("http://spl.test/enroll/home", {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({ instance_id: instanceId, ca_pubkey: ca.pubPem }),
+		});
+		expect(r1.status).toBe(200);
+		const t1 = (await r1.json()) as { service_token: string };
+		const r2 = await SELF.fetch("http://spl.test/enroll/home", {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({ instance_id: instanceId, ca_pubkey: ca.pubPem, mode: "renew" }),
+		});
+		expect(r2.status).toBe(200);
+		const t2 = (await r2.json()) as { service_token: string };
+		expect(t2.service_token).not.toBe(t1.service_token);
+		const verified = await verifyToken(t2.service_token, {
+			jwksRaw: env.JWKS_PUBLIC,
+			expectedIssuer: env.ISSUER,
+			expectedScope: "session.listen",
+		});
+		expect(verified.ok).toBe(true);
+		const row = await env.DB.prepare("SELECT rotated_at FROM instances WHERE instance_id = ?")
+			.bind(instanceId)
+			.first<{ rotated_at: number | null }>();
+		expect(row?.rotated_at).not.toBeNull();
+	});
+
+	it("renew mode never creates a record: an absent instance gets not_enrolled and nothing is written", async () => {
+		const ca = await genCaKeypair();
+		const instanceId = newInstanceId();
+		await env.DB.prepare(
+			"INSERT INTO pending_grants (instance_id, entitled_until, updated_at) VALUES (?, ?, ?)",
+		)
+			.bind(instanceId, Math.floor(Date.now() / 1000) + 86400, Math.floor(Date.now() / 1000))
+			.run();
+		const res = await SELF.fetch("http://spl.test/enroll/home", {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({ instance_id: instanceId, ca_pubkey: ca.pubPem, mode: "renew" }),
+		});
+		expect(res.status).toBe(404);
+		const body = (await res.json()) as Record<string, unknown>;
+		expect(body.error).toBe("not_enrolled");
+		expect(body.service_token).toBeUndefined();
+		const row = await env.DB.prepare("SELECT 1 AS present FROM instances WHERE instance_id = ?")
+			.bind(instanceId)
+			.first();
+		expect(row).toBeNull();
+		const pending = await env.DB.prepare(
+			"SELECT 1 AS present FROM pending_grants WHERE instance_id = ?",
+		)
+			.bind(instanceId)
+			.first();
+		expect(pending).not.toBeNull();
+	});
+
+	it("renew mode against a deleted record stays refused until an ordinary enroll", async () => {
+		const ca = await genCaKeypair();
+		const instanceId = newInstanceId();
+		const enroll = (extra: Record<string, unknown>) =>
+			SELF.fetch("http://spl.test/enroll/home", {
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({ instance_id: instanceId, ca_pubkey: ca.pubPem, ...extra }),
+			});
+		expect((await enroll({})).status).toBe(200);
+		await env.DB.prepare("DELETE FROM instances WHERE instance_id = ?").bind(instanceId).run();
+		expect((await enroll({ mode: "renew" })).status).toBe(404);
+		expect((await enroll({ mode: "renew" })).status).toBe(404);
+		expect((await enroll({})).status).toBe(200);
+		expect((await enroll({ mode: "renew" })).status).toBe(200);
+	});
+
+	it("rejects an unsupported mode without writing", async () => {
+		const ca = await genCaKeypair();
+		const instanceId = newInstanceId();
+		for (const mode of ["create", "", 1, null]) {
+			const res = await SELF.fetch("http://spl.test/enroll/home", {
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({ instance_id: instanceId, ca_pubkey: ca.pubPem, mode }),
+			});
+			expect(res.status).toBe(400);
+		}
+		const row = await env.DB.prepare("SELECT 1 AS present FROM instances WHERE instance_id = ?")
+			.bind(instanceId)
+			.first();
+		expect(row).toBeNull();
+	});
+
 	it("rejects missing fields", async () => {
 		const res = await SELF.fetch("http://spl.test/enroll/home", {
 			method: "POST",

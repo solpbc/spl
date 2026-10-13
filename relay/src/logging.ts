@@ -67,6 +67,7 @@ type AuthorizedReason =
 	| "bad_ca_pubkey"
 	| "ca_mismatch"
 	| "ca_fp_conflict"
+	| "bad_mode"
 	| "unknown_instance"
 	| "instance_revoked"
 	| "attestation_replay"

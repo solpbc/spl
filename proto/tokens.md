@@ -177,6 +177,8 @@ Response:
 
 **A repeat call is the rotation path.** `/enroll/home` is idempotent on `instance_id`: a second call carrying the same `ca_pubkey`, compared as text after trimming surrounding whitespace, mints a fresh 365-day service token with a new `jti`, replaces the recorded `service_token_jti`, stamps `rotated_at`, and returns the new token. No paired device has to re-pair. This is the only path by which a service token is ever replaced.
 
+**A renewal never creates a record.** A call that renews an existing enrollment, and must not re-create a deleted one, adds `"mode": "renew"` to the body. If a record exists for the `instance_id`, the call behaves exactly like the repeat call above. If none exists, for example because the owner deleted it, the relay answers `404` with `{"error": "not_enrolled"}` and writes nothing. A deleted record comes back only through an ordinary enroll. Any other `mode` value is rejected with `400`, and a body without `mode` is an ordinary enroll.
+
 Home labels remain local to the home. Legacy `home_label` request fields are ignored and are absent from storage and admin projections.
 
 In v1, `/enroll/home` is **neither gated nor rate-limited**: no waitlist, no payment gate, and no per-endpoint request limit anywhere in the Worker. ⚠ A deployment that needs one has to put it in front of the Worker, because nothing in this repository provides it. Self-hosted deployments will replace this endpoint or its policy as appropriate.
