@@ -130,12 +130,21 @@ Legacy acceptance is a rollout choice, not an expiry timer: legacy refresh can p
 
 | token | TTL | rotation |
 |---|---|---|
-| service token | 365 days | no automatic re-issue. The token is replaced when **the home** calls `POST /enroll/home` again, carrying its existing `instance_id` and `ca_pubkey` |
+| service token | 365 days | no re-issue by the relay. The token is replaced when **the home** calls `POST /enroll/home` again, carrying its existing `instance_id` and `ca_pubkey`. A solstone home on journal 2.0.45 or later makes that call itself (below) |
 | device token | 60 days | re-issued by the mobile via `POST /token/refresh` (presenting the current token) when age > 80% of TTL, with a 30-day post-expiry grace |
 
-**The two rows are not symmetric, and the difference is load-bearing.** A device carries itself: `POST /token/refresh` exists and the mobile calls it. A home does not. `spl-relay` publishes no endpoint that re-issues a service token, mints one in exactly one place (`POST /enroll/home`), and runs no timer that touches token lifetime. A service token is therefore rotated only when something outside the protocol makes that call: an owner re-enabling the tunnel, or an operator running it. Nothing here notices that a service token is nearing expiry.
+**The two rows are not symmetric, and the difference is load-bearing.** A device carries itself: `POST /token/refresh` exists and the mobile calls it. A home has no such endpoint. `spl-relay` publishes no endpoint that re-issues a service token, mints one in exactly one place (`POST /enroll/home`), and runs no timer that touches token lifetime. A service token is therefore replaced only when the home makes that call again, on its own or because an owner re-enabled the private link. Nothing on the relay side notices that a service token is nearing expiry.
 
-Plan for that. A home whose service token expires cannot open `/session/listen`, so it is unreachable off-LAN until it enrolls again, and triggering that call in time is the deployment's own responsibility.
+**A solstone home renews its own service token**, from solstone journal 2.0.45. While the private link is on, it checks its token every five minutes and calls `POST /enroll/home` with `"mode": "renew"`, reusing the `instance_id` and CA it already holds, when any of these is true:
+
+- the token has passed a share of its lifetime set once for each home, between 75% and 85%;
+- the token has expired;
+- the stored token does not decode, or carries no `kid` in its header;
+- the relay has refused the token, and the JWKS it publishes (see *JWKS publication* below) can be fetched and read and lists no key with the token's `kid`.
+
+A refusal on its own, or a relay it cannot reach, never triggers a renewal. Before storing the new token the home checks its claims, that it lives at least a day, that it would not qualify for renewal again at once, and that its `kid` is in the published JWKS. A failed attempt backs off from one minute up to six hours, `not_enrolled` and `409` are retried only at six hours, and after a success the home does not renew again for 24 hours.
+
+Plan for the rest. A home that does not renew itself, including a solstone journal older than 2.0.45, cannot open `/session/listen` once its service token expires, so it is unreachable off-LAN until it enrolls again, and triggering that call in time is the deployment's own responsibility.
 
 Long TTLs are deliberate for the service and device tokens. Both authorize the **rendezvous** only; they confer no data access. The TLS layer is the data-plane authoritative point. A leaked token grants only the right to open a WebSocket to `spl-relay`, which is useless without the matching mTLS material that lives only on the device.
 
@@ -325,7 +334,7 @@ The signing key has a 12-month rotation cadence with a **90-day overlap window**
 
 **Where 90 comes from.** A device token is refreshable for its first 90 days and no longer: a 60-day TTL plus the 30-day post-expiry grace. Issuance switches to the new `kid` at step 3, so the newest token still bearing the old `kid` is minted exactly as the window opens, and 90 days later it is past refreshing whatever anyone does. Hold the old key that long and every device that could have moved itself has; trim sooner and you strand devices that were merely switched off.
 
-⚠ **That bounds devices, and only devices.** A service token has a 365-day TTL and no refresh path at all, so no window length moves a home. This is why step 5 is released by the home sweep in step 4 and never by the calendar.
+⚠ **That bounds devices, and only devices.** A service token has a 365-day TTL and no refresh endpoint, and a home that renews itself does not do so because a rotation began (see step 4), so the window length does not decide when a home moves. This is why step 5 is released by the home sweep in step 4 and never by the calendar.
 
 The rotation mechanism is `kid`-keyed lookup into a multi-entry JWKS. ⚠ The steps below are that mechanism, not the operator procedure: [`../docs/signing-keys.md`](../docs/signing-keys.md) § rotation is the runbook to execute, and it carries the generator invocation and the key-archival step that this list does not.
 
@@ -340,7 +349,7 @@ The rotation mechanism is `kid`-keyed lookup into a multi-entry JWKS. ⚠ The st
 
    ⚠ 90 days bounds what the *protocol* can do, not what a fleet will do. It assumes a client that implements the refresh trigger; one that does not never moves on its own at all, whatever the window.
 
-   **Homes do not move on their own at all.** A service token minted under the old `kid` stays valid to the relay for up to 365 days, and is replaced only by another `POST /enroll/home`.
+   **Homes do not move on the rotation's account.** A service token minted under the old `kid` stays valid to the relay for up to 365 days, and is replaced only by another `POST /enroll/home`. A solstone home that renews itself (see *TTLs*) finds nothing wrong while the old `kid` is still published, so inside the window it renews only if its usual share of the token's lifetime happens to fall there. Otherwise it moves when the sweep re-enrolls it, or on its own once step 5 retires the old `kid`.
 
    🔴 **That call has to come from the home, and an operator cannot make it on the home's behalf.** The response carries the new token back to whoever sent the request, and nothing pushes it anywhere else — so a call made from an admin console rotates the D1 row while the home goes on holding its old, soon-to-be-unverifiable token. That is the whole of the argument: it is about where the answer lands, not about who can reach the endpoint. The operator's job is to *trigger* the home-side action that re-enrolls, then confirm it landed.
 
@@ -348,7 +357,7 @@ The rotation mechanism is `kid`-keyed lookup into a multi-entry JWKS. ⚠ The st
 
 5. After the overlap window **and** that sweep, push a **trimmed JWKS** containing only the new key: `wrangler secret put JWKS_PUBLIC --env production`. The old key is no longer accepted and any token still bearing its `kid` fails validation cleanly.
 
-⚠ **Trimming early costs a device an owner action; it costs a home its reachability until someone re-enrolls it.** Inside the window, a device holding an old-`kid` token repairs itself by refreshing. Once the key is trimmed it cannot, and re-pairing is the only route back. An owner can do that. A home has no equivalent move at all: it will fail every `/session/listen` open, holding a token that still looks valid to it, until someone enrolls it again. Its pairing material survives either way. Do not run step 5 on the calendar alone.
+⚠ **Trimming early costs a device an owner action; it costs a home that does not renew itself its reachability until someone re-enrolls it.** Inside the window, a device holding an old-`kid` token repairs itself by refreshing. Once the key is trimmed it cannot, and re-pairing is the only route back. An owner can do that. A home that does not renew itself, including a solstone journal older than 2.0.45, has no equivalent move at all: it will fail every `/session/listen` open, holding a token that still looks valid to it, until someone enrolls it again. A solstone home that does renew itself is refused, finds the old `kid` gone from the published JWKS, and renews on a later check, on the schedule in *TTLs*. Its pairing material survives either way. The relay cannot tell the two kinds of home apart, so do not run step 5 on the calendar alone.
 
 During the overlap window:
 
