@@ -210,9 +210,7 @@
             "marker": "| 24 | 16 | ca_fp | first 16 bytes of SHA-256 over the CA cert DER |"
           },
           "encoding": "sha256_prefix",
-          "gap_refs": [
-            "gap.direct_forms.ca_fp_tag_missing"
-          ],
+          "gap_refs": [],
           "id": "pair_link.form.0x04.field.ca_fp",
           "length": 16,
           "offset": 24,
@@ -317,9 +315,7 @@
             "marker": "| 5 + 4\u00b7count + 16 | 16 | ca_fp | first 16 bytes of SHA-256 over the CA cert DER |"
           },
           "encoding": "sha256_prefix",
-          "gap_refs": [
-            "gap.direct_forms.ca_fp_tag_missing"
-          ],
+          "gap_refs": [],
           "id": "pair_link.form.0x05.field.ca_fp",
           "length": 16,
           "offset": "5 + 4 * count + 16",
@@ -388,10 +384,7 @@
             "marker": "| 10 | 16 | ca_fp_spki | first 16 bytes of SHA-256 over the CA DER SubjectPublicKeyInfo |"
           },
           "encoding": "sha256_prefix",
-          "gap_refs": [
-            "gap.form_0x06.ca_fp_name",
-            "gap.form_0x06.deleted_0x03_dependency"
-          ],
+          "gap_refs": [],
           "id": "pair_link.form.0x06.field.ca_fp_spki",
           "length": 16,
           "offset": 10,
@@ -452,36 +445,6 @@
   "gaps": [
     {
       "citation": {
-        "document": "proto/pairing.md",
-        "marker": "The form is discriminated by the first decoded byte (`version`), never by URL path."
-      },
-      "description": "The source documents do not state what a parser does with an unrecognized pair-link version byte.",
-      "id": "gap.version.unknown_behavior",
-      "kind": "silent",
-      "subject": "pair_link.version"
-    },
-    {
-      "citation": {
-        "document": "proto/pairing.md",
-        "marker": "The `0x04` and `0x05` forms currently encode IPv4 only."
-      },
-      "description": "The source documents define only IPv4 address type 0x01 and do not state what a parser does with another address-type value.",
-      "id": "gap.addr_type.unknown_behavior",
-      "kind": "silent",
-      "subject": "pair_link.addr_type"
-    },
-    {
-      "citation": {
-        "document": "proto/pair-window.md",
-        "marker": "| 9 | 1 | ca_fp_tag | `0x01` = SHA-256 over CA DER SPKI, first 16 bytes |"
-      },
-      "description": "The source documents define CA fingerprint tag 0x01 and do not state what a parser does with another tag value.",
-      "id": "gap.ca_fp_tag.unknown_behavior",
-      "kind": "silent",
-      "subject": "pair_link.ca_fp_tag"
-    },
-    {
-      "citation": {
         "document": "proto/pair-window.md",
         "marker": "| 26 | 1 | relay_origin_selector | `0x00` = well-known default relay; `N` (`1..255`) = custom origin byte length |"
       },
@@ -493,32 +456,12 @@
     {
       "citation": {
         "document": "proto/pairing.md",
-        "marker": "A parser MUST key the pin algorithm off version and tag"
-      },
-      "description": "The source documents require version-and-tag pin dispatch but do not state behavior for an unknown version and tag combination.",
-      "id": "gap.pin_domain.unknown_behavior",
-      "kind": "silent",
-      "subject": "pair_link.pin_domain"
-    },
-    {
-      "citation": {
-        "document": "proto/pairing.md",
         "marker": "IPv4 link-local (`169.254.0.0/16`), loopback, and public alike"
       },
       "description": "The source document says loopback without specifying IPv4 127.0.0.0/8, IPv6 ::1/128, or both.",
       "id": "gap.address_policy.loopback_scope",
       "kind": "silent",
       "subject": "direct_address.loopback"
-    },
-    {
-      "citation": {
-        "document": "proto/pairing.md",
-        "marker": "A parser MUST key the pin algorithm off version and tag"
-      },
-      "description": "The 0x04 and 0x05 layouts have no ca_fp_tag field although the prose requires pin selection by version and tag.",
-      "id": "gap.direct_forms.ca_fp_tag_missing",
-      "kind": "internally_inconsistent",
-      "subject": "ca_cert_der_sha256_prefix16"
     },
     {
       "citation": {
@@ -563,52 +506,12 @@
     {
       "citation": {
         "document": "proto/pair-window.md",
-        "marker": "Base size **27 bytes** (selector `0x00`)."
-      },
-      "description": "The 0x06 table names ca_fp_spki while the immediately following prose calls the field ca_fp.",
-      "id": "gap.form_0x06.ca_fp_name",
-      "kind": "internally_inconsistent",
-      "subject": "pair_link.form.0x06.field.ca_fp_spki"
-    },
-    {
-      "citation": {
-        "document": "proto/pair-window.md",
-        "marker": "identical in meaning to the `0x03` form"
-      },
-      "description": "The 0x06 pin is described by comparison to a deleted 0x03 form whose layout is no longer present in the source documents.",
-      "id": "gap.form_0x06.deleted_0x03_dependency",
-      "kind": "stale_cross_reference",
-      "subject": "ca_spki_der_sha256_prefix16"
-    },
-    {
-      "citation": {
-        "document": "proto/pair-window.md",
         "marker": "there is no `0x03`/TOTP fallback"
       },
       "description": "The source documents retire and delete 0x03 but do not permanently reserve the byte; reuse is reserved by this definition assignment.",
       "id": "gap.version_0x03.reservation_delta",
       "kind": "assignment_delta",
       "subject": "pair_link.form.0x03"
-    },
-    {
-      "citation": {
-        "document": "proto/pair-window.md",
-        "marker": "the `0x03` relay QR form in [`pairing.md`](pairing.md)"
-      },
-      "description": "The pair-window document claims to supersede an 0x03 passage in pairing.md, but pairing.md contains no 0x03, totp, or TOTP passage.",
-      "id": "gap.cross_reference.pairing_0x03",
-      "kind": "stale_cross_reference",
-      "subject": "source_claim.pair_window.supersedes_pairing_0x03"
-    },
-    {
-      "citation": {
-        "document": "proto/pair-window.md",
-        "marker": "the TOTP / `current_totp` / `pair_ticket` mechanism in [`tokens.md`](tokens.md)"
-      },
-      "description": "The pair-window document claims to supersede TOTP and pair_ticket passages in tokens.md, but tokens.md contains neither totp nor pair_ticket.",
-      "id": "gap.cross_reference.tokens_totp_pair_ticket",
-      "kind": "stale_cross_reference",
-      "subject": "source_claim.pair_window.supersedes_tokens_pair_ticket"
     }
   ],
   "journal_identity": [
@@ -689,9 +592,7 @@
         "document": "proto/pairing.md",
         "marker": "direct form pins SHA-256(cert DER), first 16 bytes"
       },
-      "gap_refs": [
-        "gap.direct_forms.ca_fp_tag_missing"
-      ],
+      "gap_refs": [],
       "hash": "sha256",
       "id": "ca_cert_der_sha256_prefix16",
       "input": "ca_certificate_der",
@@ -710,7 +611,7 @@
     {
       "citation": {
         "document": "proto/pair-window.md",
-        "marker": "parsers MUST key the pin algorithm off `version` + `ca_fp_tag`"
+        "marker": "Parsers MUST select the pin algorithm by `version` + `ca_fp_tag` and refuse a tag they do not recognize."
       },
       "gap_refs": [],
       "hash": "sha256",
@@ -727,35 +628,17 @@
       ]
     }
   ],
-  "source_claims": [
-    {
-      "citation": {
-        "document": "proto/pair-window.md",
-        "marker": "the `0x03` relay QR form in [`pairing.md`](pairing.md)"
-      },
-      "description": "Claims that pair-window supersedes a 0x03 relay QR form in pairing.md.",
-      "id": "source_claim.pair_window.supersedes_pairing_0x03"
-    },
-    {
-      "citation": {
-        "document": "proto/pair-window.md",
-        "marker": "the TOTP / `current_totp` / `pair_ticket` mechanism in [`tokens.md`](tokens.md)"
-      },
-      "description": "Claims that pair-window supersedes a TOTP, current_totp, and pair_ticket mechanism in tokens.md.",
-      "id": "source_claim.pair_window.supersedes_tokens_pair_ticket"
-    }
-  ],
+  "source_claims": [],
   "vocabularies": [
     {
       "citation": {
         "document": "proto/pairing.md",
-        "marker": "The form is discriminated by the first decoded byte (`version`), never by URL path."
+        "marker": "A parser MUST refuse a link whose version, address type or tag it does not recognize."
       },
       "classification": "extensible",
-      "gap_ref": "gap.version.unknown_behavior",
       "id": "pair_link.version",
       "source_pointer": "/forms",
-      "unknown_value_behavior": "unspecified_in_source_documents",
+      "unknown_value_behavior": "reject",
       "values": [
         {
           "label": "0x03",
@@ -778,13 +661,12 @@
     {
       "citation": {
         "document": "proto/pairing.md",
-        "marker": "The `0x04` and `0x05` forms currently encode IPv4 only."
+        "marker": "A parser MUST refuse a link whose version, address type or tag it does not recognize."
       },
       "classification": "closed",
-      "gap_ref": "gap.addr_type.unknown_behavior",
       "id": "pair_link.addr_type",
       "source_pointer": "/forms",
-      "unknown_value_behavior": "unspecified_in_source_documents",
+      "unknown_value_behavior": "reject",
       "values": [
         {
           "label": "0x01",
@@ -795,13 +677,12 @@
     {
       "citation": {
         "document": "proto/pair-window.md",
-        "marker": "| 9 | 1 | ca_fp_tag | `0x01` = SHA-256 over CA DER SPKI, first 16 bytes |"
+        "marker": "Parsers MUST select the pin algorithm by `version` + `ca_fp_tag` and refuse a tag they do not recognize."
       },
       "classification": "extensible",
-      "gap_ref": "gap.ca_fp_tag.unknown_behavior",
       "id": "pair_link.ca_fp_tag",
       "source_pointer": "/ca_pin_tags",
-      "unknown_value_behavior": "unspecified_in_source_documents",
+      "unknown_value_behavior": "reject",
       "values": [
         {
           "label": "0x01",
@@ -891,13 +772,12 @@
     {
       "citation": {
         "document": "proto/pairing.md",
-        "marker": "A parser MUST key the pin algorithm off version and tag"
+        "marker": "A parser MUST refuse a link whose version, address type or tag it does not recognize."
       },
       "classification": "extensible",
-      "gap_ref": "gap.pin_domain.unknown_behavior",
       "id": "pair_link.pin_domain",
       "source_pointer": "/pin_domains",
-      "unknown_value_behavior": "unspecified_in_source_documents",
+      "unknown_value_behavior": "reject",
       "values": [
         "ca_cert_der_sha256_prefix16",
         "ca_spki_der_sha256_prefix16"

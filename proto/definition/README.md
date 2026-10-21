@@ -12,7 +12,7 @@ particular way. The bundle contains canonical `definition.json` and
 `bundle/manifest.json` contains the single format-level identity and SemVer,
 payload digests, and generator-input digests.
 
-The current bundle version is `8.0.6`. The stable identities are:
+The current bundle version is `9.0.0`. The stable identities are:
 
 - generator: `spl.proto.definition.generate.v1`
 - bundle schema: `spl.pair-link-definition-bundle.schema.v1`
@@ -95,18 +95,16 @@ The vocabularies are classified as follows:
 
 | Vocabulary | Classification | Unknown-value behavior |
 |---|---|---|
-| pair-link version | `extensible` | `unspecified_in_source_documents` |
-| direct `addr_type` | `closed` | `unspecified_in_source_documents` |
-| `ca_fp_tag` | `extensible` | `unspecified_in_source_documents` |
+| pair-link version | `extensible` | `reject` |
+| direct `addr_type` | `closed` | `reject` |
+| `ca_fp_tag` | `extensible` | `reject` |
 | relay-origin selector | `closed` | `unspecified_in_source_documents` |
 | `0x05` candidate count | `closed` | `reject` |
 | direct-address allow-list | `extensible` | `admit` |
-| version-and-tag pin domain | `extensible` | `unspecified_in_source_documents` |
+| version-and-tag pin domain | `extensible` | `reject` |
 
-The version byte is the most consequential gap: the documents explain how to
-discriminate forms and demonstrate an evolving byte space, but never say what
-to do with an unrecognized version. The definition records that silence rather
-than inventing refusal behavior. The relay-origin selector is `closed`: zero
+A parser refuses a link whose version, address type or `ca_fp_tag` it does not
+recognize, as `pairing.md` states. The relay-origin selector is `closed`: zero
 is an in-band default sentinel and integers 1 through 255 are byte lengths, so
 together they exhaust the byte space and the vocabulary cannot grow. It is a
 length grammar with an in-band sentinel, not a set of enumerated alternatives.
@@ -116,21 +114,22 @@ with the blob.
 `0x03` is retired and reserved against reuse by this definition. Its record
 intentionally has no `fields` or `layout` key. Because the source documents do
 not permanently reserve that byte, the assignment delta is recorded as a gap.
-Likewise, direct forms use the explicit `absent_in_layout` tag sentinel and a
-gap reference; a missing tag is never represented by a bare null.
+Direct forms carry no tag, so their version alone selects the cert-DER pin.
+They use the explicit `absent_in_layout` tag sentinel; a missing tag is never
+represented by a bare null.
 
 ## Conformance corpus
 
-The corpus contains 11 `declared` vectors whose payload literals appear in the
-protocol documents and 64 `recorded` vectors promoted from the public
-`solpbc/spl-rust` conformance corpus. Because 64 of 75 vectors record one
+The corpus contains 14 `declared` vectors whose payload literals appear in the
+protocol documents and 70 `recorded` vectors promoted from the public
+`solpbc/spl-rust` conformance corpus. Because 70 of 84 vectors record one
 implementation's behavior, this corpus is not broad conformance proof.
 
-The six journal-identity vectors are the exception to that caveat: they are
+The nine journal-identity vectors are the exception to that caveat: they are
 authored from published constants rather than promoted from an implementation.
 Two of them carry the same expected jid for the same key under two encodings,
 which is a case no implementation can produce from its own output. The other
-four cover all three refusal kinds.
+seven are refusals.
 
 Vectors cite only `proto/identity.md`, `proto/pairing.md`, and
 `proto/pair-window.md`. `framing.md`, `session.md`, and `tokens.md` have zero

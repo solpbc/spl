@@ -10,9 +10,7 @@
     "direct_address.reserved_unspecified",
     "direct_address.rfc6598_shared",
     "direct_address_policy.allow_list",
-    "gap.addr_type.unknown_behavior",
     "gap.address_policy.loopback_scope",
-    "gap.ca_fp_tag.unknown_behavior",
     "gap.form_0x06.invalid_length_behavior",
     "gap.form_0x06.invalid_utf8_behavior",
     "gap.form_0x06.total_length",
@@ -61,15 +59,15 @@
       "entry_digests": {
         "direct_address.ipv4_link_local": "d72e74b06899de4774410484f03bea24af8c7b59664c148c78d75a3f4ea0e9bc",
         "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
-        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
-        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.addr_type": "88cefacfd47a17dd212388ae8e5bf1eeab4abb6b445b3b620a216412ab441618",
+        "pair_link.form.0x04": "b4fa1027f12cc1ba332716f54029edd82d6980035b350c0b4cb4e3513b915a94",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
-        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ca_fp": "3c7b107040c59d9e0849ca78a5909b84995fad119d1a237c0a34535291942525",
         "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
         "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
         "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
         "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
@@ -100,15 +98,15 @@
       "entry_digests": {
         "direct_address.ipv4_link_local": "d72e74b06899de4774410484f03bea24af8c7b59664c148c78d75a3f4ea0e9bc",
         "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
-        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
-        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.addr_type": "88cefacfd47a17dd212388ae8e5bf1eeab4abb6b445b3b620a216412ab441618",
+        "pair_link.form.0x04": "b4fa1027f12cc1ba332716f54029edd82d6980035b350c0b4cb4e3513b915a94",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
-        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ca_fp": "3c7b107040c59d9e0849ca78a5909b84995fad119d1a237c0a34535291942525",
         "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
         "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
         "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
         "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
@@ -139,15 +137,15 @@
       "entry_digests": {
         "direct_address.ipv4_link_local": "d72e74b06899de4774410484f03bea24af8c7b59664c148c78d75a3f4ea0e9bc",
         "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
-        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
-        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.addr_type": "88cefacfd47a17dd212388ae8e5bf1eeab4abb6b445b3b620a216412ab441618",
+        "pair_link.form.0x04": "b4fa1027f12cc1ba332716f54029edd82d6980035b350c0b4cb4e3513b915a94",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
-        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ca_fp": "3c7b107040c59d9e0849ca78a5909b84995fad119d1a237c0a34535291942525",
         "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
         "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
         "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
         "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
@@ -178,15 +176,15 @@
       "entry_digests": {
         "direct_address.ipv4_link_local": "d72e74b06899de4774410484f03bea24af8c7b59664c148c78d75a3f4ea0e9bc",
         "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
-        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
-        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.addr_type": "88cefacfd47a17dd212388ae8e5bf1eeab4abb6b445b3b620a216412ab441618",
+        "pair_link.form.0x04": "b4fa1027f12cc1ba332716f54029edd82d6980035b350c0b4cb4e3513b915a94",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
-        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ca_fp": "3c7b107040c59d9e0849ca78a5909b84995fad119d1a237c0a34535291942525",
         "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
         "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
         "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
         "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
@@ -217,15 +215,15 @@
       "entry_digests": {
         "direct_address.ipv4_link_local": "d72e74b06899de4774410484f03bea24af8c7b59664c148c78d75a3f4ea0e9bc",
         "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
-        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
-        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.addr_type": "88cefacfd47a17dd212388ae8e5bf1eeab4abb6b445b3b620a216412ab441618",
+        "pair_link.form.0x04": "b4fa1027f12cc1ba332716f54029edd82d6980035b350c0b4cb4e3513b915a94",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
-        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ca_fp": "3c7b107040c59d9e0849ca78a5909b84995fad119d1a237c0a34535291942525",
         "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
         "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
         "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
         "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
@@ -257,15 +255,15 @@
         "direct_address.loopback": "ff882ed7a8b72e1ac18b6c68453b8509a4736b9b0475e4e8db7c6908d54b6b65",
         "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
         "gap.address_policy.loopback_scope": "b8f91fa1f64e1e8e6754de6db8a3b326e90ab826fd71dc5f459e1554bc225c87",
-        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
-        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.addr_type": "88cefacfd47a17dd212388ae8e5bf1eeab4abb6b445b3b620a216412ab441618",
+        "pair_link.form.0x04": "b4fa1027f12cc1ba332716f54029edd82d6980035b350c0b4cb4e3513b915a94",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
-        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ca_fp": "3c7b107040c59d9e0849ca78a5909b84995fad119d1a237c0a34535291942525",
         "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
         "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
         "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
         "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
@@ -297,15 +295,15 @@
         "direct_address.loopback": "ff882ed7a8b72e1ac18b6c68453b8509a4736b9b0475e4e8db7c6908d54b6b65",
         "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
         "gap.address_policy.loopback_scope": "b8f91fa1f64e1e8e6754de6db8a3b326e90ab826fd71dc5f459e1554bc225c87",
-        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
-        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.addr_type": "88cefacfd47a17dd212388ae8e5bf1eeab4abb6b445b3b620a216412ab441618",
+        "pair_link.form.0x04": "b4fa1027f12cc1ba332716f54029edd82d6980035b350c0b4cb4e3513b915a94",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
-        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ca_fp": "3c7b107040c59d9e0849ca78a5909b84995fad119d1a237c0a34535291942525",
         "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
         "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
         "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
         "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
@@ -337,15 +335,15 @@
         "direct_address.loopback": "ff882ed7a8b72e1ac18b6c68453b8509a4736b9b0475e4e8db7c6908d54b6b65",
         "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
         "gap.address_policy.loopback_scope": "b8f91fa1f64e1e8e6754de6db8a3b326e90ab826fd71dc5f459e1554bc225c87",
-        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
-        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.addr_type": "88cefacfd47a17dd212388ae8e5bf1eeab4abb6b445b3b620a216412ab441618",
+        "pair_link.form.0x04": "b4fa1027f12cc1ba332716f54029edd82d6980035b350c0b4cb4e3513b915a94",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
-        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ca_fp": "3c7b107040c59d9e0849ca78a5909b84995fad119d1a237c0a34535291942525",
         "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
         "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
         "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
         "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
@@ -377,15 +375,15 @@
         "direct_address.loopback": "ff882ed7a8b72e1ac18b6c68453b8509a4736b9b0475e4e8db7c6908d54b6b65",
         "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
         "gap.address_policy.loopback_scope": "b8f91fa1f64e1e8e6754de6db8a3b326e90ab826fd71dc5f459e1554bc225c87",
-        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
-        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.addr_type": "88cefacfd47a17dd212388ae8e5bf1eeab4abb6b445b3b620a216412ab441618",
+        "pair_link.form.0x04": "b4fa1027f12cc1ba332716f54029edd82d6980035b350c0b4cb4e3513b915a94",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
-        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ca_fp": "3c7b107040c59d9e0849ca78a5909b84995fad119d1a237c0a34535291942525",
         "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
         "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
         "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
         "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
@@ -416,15 +414,15 @@
       "entry_digests": {
         "direct_address.reserved_multicast_and_above": "fc4ae2dd7652800fb681d176d547bed75aa026c0b4d12e72b4e83e6b015356bf",
         "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
-        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
-        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.addr_type": "88cefacfd47a17dd212388ae8e5bf1eeab4abb6b445b3b620a216412ab441618",
+        "pair_link.form.0x04": "b4fa1027f12cc1ba332716f54029edd82d6980035b350c0b4cb4e3513b915a94",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
-        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ca_fp": "3c7b107040c59d9e0849ca78a5909b84995fad119d1a237c0a34535291942525",
         "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
         "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
         "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
         "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
@@ -455,15 +453,15 @@
       "entry_digests": {
         "direct_address.reserved_multicast_and_above": "fc4ae2dd7652800fb681d176d547bed75aa026c0b4d12e72b4e83e6b015356bf",
         "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
-        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
-        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.addr_type": "88cefacfd47a17dd212388ae8e5bf1eeab4abb6b445b3b620a216412ab441618",
+        "pair_link.form.0x04": "b4fa1027f12cc1ba332716f54029edd82d6980035b350c0b4cb4e3513b915a94",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
-        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ca_fp": "3c7b107040c59d9e0849ca78a5909b84995fad119d1a237c0a34535291942525",
         "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
         "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
         "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
         "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "error": {
@@ -490,15 +488,15 @@
       "entry_digests": {
         "direct_address.reserved_multicast_and_above": "fc4ae2dd7652800fb681d176d547bed75aa026c0b4d12e72b4e83e6b015356bf",
         "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
-        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
-        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.addr_type": "88cefacfd47a17dd212388ae8e5bf1eeab4abb6b445b3b620a216412ab441618",
+        "pair_link.form.0x04": "b4fa1027f12cc1ba332716f54029edd82d6980035b350c0b4cb4e3513b915a94",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
-        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ca_fp": "3c7b107040c59d9e0849ca78a5909b84995fad119d1a237c0a34535291942525",
         "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
         "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
         "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
         "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "error": {
@@ -525,15 +523,15 @@
       "entry_digests": {
         "direct_address.10_8": "f82715c86ff9a66ce292fd8f992452de75b1b8e975c09bd24a68013ae045bde0",
         "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
-        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
-        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.addr_type": "88cefacfd47a17dd212388ae8e5bf1eeab4abb6b445b3b620a216412ab441618",
+        "pair_link.form.0x04": "b4fa1027f12cc1ba332716f54029edd82d6980035b350c0b4cb4e3513b915a94",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
-        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ca_fp": "3c7b107040c59d9e0849ca78a5909b84995fad119d1a237c0a34535291942525",
         "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
         "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
         "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
         "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
@@ -564,15 +562,15 @@
       "entry_digests": {
         "direct_address.10_8": "f82715c86ff9a66ce292fd8f992452de75b1b8e975c09bd24a68013ae045bde0",
         "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
-        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
-        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.addr_type": "88cefacfd47a17dd212388ae8e5bf1eeab4abb6b445b3b620a216412ab441618",
+        "pair_link.form.0x04": "b4fa1027f12cc1ba332716f54029edd82d6980035b350c0b4cb4e3513b915a94",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
-        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ca_fp": "3c7b107040c59d9e0849ca78a5909b84995fad119d1a237c0a34535291942525",
         "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
         "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
         "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
         "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
@@ -603,15 +601,15 @@
       "entry_digests": {
         "direct_address.10_8": "f82715c86ff9a66ce292fd8f992452de75b1b8e975c09bd24a68013ae045bde0",
         "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
-        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
-        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.addr_type": "88cefacfd47a17dd212388ae8e5bf1eeab4abb6b445b3b620a216412ab441618",
+        "pair_link.form.0x04": "b4fa1027f12cc1ba332716f54029edd82d6980035b350c0b4cb4e3513b915a94",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
-        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ca_fp": "3c7b107040c59d9e0849ca78a5909b84995fad119d1a237c0a34535291942525",
         "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
         "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
         "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
         "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
@@ -642,15 +640,15 @@
       "entry_digests": {
         "direct_address.10_8": "f82715c86ff9a66ce292fd8f992452de75b1b8e975c09bd24a68013ae045bde0",
         "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
-        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
-        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.addr_type": "88cefacfd47a17dd212388ae8e5bf1eeab4abb6b445b3b620a216412ab441618",
+        "pair_link.form.0x04": "b4fa1027f12cc1ba332716f54029edd82d6980035b350c0b4cb4e3513b915a94",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
-        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ca_fp": "3c7b107040c59d9e0849ca78a5909b84995fad119d1a237c0a34535291942525",
         "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
         "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
         "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
         "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
@@ -681,15 +679,15 @@
       "entry_digests": {
         "direct_address.172_16_12": "ab30a70dd8bc9c4676596069a82856de38f75c8a523d01a9f206a6507a525713",
         "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
-        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
-        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.addr_type": "88cefacfd47a17dd212388ae8e5bf1eeab4abb6b445b3b620a216412ab441618",
+        "pair_link.form.0x04": "b4fa1027f12cc1ba332716f54029edd82d6980035b350c0b4cb4e3513b915a94",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
-        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ca_fp": "3c7b107040c59d9e0849ca78a5909b84995fad119d1a237c0a34535291942525",
         "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
         "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
         "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
         "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
@@ -720,15 +718,15 @@
       "entry_digests": {
         "direct_address.172_16_12": "ab30a70dd8bc9c4676596069a82856de38f75c8a523d01a9f206a6507a525713",
         "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
-        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
-        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.addr_type": "88cefacfd47a17dd212388ae8e5bf1eeab4abb6b445b3b620a216412ab441618",
+        "pair_link.form.0x04": "b4fa1027f12cc1ba332716f54029edd82d6980035b350c0b4cb4e3513b915a94",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
-        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ca_fp": "3c7b107040c59d9e0849ca78a5909b84995fad119d1a237c0a34535291942525",
         "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
         "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
         "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
         "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
@@ -759,15 +757,15 @@
       "entry_digests": {
         "direct_address.172_16_12": "ab30a70dd8bc9c4676596069a82856de38f75c8a523d01a9f206a6507a525713",
         "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
-        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
-        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.addr_type": "88cefacfd47a17dd212388ae8e5bf1eeab4abb6b445b3b620a216412ab441618",
+        "pair_link.form.0x04": "b4fa1027f12cc1ba332716f54029edd82d6980035b350c0b4cb4e3513b915a94",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
-        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ca_fp": "3c7b107040c59d9e0849ca78a5909b84995fad119d1a237c0a34535291942525",
         "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
         "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
         "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
         "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
@@ -798,15 +796,15 @@
       "entry_digests": {
         "direct_address.172_16_12": "ab30a70dd8bc9c4676596069a82856de38f75c8a523d01a9f206a6507a525713",
         "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
-        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
-        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.addr_type": "88cefacfd47a17dd212388ae8e5bf1eeab4abb6b445b3b620a216412ab441618",
+        "pair_link.form.0x04": "b4fa1027f12cc1ba332716f54029edd82d6980035b350c0b4cb4e3513b915a94",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
-        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ca_fp": "3c7b107040c59d9e0849ca78a5909b84995fad119d1a237c0a34535291942525",
         "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
         "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
         "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
         "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
@@ -837,15 +835,15 @@
       "entry_digests": {
         "direct_address.192_168_16": "24eb9632362751725da328b35962512ab1e2414d0c8f4d6e5d5eb93f93cc431e",
         "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
-        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
-        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.addr_type": "88cefacfd47a17dd212388ae8e5bf1eeab4abb6b445b3b620a216412ab441618",
+        "pair_link.form.0x04": "b4fa1027f12cc1ba332716f54029edd82d6980035b350c0b4cb4e3513b915a94",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
-        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ca_fp": "3c7b107040c59d9e0849ca78a5909b84995fad119d1a237c0a34535291942525",
         "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
         "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
         "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
         "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
@@ -876,15 +874,15 @@
       "entry_digests": {
         "direct_address.192_168_16": "24eb9632362751725da328b35962512ab1e2414d0c8f4d6e5d5eb93f93cc431e",
         "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
-        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
-        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.addr_type": "88cefacfd47a17dd212388ae8e5bf1eeab4abb6b445b3b620a216412ab441618",
+        "pair_link.form.0x04": "b4fa1027f12cc1ba332716f54029edd82d6980035b350c0b4cb4e3513b915a94",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
-        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ca_fp": "3c7b107040c59d9e0849ca78a5909b84995fad119d1a237c0a34535291942525",
         "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
         "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
         "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
         "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
@@ -915,15 +913,15 @@
       "entry_digests": {
         "direct_address.192_168_16": "24eb9632362751725da328b35962512ab1e2414d0c8f4d6e5d5eb93f93cc431e",
         "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
-        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
-        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.addr_type": "88cefacfd47a17dd212388ae8e5bf1eeab4abb6b445b3b620a216412ab441618",
+        "pair_link.form.0x04": "b4fa1027f12cc1ba332716f54029edd82d6980035b350c0b4cb4e3513b915a94",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
-        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ca_fp": "3c7b107040c59d9e0849ca78a5909b84995fad119d1a237c0a34535291942525",
         "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
         "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
         "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
         "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
@@ -954,15 +952,15 @@
       "entry_digests": {
         "direct_address.192_168_16": "24eb9632362751725da328b35962512ab1e2414d0c8f4d6e5d5eb93f93cc431e",
         "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
-        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
-        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.addr_type": "88cefacfd47a17dd212388ae8e5bf1eeab4abb6b445b3b620a216412ab441618",
+        "pair_link.form.0x04": "b4fa1027f12cc1ba332716f54029edd82d6980035b350c0b4cb4e3513b915a94",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
-        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ca_fp": "3c7b107040c59d9e0849ca78a5909b84995fad119d1a237c0a34535291942525",
         "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
         "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
         "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
         "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
@@ -993,15 +991,15 @@
       "entry_digests": {
         "direct_address.rfc6598_shared": "cc39ba7e807a7298913db7b65d611ed957782df8a9536e5e8840d2b5ab69fe35",
         "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
-        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
-        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.addr_type": "88cefacfd47a17dd212388ae8e5bf1eeab4abb6b445b3b620a216412ab441618",
+        "pair_link.form.0x04": "b4fa1027f12cc1ba332716f54029edd82d6980035b350c0b4cb4e3513b915a94",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
-        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ca_fp": "3c7b107040c59d9e0849ca78a5909b84995fad119d1a237c0a34535291942525",
         "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
         "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
         "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
         "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
@@ -1032,15 +1030,15 @@
       "entry_digests": {
         "direct_address.rfc6598_shared": "cc39ba7e807a7298913db7b65d611ed957782df8a9536e5e8840d2b5ab69fe35",
         "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
-        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
-        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.addr_type": "88cefacfd47a17dd212388ae8e5bf1eeab4abb6b445b3b620a216412ab441618",
+        "pair_link.form.0x04": "b4fa1027f12cc1ba332716f54029edd82d6980035b350c0b4cb4e3513b915a94",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
-        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ca_fp": "3c7b107040c59d9e0849ca78a5909b84995fad119d1a237c0a34535291942525",
         "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
         "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
         "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
         "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
@@ -1071,15 +1069,15 @@
       "entry_digests": {
         "direct_address.rfc6598_shared": "cc39ba7e807a7298913db7b65d611ed957782df8a9536e5e8840d2b5ab69fe35",
         "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
-        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
-        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.addr_type": "88cefacfd47a17dd212388ae8e5bf1eeab4abb6b445b3b620a216412ab441618",
+        "pair_link.form.0x04": "b4fa1027f12cc1ba332716f54029edd82d6980035b350c0b4cb4e3513b915a94",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
-        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ca_fp": "3c7b107040c59d9e0849ca78a5909b84995fad119d1a237c0a34535291942525",
         "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
         "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
         "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
         "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
@@ -1110,15 +1108,15 @@
       "entry_digests": {
         "direct_address.rfc6598_shared": "cc39ba7e807a7298913db7b65d611ed957782df8a9536e5e8840d2b5ab69fe35",
         "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
-        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
-        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.addr_type": "88cefacfd47a17dd212388ae8e5bf1eeab4abb6b445b3b620a216412ab441618",
+        "pair_link.form.0x04": "b4fa1027f12cc1ba332716f54029edd82d6980035b350c0b4cb4e3513b915a94",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
-        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ca_fp": "3c7b107040c59d9e0849ca78a5909b84995fad119d1a237c0a34535291942525",
         "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
         "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
         "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
         "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
@@ -1149,15 +1147,15 @@
       "entry_digests": {
         "direct_address.reserved_unspecified": "bdf48080cf8d02cc2ce827842663b5445c2bd530ec51d205fb7b8ba89e917bc2",
         "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
-        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
-        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.addr_type": "88cefacfd47a17dd212388ae8e5bf1eeab4abb6b445b3b620a216412ab441618",
+        "pair_link.form.0x04": "b4fa1027f12cc1ba332716f54029edd82d6980035b350c0b4cb4e3513b915a94",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
-        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ca_fp": "3c7b107040c59d9e0849ca78a5909b84995fad119d1a237c0a34535291942525",
         "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
         "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
         "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
         "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
@@ -1188,15 +1186,15 @@
       "entry_digests": {
         "direct_address.reserved_unspecified": "bdf48080cf8d02cc2ce827842663b5445c2bd530ec51d205fb7b8ba89e917bc2",
         "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
-        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
-        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.addr_type": "88cefacfd47a17dd212388ae8e5bf1eeab4abb6b445b3b620a216412ab441618",
+        "pair_link.form.0x04": "b4fa1027f12cc1ba332716f54029edd82d6980035b350c0b4cb4e3513b915a94",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
-        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ca_fp": "3c7b107040c59d9e0849ca78a5909b84995fad119d1a237c0a34535291942525",
         "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
         "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
         "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
         "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "error": {
@@ -1223,15 +1221,15 @@
       "entry_digests": {
         "direct_address.reserved_unspecified": "bdf48080cf8d02cc2ce827842663b5445c2bd530ec51d205fb7b8ba89e917bc2",
         "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
-        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
-        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.addr_type": "88cefacfd47a17dd212388ae8e5bf1eeab4abb6b445b3b620a216412ab441618",
+        "pair_link.form.0x04": "b4fa1027f12cc1ba332716f54029edd82d6980035b350c0b4cb4e3513b915a94",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
-        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ca_fp": "3c7b107040c59d9e0849ca78a5909b84995fad119d1a237c0a34535291942525",
         "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
         "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
         "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
         "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "error": {
@@ -1455,15 +1453,15 @@
       ],
       "entry_digests": {
         "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
-        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
-        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.addr_type": "88cefacfd47a17dd212388ae8e5bf1eeab4abb6b445b3b620a216412ab441618",
+        "pair_link.form.0x04": "b4fa1027f12cc1ba332716f54029edd82d6980035b350c0b4cb4e3513b915a94",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
-        "pair_link.form.0x04.field.ca_fp": "0c6e8dd0557ee35c2dbd7406838ffc39608c10581f6a58d207cb36703c43e683",
+        "pair_link.form.0x04.field.ca_fp": "3c7b107040c59d9e0849ca78a5909b84995fad119d1a237c0a34535291942525",
         "pair_link.form.0x04.field.ipv4": "516aad7f9995606b4d5971897c250024808e9cd04623f423c78fddd60cb48a2b",
         "pair_link.form.0x04.field.nonce": "0a76441674b8f2616e9a9d26e589b329c7289116abb9f2c0e797d6c17e46c87e",
         "pair_link.form.0x04.field.port": "321f2bc070809757f5d928bf5bfa3ee189d8f50eb0ce8b88098471b3a52b4d5e",
         "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
@@ -1510,7 +1508,7 @@
       },
       "document_literals": [],
       "entry_digests": {
-        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105"
+        "pair_link.form.0x04": "b4fa1027f12cc1ba332716f54029edd82d6980035b350c0b4cb4e3513b915a94"
       },
       "expected": {
         "error": {
@@ -1536,7 +1534,7 @@
       },
       "document_literals": [],
       "entry_digests": {
-        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105"
+        "pair_link.form.0x04": "b4fa1027f12cc1ba332716f54029edd82d6980035b350c0b4cb4e3513b915a94"
       },
       "expected": {
         "error": {
@@ -1562,7 +1560,7 @@
       },
       "document_literals": [],
       "entry_digests": {
-        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105"
+        "pair_link.form.0x04": "b4fa1027f12cc1ba332716f54029edd82d6980035b350c0b4cb4e3513b915a94"
       },
       "expected": {
         "error": {
@@ -1588,7 +1586,7 @@
       },
       "document_literals": [],
       "entry_digests": {
-        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105"
+        "pair_link.form.0x04": "b4fa1027f12cc1ba332716f54029edd82d6980035b350c0b4cb4e3513b915a94"
       },
       "expected": {
         "error": {
@@ -1614,7 +1612,7 @@
       },
       "document_literals": [],
       "entry_digests": {
-        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105"
+        "pair_link.form.0x04": "b4fa1027f12cc1ba332716f54029edd82d6980035b350c0b4cb4e3513b915a94"
       },
       "expected": {
         "error": {
@@ -1640,7 +1638,7 @@
       },
       "document_literals": [],
       "entry_digests": {
-        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105"
+        "pair_link.form.0x04": "b4fa1027f12cc1ba332716f54029edd82d6980035b350c0b4cb4e3513b915a94"
       },
       "expected": {
         "error": {
@@ -1666,7 +1664,7 @@
       },
       "document_literals": [],
       "entry_digests": {
-        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105"
+        "pair_link.form.0x04": "b4fa1027f12cc1ba332716f54029edd82d6980035b350c0b4cb4e3513b915a94"
       },
       "expected": {
         "error": {
@@ -1692,12 +1690,11 @@
       },
       "document_literals": [],
       "entry_digests": {
-        "gap.addr_type.unknown_behavior": "ba48cf5a32c5a2e47389dc23f0215529ab0ef9169c6e04b9484b1f2e9f92bc10",
-        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
-        "pair_link.form.0x04": "e800df70bc9207a7fae34e791b14baf76178ceb5e90555d3e6facfb5a3ae1105",
+        "pair_link.addr_type": "88cefacfd47a17dd212388ae8e5bf1eeab4abb6b445b3b620a216412ab441618",
+        "pair_link.form.0x04": "b4fa1027f12cc1ba332716f54029edd82d6980035b350c0b4cb4e3513b915a94",
         "pair_link.form.0x04.field.addr_type": "fb57592c48b0f2743aa17d8aa81d7b862757ee3b92734b797d4746bc21561723",
         "pair_link.form.0x04.field.version": "6a73fcbc7436b299a70246c5b4b49c0c6794b9620ece5ebe4333935c02af8689",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "error": {
@@ -1726,16 +1723,16 @@
         "direct_address.rfc6598_shared": "cc39ba7e807a7298913db7b65d611ed957782df8a9536e5e8840d2b5ab69fe35",
         "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
         "pair_link.0x05.candidate_count": "5731b2cade010b47098404a0cb1f22d06c03d897835a156fad9b9c6c654c5c16",
-        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
-        "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
+        "pair_link.addr_type": "88cefacfd47a17dd212388ae8e5bf1eeab4abb6b445b3b620a216412ab441618",
+        "pair_link.form.0x05": "178b77e14b8ae92055c4e228c9a18b42c648569f90bdaf016c2dd7a9635ea9cc",
         "pair_link.form.0x05.field.addr_type": "4a4a99a1b87dad2cd54ce910b862c871a7854080bd1d88ac0e64ea848d243bf8",
-        "pair_link.form.0x05.field.ca_fp": "84076d324f48c736b8e6b7e64f37da860d4387e4cbff7b14605fb4d4fbef86e7",
+        "pair_link.form.0x05.field.ca_fp": "0fd4f17a991083980c37f27a53e4530f20703fb635610e03ef8d1e84e331e3eb",
         "pair_link.form.0x05.field.count": "43dbffe295f1185067b998d729e8fae00e4be185cb51e13a329322049bba480d",
         "pair_link.form.0x05.field.ipv4": "a9432604105df3fb7a5a32abf8d385a6519ba276308d7ef6bbb52511722afc2a",
         "pair_link.form.0x05.field.nonce": "b265324d85f8365cde5753588e82922f48807074bf99a846d3ea3a95d8a16c16",
         "pair_link.form.0x05.field.port": "c991277b6cf59fbe6390bad15416334a8c2461896a6376b6bb9e21f01ab35ee3",
         "pair_link.form.0x05.field.version": "8fb296b83f686a40d7621dae4eb2e16cca1e3ee0f1de5e977b231635d9daffa4",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
@@ -1771,14 +1768,14 @@
         "direct_address.192_168_16": "24eb9632362751725da328b35962512ab1e2414d0c8f4d6e5d5eb93f93cc431e",
         "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
         "pair_link.0x05.candidate_count": "5731b2cade010b47098404a0cb1f22d06c03d897835a156fad9b9c6c654c5c16",
-        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
-        "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
+        "pair_link.addr_type": "88cefacfd47a17dd212388ae8e5bf1eeab4abb6b445b3b620a216412ab441618",
+        "pair_link.form.0x05": "178b77e14b8ae92055c4e228c9a18b42c648569f90bdaf016c2dd7a9635ea9cc",
         "pair_link.form.0x05.field.addr_type": "4a4a99a1b87dad2cd54ce910b862c871a7854080bd1d88ac0e64ea848d243bf8",
         "pair_link.form.0x05.field.count": "43dbffe295f1185067b998d729e8fae00e4be185cb51e13a329322049bba480d",
         "pair_link.form.0x05.field.ipv4": "a9432604105df3fb7a5a32abf8d385a6519ba276308d7ef6bbb52511722afc2a",
         "pair_link.form.0x05.field.port": "c991277b6cf59fbe6390bad15416334a8c2461896a6376b6bb9e21f01ab35ee3",
         "pair_link.form.0x05.field.version": "8fb296b83f686a40d7621dae4eb2e16cca1e3ee0f1de5e977b231635d9daffa4",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
@@ -1812,12 +1809,12 @@
       "document_literals": [],
       "entry_digests": {
         "pair_link.0x05.candidate_count": "5731b2cade010b47098404a0cb1f22d06c03d897835a156fad9b9c6c654c5c16",
-        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
-        "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
+        "pair_link.addr_type": "88cefacfd47a17dd212388ae8e5bf1eeab4abb6b445b3b620a216412ab441618",
+        "pair_link.form.0x05": "178b77e14b8ae92055c4e228c9a18b42c648569f90bdaf016c2dd7a9635ea9cc",
         "pair_link.form.0x05.field.addr_type": "4a4a99a1b87dad2cd54ce910b862c871a7854080bd1d88ac0e64ea848d243bf8",
         "pair_link.form.0x05.field.count": "43dbffe295f1185067b998d729e8fae00e4be185cb51e13a329322049bba480d",
         "pair_link.form.0x05.field.version": "8fb296b83f686a40d7621dae4eb2e16cca1e3ee0f1de5e977b231635d9daffa4",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "error": {
@@ -1845,16 +1842,16 @@
         "direct_address.192_168_16": "24eb9632362751725da328b35962512ab1e2414d0c8f4d6e5d5eb93f93cc431e",
         "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
         "pair_link.0x05.candidate_count": "5731b2cade010b47098404a0cb1f22d06c03d897835a156fad9b9c6c654c5c16",
-        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
-        "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
+        "pair_link.addr_type": "88cefacfd47a17dd212388ae8e5bf1eeab4abb6b445b3b620a216412ab441618",
+        "pair_link.form.0x05": "178b77e14b8ae92055c4e228c9a18b42c648569f90bdaf016c2dd7a9635ea9cc",
         "pair_link.form.0x05.field.addr_type": "4a4a99a1b87dad2cd54ce910b862c871a7854080bd1d88ac0e64ea848d243bf8",
-        "pair_link.form.0x05.field.ca_fp": "84076d324f48c736b8e6b7e64f37da860d4387e4cbff7b14605fb4d4fbef86e7",
+        "pair_link.form.0x05.field.ca_fp": "0fd4f17a991083980c37f27a53e4530f20703fb635610e03ef8d1e84e331e3eb",
         "pair_link.form.0x05.field.count": "43dbffe295f1185067b998d729e8fae00e4be185cb51e13a329322049bba480d",
         "pair_link.form.0x05.field.ipv4": "a9432604105df3fb7a5a32abf8d385a6519ba276308d7ef6bbb52511722afc2a",
         "pair_link.form.0x05.field.nonce": "b265324d85f8365cde5753588e82922f48807074bf99a846d3ea3a95d8a16c16",
         "pair_link.form.0x05.field.port": "c991277b6cf59fbe6390bad15416334a8c2461896a6376b6bb9e21f01ab35ee3",
         "pair_link.form.0x05.field.version": "8fb296b83f686a40d7621dae4eb2e16cca1e3ee0f1de5e977b231635d9daffa4",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
@@ -1887,16 +1884,16 @@
         "direct_address.rfc6598_shared": "cc39ba7e807a7298913db7b65d611ed957782df8a9536e5e8840d2b5ab69fe35",
         "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
         "pair_link.0x05.candidate_count": "5731b2cade010b47098404a0cb1f22d06c03d897835a156fad9b9c6c654c5c16",
-        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
-        "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
+        "pair_link.addr_type": "88cefacfd47a17dd212388ae8e5bf1eeab4abb6b445b3b620a216412ab441618",
+        "pair_link.form.0x05": "178b77e14b8ae92055c4e228c9a18b42c648569f90bdaf016c2dd7a9635ea9cc",
         "pair_link.form.0x05.field.addr_type": "4a4a99a1b87dad2cd54ce910b862c871a7854080bd1d88ac0e64ea848d243bf8",
-        "pair_link.form.0x05.field.ca_fp": "84076d324f48c736b8e6b7e64f37da860d4387e4cbff7b14605fb4d4fbef86e7",
+        "pair_link.form.0x05.field.ca_fp": "0fd4f17a991083980c37f27a53e4530f20703fb635610e03ef8d1e84e331e3eb",
         "pair_link.form.0x05.field.count": "43dbffe295f1185067b998d729e8fae00e4be185cb51e13a329322049bba480d",
         "pair_link.form.0x05.field.ipv4": "a9432604105df3fb7a5a32abf8d385a6519ba276308d7ef6bbb52511722afc2a",
         "pair_link.form.0x05.field.nonce": "b265324d85f8365cde5753588e82922f48807074bf99a846d3ea3a95d8a16c16",
         "pair_link.form.0x05.field.port": "c991277b6cf59fbe6390bad15416334a8c2461896a6376b6bb9e21f01ab35ee3",
         "pair_link.form.0x05.field.version": "8fb296b83f686a40d7621dae4eb2e16cca1e3ee0f1de5e977b231635d9daffa4",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
@@ -1930,12 +1927,12 @@
       "document_literals": [],
       "entry_digests": {
         "pair_link.0x05.candidate_count": "5731b2cade010b47098404a0cb1f22d06c03d897835a156fad9b9c6c654c5c16",
-        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
-        "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
+        "pair_link.addr_type": "88cefacfd47a17dd212388ae8e5bf1eeab4abb6b445b3b620a216412ab441618",
+        "pair_link.form.0x05": "178b77e14b8ae92055c4e228c9a18b42c648569f90bdaf016c2dd7a9635ea9cc",
         "pair_link.form.0x05.field.addr_type": "4a4a99a1b87dad2cd54ce910b862c871a7854080bd1d88ac0e64ea848d243bf8",
         "pair_link.form.0x05.field.count": "43dbffe295f1185067b998d729e8fae00e4be185cb51e13a329322049bba480d",
         "pair_link.form.0x05.field.version": "8fb296b83f686a40d7621dae4eb2e16cca1e3ee0f1de5e977b231635d9daffa4",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "error": {
@@ -1965,16 +1962,16 @@
         "direct_address.rfc6598_shared": "cc39ba7e807a7298913db7b65d611ed957782df8a9536e5e8840d2b5ab69fe35",
         "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
         "pair_link.0x05.candidate_count": "5731b2cade010b47098404a0cb1f22d06c03d897835a156fad9b9c6c654c5c16",
-        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
-        "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
+        "pair_link.addr_type": "88cefacfd47a17dd212388ae8e5bf1eeab4abb6b445b3b620a216412ab441618",
+        "pair_link.form.0x05": "178b77e14b8ae92055c4e228c9a18b42c648569f90bdaf016c2dd7a9635ea9cc",
         "pair_link.form.0x05.field.addr_type": "4a4a99a1b87dad2cd54ce910b862c871a7854080bd1d88ac0e64ea848d243bf8",
-        "pair_link.form.0x05.field.ca_fp": "84076d324f48c736b8e6b7e64f37da860d4387e4cbff7b14605fb4d4fbef86e7",
+        "pair_link.form.0x05.field.ca_fp": "0fd4f17a991083980c37f27a53e4530f20703fb635610e03ef8d1e84e331e3eb",
         "pair_link.form.0x05.field.count": "43dbffe295f1185067b998d729e8fae00e4be185cb51e13a329322049bba480d",
         "pair_link.form.0x05.field.ipv4": "a9432604105df3fb7a5a32abf8d385a6519ba276308d7ef6bbb52511722afc2a",
         "pair_link.form.0x05.field.nonce": "b265324d85f8365cde5753588e82922f48807074bf99a846d3ea3a95d8a16c16",
         "pair_link.form.0x05.field.port": "c991277b6cf59fbe6390bad15416334a8c2461896a6376b6bb9e21f01ab35ee3",
         "pair_link.form.0x05.field.version": "8fb296b83f686a40d7621dae4eb2e16cca1e3ee0f1de5e977b231635d9daffa4",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
@@ -2018,16 +2015,16 @@
         "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
         "gap.address_policy.loopback_scope": "b8f91fa1f64e1e8e6754de6db8a3b326e90ab826fd71dc5f459e1554bc225c87",
         "pair_link.0x05.candidate_count": "5731b2cade010b47098404a0cb1f22d06c03d897835a156fad9b9c6c654c5c16",
-        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
-        "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
+        "pair_link.addr_type": "88cefacfd47a17dd212388ae8e5bf1eeab4abb6b445b3b620a216412ab441618",
+        "pair_link.form.0x05": "178b77e14b8ae92055c4e228c9a18b42c648569f90bdaf016c2dd7a9635ea9cc",
         "pair_link.form.0x05.field.addr_type": "4a4a99a1b87dad2cd54ce910b862c871a7854080bd1d88ac0e64ea848d243bf8",
-        "pair_link.form.0x05.field.ca_fp": "84076d324f48c736b8e6b7e64f37da860d4387e4cbff7b14605fb4d4fbef86e7",
+        "pair_link.form.0x05.field.ca_fp": "0fd4f17a991083980c37f27a53e4530f20703fb635610e03ef8d1e84e331e3eb",
         "pair_link.form.0x05.field.count": "43dbffe295f1185067b998d729e8fae00e4be185cb51e13a329322049bba480d",
         "pair_link.form.0x05.field.ipv4": "a9432604105df3fb7a5a32abf8d385a6519ba276308d7ef6bbb52511722afc2a",
         "pair_link.form.0x05.field.nonce": "b265324d85f8365cde5753588e82922f48807074bf99a846d3ea3a95d8a16c16",
         "pair_link.form.0x05.field.port": "c991277b6cf59fbe6390bad15416334a8c2461896a6376b6bb9e21f01ab35ee3",
         "pair_link.form.0x05.field.version": "8fb296b83f686a40d7621dae4eb2e16cca1e3ee0f1de5e977b231635d9daffa4",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
@@ -2069,12 +2066,12 @@
       "document_literals": [],
       "entry_digests": {
         "pair_link.0x05.candidate_count": "5731b2cade010b47098404a0cb1f22d06c03d897835a156fad9b9c6c654c5c16",
-        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
-        "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
+        "pair_link.addr_type": "88cefacfd47a17dd212388ae8e5bf1eeab4abb6b445b3b620a216412ab441618",
+        "pair_link.form.0x05": "178b77e14b8ae92055c4e228c9a18b42c648569f90bdaf016c2dd7a9635ea9cc",
         "pair_link.form.0x05.field.addr_type": "4a4a99a1b87dad2cd54ce910b862c871a7854080bd1d88ac0e64ea848d243bf8",
         "pair_link.form.0x05.field.count": "43dbffe295f1185067b998d729e8fae00e4be185cb51e13a329322049bba480d",
         "pair_link.form.0x05.field.version": "8fb296b83f686a40d7621dae4eb2e16cca1e3ee0f1de5e977b231635d9daffa4",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "error": {
@@ -2102,14 +2099,14 @@
         "direct_address.reserved_multicast_and_above": "fc4ae2dd7652800fb681d176d547bed75aa026c0b4d12e72b4e83e6b015356bf",
         "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
         "pair_link.0x05.candidate_count": "5731b2cade010b47098404a0cb1f22d06c03d897835a156fad9b9c6c654c5c16",
-        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
-        "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
+        "pair_link.addr_type": "88cefacfd47a17dd212388ae8e5bf1eeab4abb6b445b3b620a216412ab441618",
+        "pair_link.form.0x05": "178b77e14b8ae92055c4e228c9a18b42c648569f90bdaf016c2dd7a9635ea9cc",
         "pair_link.form.0x05.field.addr_type": "4a4a99a1b87dad2cd54ce910b862c871a7854080bd1d88ac0e64ea848d243bf8",
         "pair_link.form.0x05.field.count": "43dbffe295f1185067b998d729e8fae00e4be185cb51e13a329322049bba480d",
         "pair_link.form.0x05.field.ipv4": "a9432604105df3fb7a5a32abf8d385a6519ba276308d7ef6bbb52511722afc2a",
         "pair_link.form.0x05.field.port": "c991277b6cf59fbe6390bad15416334a8c2461896a6376b6bb9e21f01ab35ee3",
         "pair_link.form.0x05.field.version": "8fb296b83f686a40d7621dae4eb2e16cca1e3ee0f1de5e977b231635d9daffa4",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "error": {
@@ -2137,14 +2134,14 @@
         "direct_address.reserved_multicast_and_above": "fc4ae2dd7652800fb681d176d547bed75aa026c0b4d12e72b4e83e6b015356bf",
         "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
         "pair_link.0x05.candidate_count": "5731b2cade010b47098404a0cb1f22d06c03d897835a156fad9b9c6c654c5c16",
-        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
-        "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
+        "pair_link.addr_type": "88cefacfd47a17dd212388ae8e5bf1eeab4abb6b445b3b620a216412ab441618",
+        "pair_link.form.0x05": "178b77e14b8ae92055c4e228c9a18b42c648569f90bdaf016c2dd7a9635ea9cc",
         "pair_link.form.0x05.field.addr_type": "4a4a99a1b87dad2cd54ce910b862c871a7854080bd1d88ac0e64ea848d243bf8",
         "pair_link.form.0x05.field.count": "43dbffe295f1185067b998d729e8fae00e4be185cb51e13a329322049bba480d",
         "pair_link.form.0x05.field.ipv4": "a9432604105df3fb7a5a32abf8d385a6519ba276308d7ef6bbb52511722afc2a",
         "pair_link.form.0x05.field.port": "c991277b6cf59fbe6390bad15416334a8c2461896a6376b6bb9e21f01ab35ee3",
         "pair_link.form.0x05.field.version": "8fb296b83f686a40d7621dae4eb2e16cca1e3ee0f1de5e977b231635d9daffa4",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "error": {
@@ -2172,14 +2169,14 @@
         "direct_address.reserved_multicast_and_above": "fc4ae2dd7652800fb681d176d547bed75aa026c0b4d12e72b4e83e6b015356bf",
         "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
         "pair_link.0x05.candidate_count": "5731b2cade010b47098404a0cb1f22d06c03d897835a156fad9b9c6c654c5c16",
-        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
-        "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
+        "pair_link.addr_type": "88cefacfd47a17dd212388ae8e5bf1eeab4abb6b445b3b620a216412ab441618",
+        "pair_link.form.0x05": "178b77e14b8ae92055c4e228c9a18b42c648569f90bdaf016c2dd7a9635ea9cc",
         "pair_link.form.0x05.field.addr_type": "4a4a99a1b87dad2cd54ce910b862c871a7854080bd1d88ac0e64ea848d243bf8",
         "pair_link.form.0x05.field.count": "43dbffe295f1185067b998d729e8fae00e4be185cb51e13a329322049bba480d",
         "pair_link.form.0x05.field.ipv4": "a9432604105df3fb7a5a32abf8d385a6519ba276308d7ef6bbb52511722afc2a",
         "pair_link.form.0x05.field.port": "c991277b6cf59fbe6390bad15416334a8c2461896a6376b6bb9e21f01ab35ee3",
         "pair_link.form.0x05.field.version": "8fb296b83f686a40d7621dae4eb2e16cca1e3ee0f1de5e977b231635d9daffa4",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "error": {
@@ -2207,16 +2204,16 @@
         "direct_address.10_8": "f82715c86ff9a66ce292fd8f992452de75b1b8e975c09bd24a68013ae045bde0",
         "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
         "pair_link.0x05.candidate_count": "5731b2cade010b47098404a0cb1f22d06c03d897835a156fad9b9c6c654c5c16",
-        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
-        "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
+        "pair_link.addr_type": "88cefacfd47a17dd212388ae8e5bf1eeab4abb6b445b3b620a216412ab441618",
+        "pair_link.form.0x05": "178b77e14b8ae92055c4e228c9a18b42c648569f90bdaf016c2dd7a9635ea9cc",
         "pair_link.form.0x05.field.addr_type": "4a4a99a1b87dad2cd54ce910b862c871a7854080bd1d88ac0e64ea848d243bf8",
-        "pair_link.form.0x05.field.ca_fp": "84076d324f48c736b8e6b7e64f37da860d4387e4cbff7b14605fb4d4fbef86e7",
+        "pair_link.form.0x05.field.ca_fp": "0fd4f17a991083980c37f27a53e4530f20703fb635610e03ef8d1e84e331e3eb",
         "pair_link.form.0x05.field.count": "43dbffe295f1185067b998d729e8fae00e4be185cb51e13a329322049bba480d",
         "pair_link.form.0x05.field.ipv4": "a9432604105df3fb7a5a32abf8d385a6519ba276308d7ef6bbb52511722afc2a",
         "pair_link.form.0x05.field.nonce": "b265324d85f8365cde5753588e82922f48807074bf99a846d3ea3a95d8a16c16",
         "pair_link.form.0x05.field.port": "c991277b6cf59fbe6390bad15416334a8c2461896a6376b6bb9e21f01ab35ee3",
         "pair_link.form.0x05.field.version": "8fb296b83f686a40d7621dae4eb2e16cca1e3ee0f1de5e977b231635d9daffa4",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "ca_fp_hex": "deadbeefcafebabe0123456789abcdef",
@@ -2246,12 +2243,12 @@
       "document_literals": [],
       "entry_digests": {
         "pair_link.0x05.candidate_count": "5731b2cade010b47098404a0cb1f22d06c03d897835a156fad9b9c6c654c5c16",
-        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
-        "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
+        "pair_link.addr_type": "88cefacfd47a17dd212388ae8e5bf1eeab4abb6b445b3b620a216412ab441618",
+        "pair_link.form.0x05": "178b77e14b8ae92055c4e228c9a18b42c648569f90bdaf016c2dd7a9635ea9cc",
         "pair_link.form.0x05.field.addr_type": "4a4a99a1b87dad2cd54ce910b862c871a7854080bd1d88ac0e64ea848d243bf8",
         "pair_link.form.0x05.field.count": "43dbffe295f1185067b998d729e8fae00e4be185cb51e13a329322049bba480d",
         "pair_link.form.0x05.field.version": "8fb296b83f686a40d7621dae4eb2e16cca1e3ee0f1de5e977b231635d9daffa4",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "error": {
@@ -2279,14 +2276,14 @@
         "direct_address.reserved_multicast_and_above": "fc4ae2dd7652800fb681d176d547bed75aa026c0b4d12e72b4e83e6b015356bf",
         "direct_address_policy.allow_list": "60b0835bb6d35399a0db125cefcc020766f188aac89688786547ba04b8c6fae2",
         "pair_link.0x05.candidate_count": "5731b2cade010b47098404a0cb1f22d06c03d897835a156fad9b9c6c654c5c16",
-        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
-        "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
+        "pair_link.addr_type": "88cefacfd47a17dd212388ae8e5bf1eeab4abb6b445b3b620a216412ab441618",
+        "pair_link.form.0x05": "178b77e14b8ae92055c4e228c9a18b42c648569f90bdaf016c2dd7a9635ea9cc",
         "pair_link.form.0x05.field.addr_type": "4a4a99a1b87dad2cd54ce910b862c871a7854080bd1d88ac0e64ea848d243bf8",
         "pair_link.form.0x05.field.count": "43dbffe295f1185067b998d729e8fae00e4be185cb51e13a329322049bba480d",
         "pair_link.form.0x05.field.ipv4": "a9432604105df3fb7a5a32abf8d385a6519ba276308d7ef6bbb52511722afc2a",
         "pair_link.form.0x05.field.port": "c991277b6cf59fbe6390bad15416334a8c2461896a6376b6bb9e21f01ab35ee3",
         "pair_link.form.0x05.field.version": "8fb296b83f686a40d7621dae4eb2e16cca1e3ee0f1de5e977b231635d9daffa4",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "error": {
@@ -2311,8 +2308,8 @@
       },
       "document_literals": [],
       "entry_digests": {
-        "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.form.0x05": "178b77e14b8ae92055c4e228c9a18b42c648569f90bdaf016c2dd7a9635ea9cc",
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "error": {
@@ -2338,8 +2335,8 @@
       },
       "document_literals": [],
       "entry_digests": {
-        "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.form.0x05": "178b77e14b8ae92055c4e228c9a18b42c648569f90bdaf016c2dd7a9635ea9cc",
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "error": {
@@ -2365,8 +2362,8 @@
       },
       "document_literals": [],
       "entry_digests": {
-        "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.form.0x05": "178b77e14b8ae92055c4e228c9a18b42c648569f90bdaf016c2dd7a9635ea9cc",
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "error": {
@@ -2392,8 +2389,8 @@
       },
       "document_literals": [],
       "entry_digests": {
-        "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.form.0x05": "178b77e14b8ae92055c4e228c9a18b42c648569f90bdaf016c2dd7a9635ea9cc",
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "error": {
@@ -2419,8 +2416,8 @@
       },
       "document_literals": [],
       "entry_digests": {
-        "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.form.0x05": "178b77e14b8ae92055c4e228c9a18b42c648569f90bdaf016c2dd7a9635ea9cc",
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "error": {
@@ -2446,8 +2443,8 @@
       },
       "document_literals": [],
       "entry_digests": {
-        "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.form.0x05": "178b77e14b8ae92055c4e228c9a18b42c648569f90bdaf016c2dd7a9635ea9cc",
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "error": {
@@ -2473,8 +2470,8 @@
       },
       "document_literals": [],
       "entry_digests": {
-        "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.form.0x05": "178b77e14b8ae92055c4e228c9a18b42c648569f90bdaf016c2dd7a9635ea9cc",
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "error": {
@@ -2500,8 +2497,8 @@
       },
       "document_literals": [],
       "entry_digests": {
-        "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.form.0x05": "178b77e14b8ae92055c4e228c9a18b42c648569f90bdaf016c2dd7a9635ea9cc",
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "error": {
@@ -2527,12 +2524,11 @@
       },
       "document_literals": [],
       "entry_digests": {
-        "gap.addr_type.unknown_behavior": "ba48cf5a32c5a2e47389dc23f0215529ab0ef9169c6e04b9484b1f2e9f92bc10",
-        "pair_link.addr_type": "fb366a48d19620b6fdc9a926fcb149bdc6a39f979f9d78cb92c37abc481384a3",
-        "pair_link.form.0x05": "f936c6df9d07a288ec544ca4107ef8ca534e71966461011640623383ab985f22",
+        "pair_link.addr_type": "88cefacfd47a17dd212388ae8e5bf1eeab4abb6b445b3b620a216412ab441618",
+        "pair_link.form.0x05": "178b77e14b8ae92055c4e228c9a18b42c648569f90bdaf016c2dd7a9635ea9cc",
         "pair_link.form.0x05.field.addr_type": "4a4a99a1b87dad2cd54ce910b862c871a7854080bd1d88ac0e64ea848d243bf8",
         "pair_link.form.0x05.field.version": "8fb296b83f686a40d7621dae4eb2e16cca1e3ee0f1de5e977b231635d9daffa4",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "error": {
@@ -2559,14 +2555,14 @@
       "entry_digests": {
         "ca_fp_tag.spki_sha256_prefix16": "7493d6119b0d84c875eead6b20758f40d17336e346720f468376ebdac43cf0c5",
         "gap.form_0x06.invalid_utf8_behavior": "62677960b7f382d3f952ed0df2c1446d3d7d02fc5da8c85b1b398a8bf61654ea",
-        "pair_link.ca_fp_tag": "3b8ff6056d652cce104dfa5ed67d170e72d6e5f2b89c9415f51e2ad4f2e48380",
-        "pair_link.form.0x06": "8893abb13d3df41541003de4521047826ccf9e6298194516829367946cb3ed65",
+        "pair_link.ca_fp_tag": "89c6e1b42aaf44db9405567549d75107b134b2e8ca0cdda2a490f3a343272c09",
+        "pair_link.form.0x06": "dfc8037cb85f0472fabc65cb299429c1a42e5aecbba40769aa39acab87e340d3",
         "pair_link.form.0x06.field.ca_fp_tag": "8669efbc2e465bfd1f8a696cb76116e69d31b2e77d0a45e84b404bbf3810bc13",
         "pair_link.form.0x06.field.relay_origin": "c66a795fafe8ee8008bc0ed8646a5ad045ad19e859af85f8e830e38433bf126d",
         "pair_link.form.0x06.field.relay_origin_selector": "a13cc78d579397a6298eec0f5d0ed33363d7eee38ec77548f73b6c8821599767",
         "pair_link.form.0x06.field.version": "98c745ed0702190e0d74da100bf09167f17a692da9f1106a2f6c257f6cb7a2cf",
         "pair_link.relay_origin_selector": "52368b31a9e137b28d3fedca9e27f885c2334c44ce6fb54ca4542f43911f5a2c",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "error": {
@@ -2594,14 +2590,14 @@
         "gap.form_0x06.invalid_length_behavior": "19ce672e9b1dae1f7444364a95e4e0c67195f4071792a798e80b098a7f837cae",
         "gap.form_0x06.total_length": "e3dabf800620804408e25ce5edb437bfcb619c8c70290f65e86b5cb95a3e2d76",
         "gap.relay_origin_selector.unknown_behavior": "c49b56d1fa7b60686532ff2ee53d31803bfe2a3b64827c17b1d7bddc086cb424",
-        "pair_link.ca_fp_tag": "3b8ff6056d652cce104dfa5ed67d170e72d6e5f2b89c9415f51e2ad4f2e48380",
-        "pair_link.form.0x06": "8893abb13d3df41541003de4521047826ccf9e6298194516829367946cb3ed65",
+        "pair_link.ca_fp_tag": "89c6e1b42aaf44db9405567549d75107b134b2e8ca0cdda2a490f3a343272c09",
+        "pair_link.form.0x06": "dfc8037cb85f0472fabc65cb299429c1a42e5aecbba40769aa39acab87e340d3",
         "pair_link.form.0x06.field.ca_fp_tag": "8669efbc2e465bfd1f8a696cb76116e69d31b2e77d0a45e84b404bbf3810bc13",
         "pair_link.form.0x06.field.relay_origin": "c66a795fafe8ee8008bc0ed8646a5ad045ad19e859af85f8e830e38433bf126d",
         "pair_link.form.0x06.field.relay_origin_selector": "a13cc78d579397a6298eec0f5d0ed33363d7eee38ec77548f73b6c8821599767",
         "pair_link.form.0x06.field.version": "98c745ed0702190e0d74da100bf09167f17a692da9f1106a2f6c257f6cb7a2cf",
         "pair_link.relay_origin_selector": "52368b31a9e137b28d3fedca9e27f885c2334c44ce6fb54ca4542f43911f5a2c",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "error": {
@@ -2633,16 +2629,16 @@
       ],
       "entry_digests": {
         "ca_fp_tag.spki_sha256_prefix16": "7493d6119b0d84c875eead6b20758f40d17336e346720f468376ebdac43cf0c5",
-        "pair_link.ca_fp_tag": "3b8ff6056d652cce104dfa5ed67d170e72d6e5f2b89c9415f51e2ad4f2e48380",
-        "pair_link.form.0x06": "8893abb13d3df41541003de4521047826ccf9e6298194516829367946cb3ed65",
+        "pair_link.ca_fp_tag": "89c6e1b42aaf44db9405567549d75107b134b2e8ca0cdda2a490f3a343272c09",
+        "pair_link.form.0x06": "dfc8037cb85f0472fabc65cb299429c1a42e5aecbba40769aa39acab87e340d3",
         "pair_link.form.0x06.field.S": "e9ad8595174b37f556783bcc7886253622de840d8b4d48e99449aea9a22fbccc",
-        "pair_link.form.0x06.field.ca_fp_spki": "c54edadb37ba214badb29666b796b6192633c175f9f30ba2a9909ad98caf699a",
+        "pair_link.form.0x06.field.ca_fp_spki": "54ae5a2070237afd5ac56701537f2ae12230463268a88a1319edaa92b850d4da",
         "pair_link.form.0x06.field.ca_fp_tag": "8669efbc2e465bfd1f8a696cb76116e69d31b2e77d0a45e84b404bbf3810bc13",
         "pair_link.form.0x06.field.relay_origin": "c66a795fafe8ee8008bc0ed8646a5ad045ad19e859af85f8e830e38433bf126d",
         "pair_link.form.0x06.field.relay_origin_selector": "a13cc78d579397a6298eec0f5d0ed33363d7eee38ec77548f73b6c8821599767",
         "pair_link.form.0x06.field.version": "98c745ed0702190e0d74da100bf09167f17a692da9f1106a2f6c257f6cb7a2cf",
         "pair_link.relay_origin_selector": "52368b31a9e137b28d3fedca9e27f885c2334c44ce6fb54ca4542f43911f5a2c",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "ca_fp_spki_hex": "deadbeefcafebabe0123456789abcdef",
@@ -2672,15 +2668,15 @@
       ],
       "entry_digests": {
         "ca_fp_tag.spki_sha256_prefix16": "7493d6119b0d84c875eead6b20758f40d17336e346720f468376ebdac43cf0c5",
-        "pair_link.ca_fp_tag": "3b8ff6056d652cce104dfa5ed67d170e72d6e5f2b89c9415f51e2ad4f2e48380",
-        "pair_link.form.0x06": "8893abb13d3df41541003de4521047826ccf9e6298194516829367946cb3ed65",
+        "pair_link.ca_fp_tag": "89c6e1b42aaf44db9405567549d75107b134b2e8ca0cdda2a490f3a343272c09",
+        "pair_link.form.0x06": "dfc8037cb85f0472fabc65cb299429c1a42e5aecbba40769aa39acab87e340d3",
         "pair_link.form.0x06.field.S": "e9ad8595174b37f556783bcc7886253622de840d8b4d48e99449aea9a22fbccc",
-        "pair_link.form.0x06.field.ca_fp_spki": "c54edadb37ba214badb29666b796b6192633c175f9f30ba2a9909ad98caf699a",
+        "pair_link.form.0x06.field.ca_fp_spki": "54ae5a2070237afd5ac56701537f2ae12230463268a88a1319edaa92b850d4da",
         "pair_link.form.0x06.field.ca_fp_tag": "8669efbc2e465bfd1f8a696cb76116e69d31b2e77d0a45e84b404bbf3810bc13",
         "pair_link.form.0x06.field.relay_origin_selector": "a13cc78d579397a6298eec0f5d0ed33363d7eee38ec77548f73b6c8821599767",
         "pair_link.form.0x06.field.version": "98c745ed0702190e0d74da100bf09167f17a692da9f1106a2f6c257f6cb7a2cf",
         "pair_link.relay_origin_selector": "52368b31a9e137b28d3fedca9e27f885c2334c44ce6fb54ca4542f43911f5a2c",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "ca_fp_spki_hex": "deadbeefcafebabe0123456789abcdef",
@@ -2706,9 +2702,9 @@
       "entry_digests": {
         "gap.form_0x06.invalid_length_behavior": "19ce672e9b1dae1f7444364a95e4e0c67195f4071792a798e80b098a7f837cae",
         "gap.form_0x06.total_length": "e3dabf800620804408e25ce5edb437bfcb619c8c70290f65e86b5cb95a3e2d76",
-        "pair_link.form.0x06": "8893abb13d3df41541003de4521047826ccf9e6298194516829367946cb3ed65",
+        "pair_link.form.0x06": "dfc8037cb85f0472fabc65cb299429c1a42e5aecbba40769aa39acab87e340d3",
         "pair_link.form.0x06.field.version": "98c745ed0702190e0d74da100bf09167f17a692da9f1106a2f6c257f6cb7a2cf",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "error": {
@@ -2736,9 +2732,9 @@
       "entry_digests": {
         "gap.form_0x06.invalid_length_behavior": "19ce672e9b1dae1f7444364a95e4e0c67195f4071792a798e80b098a7f837cae",
         "gap.form_0x06.total_length": "e3dabf800620804408e25ce5edb437bfcb619c8c70290f65e86b5cb95a3e2d76",
-        "pair_link.form.0x06": "8893abb13d3df41541003de4521047826ccf9e6298194516829367946cb3ed65",
+        "pair_link.form.0x06": "dfc8037cb85f0472fabc65cb299429c1a42e5aecbba40769aa39acab87e340d3",
         "pair_link.form.0x06.field.version": "98c745ed0702190e0d74da100bf09167f17a692da9f1106a2f6c257f6cb7a2cf",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "error": {
@@ -2766,9 +2762,9 @@
       "entry_digests": {
         "gap.form_0x06.invalid_length_behavior": "19ce672e9b1dae1f7444364a95e4e0c67195f4071792a798e80b098a7f837cae",
         "gap.form_0x06.total_length": "e3dabf800620804408e25ce5edb437bfcb619c8c70290f65e86b5cb95a3e2d76",
-        "pair_link.form.0x06": "8893abb13d3df41541003de4521047826ccf9e6298194516829367946cb3ed65",
+        "pair_link.form.0x06": "dfc8037cb85f0472fabc65cb299429c1a42e5aecbba40769aa39acab87e340d3",
         "pair_link.form.0x06.field.version": "98c745ed0702190e0d74da100bf09167f17a692da9f1106a2f6c257f6cb7a2cf",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "error": {
@@ -2796,9 +2792,9 @@
       "entry_digests": {
         "gap.form_0x06.invalid_length_behavior": "19ce672e9b1dae1f7444364a95e4e0c67195f4071792a798e80b098a7f837cae",
         "gap.form_0x06.total_length": "e3dabf800620804408e25ce5edb437bfcb619c8c70290f65e86b5cb95a3e2d76",
-        "pair_link.form.0x06": "8893abb13d3df41541003de4521047826ccf9e6298194516829367946cb3ed65",
+        "pair_link.form.0x06": "dfc8037cb85f0472fabc65cb299429c1a42e5aecbba40769aa39acab87e340d3",
         "pair_link.form.0x06.field.version": "98c745ed0702190e0d74da100bf09167f17a692da9f1106a2f6c257f6cb7a2cf",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "error": {
@@ -2825,12 +2821,11 @@
       "document_literals": [],
       "entry_digests": {
         "ca_fp_tag.spki_sha256_prefix16": "7493d6119b0d84c875eead6b20758f40d17336e346720f468376ebdac43cf0c5",
-        "gap.ca_fp_tag.unknown_behavior": "ea17eb86c7cc03c2db4e2473dd4a0a03b91ed3c02b0016882e7253833a9c7268",
-        "pair_link.ca_fp_tag": "3b8ff6056d652cce104dfa5ed67d170e72d6e5f2b89c9415f51e2ad4f2e48380",
-        "pair_link.form.0x06": "8893abb13d3df41541003de4521047826ccf9e6298194516829367946cb3ed65",
+        "pair_link.ca_fp_tag": "89c6e1b42aaf44db9405567549d75107b134b2e8ca0cdda2a490f3a343272c09",
+        "pair_link.form.0x06": "dfc8037cb85f0472fabc65cb299429c1a42e5aecbba40769aa39acab87e340d3",
         "pair_link.form.0x06.field.ca_fp_tag": "8669efbc2e465bfd1f8a696cb76116e69d31b2e77d0a45e84b404bbf3810bc13",
         "pair_link.form.0x06.field.version": "98c745ed0702190e0d74da100bf09167f17a692da9f1106a2f6c257f6cb7a2cf",
-        "pair_link.version": "c54a6c18de590656eca213bdb2adafc7fcba83fd80197a1e312d38b13c3b3d28"
+        "pair_link.version": "0e1cf12b192df438ed574b82338b4eb08d48a3d5fcb862516b4444e014eeb006"
       },
       "expected": {
         "error": {

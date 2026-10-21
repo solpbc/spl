@@ -1,10 +1,10 @@
 {
   "bundle_schema_identity": "spl.pair-link-definition-bundle.schema.v1",
-  "bundle_semver": "8.0.6",
+  "bundle_semver": "9.0.0",
   "files": [
     {
       "path": "definition.json",
-      "sha256": "0507791c12f71b595cab3b49b0e47848137c2c5f8ee9340d9e3b5205a28218df"
+      "sha256": "918b0ade51280205b0853d7609a2b9928d4219b7a2d72a4e6a4f5c688c190e4a"
     },
     {
       "path": "definition.schema.json",
@@ -12,7 +12,7 @@
     },
     {
       "path": "vectors.json",
-      "sha256": "9a7833f0e0206b03981a14459e0a1b90070dc562e4cd1bf162cb541ce3d0a8de"
+      "sha256": "a38bc50e1b292614495de211ad752ec78bba5e42c0a82484485d5c3d42a77d91"
     },
     {
       "path": "vectors.schema.json",
@@ -25,19 +25,19 @@
       "id": "definition.authored_source",
       "path": "proto/definition/definition.toml",
       "role": "authored_source",
-      "sha256": "87955dfc558a58f8338da8384c6ed2ac6e0177e164d039f25b5bddcea1c656d9"
+      "sha256": "ab73dfe26287d5ab11118e9206ca768a8874e7ef56390232d07dd537478698e3"
     },
     {
       "id": "definition.conformance_corpus",
       "path": "proto/definition/vectors.json",
       "role": "conformance_corpus",
-      "sha256": "9a7833f0e0206b03981a14459e0a1b90070dc562e4cd1bf162cb541ce3d0a8de"
+      "sha256": "a38bc50e1b292614495de211ad752ec78bba5e42c0a82484485d5c3d42a77d91"
     },
     {
       "id": "definition.generator",
       "path": "proto/definition/generate.py",
       "role": "generator",
-      "sha256": "13ffb9c7b5bc6b2e2abef57470d3cf48af4efe06416d4d44ce0ff78e01a3e8ac"
+      "sha256": "6110c720fb90946b415a2b81f29d5c6f4064b38d9e311c6a94b42d447fd21087"
     },
     {
       "id": "source.identity",
@@ -49,13 +49,13 @@
       "id": "source.pair_window",
       "path": "proto/pair-window.md",
       "role": "normative_source_document",
-      "sha256": "83e0a7ab94a95ae5b7234354754188e80707373c09feeea06fc4fb6591ec4746"
+      "sha256": "256d6d416129cb420e11d277c159c4e4dbf83043e14a6b8ab39911f609c75e2b"
     },
     {
       "id": "source.pairing",
       "path": "proto/pairing.md",
       "role": "normative_source_document",
-      "sha256": "d75aab346aa18e8cf002e52b2be9a27111900894baff214a1fca431a84f12448"
+      "sha256": "727487e7ef5e0ab2f2b71f07b2c25cac38762faf505e9b1e8895c83b94af950e"
     }
   ],
   "schema_dialect_uri": "https://json-schema.org/draft/2020-12/schema"

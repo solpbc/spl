@@ -1335,13 +1335,6 @@ def validate_definition_invariants(definition: dict[str, Any], failures: Failure
                 f"definition pin tag failed: {domain.get('id')} references undeclared tag {tag}",
                 f"declare tag {tag} in definition.toml ca_pin_tags or fix {domain.get('id')} tag",
             )
-        if tag == "absent_in_layout" and "gap.direct_forms.ca_fp_tag_missing" not in domain.get(
-            "gap_refs", []
-        ):
-            failures.add(
-                f"definition pin tag failed: {domain.get('id')} uses absent_in_layout without the missing-tag gap",
-                f"add gap.direct_forms.ca_fp_tag_missing to definition.toml {domain.get('id')} gap_refs",
-            )
 
     for entry in definition.get("address_allow_list", []):
         if entry.get("kind") != "cidr":

@@ -1,6 +1,6 @@
 # pair-window — relay-form pairing admission (v2)
 
-**Status:** active contract (2026-06-29). **Supersedes** the TOTP / `current_totp` / `pair_ticket` mechanism in [`tokens.md`](tokens.md) and the `0x03` relay QR form in [`pairing.md`](pairing.md). This is a **hard cutover**: relays and clients implement `0x06` only — there is no `0x03`/TOTP fallback.
+**Status:** active contract (2026-06-29). It replaced the retired TOTP / `current_totp` / `pair_ticket` mechanism and the `0x03` relay QR form, neither of which remains in this specification. This is a **hard cutover**: relays and clients implement `0x06` only — there is no `0x03`/TOTP fallback.
 
 This document specifies how a relay decides to bridge an off-LAN pairing dial to a home, replacing the rotating TOTP with a **home-opened pairing window** keyed by a single short-lived nonce. The home-side pairing nonce, the inner pinned-TLS ceremony, the CSR/cert exchange, `home_attestation`, and the device-token issuance are **unchanged** (see [`pairing.md`](pairing.md) steps 4–8 and [`tokens.md`](tokens.md) `/enroll/device`).
 
@@ -34,7 +34,7 @@ Two trust boundaries, one nonce.
 | 26 | 1 | relay_origin_selector | `0x00` = well-known default relay; `N` (`1..255`) = custom origin byte length |
 | 27 | N | relay_origin | UTF-8 bytes of the custom origin; omitted when selector is `0x00` |
 
-Base size **27 bytes** (selector `0x00`). `ca_fp` is the SHA-256-over-SPKI pin (tag `0x01`), identical in meaning to the `0x03` form — parsers MUST key the pin algorithm off `version` + `ca_fp_tag`. The well-known default relay origin is `https://link.solstone.app`.
+Base size **27 bytes** (selector `0x00`). `ca_fp_spki` is the SHA-256-over-SPKI pin (tag `0x01`). Parsers MUST select the pin algorithm by `version` + `ca_fp_tag` and refuse a tag they do not recognize. The well-known default relay origin is `https://link.solstone.app`.
 
 ### conformance vectors (normative — byte-identity gate)
 
@@ -125,5 +125,5 @@ Never log `S`, `RK`, the pair-link fragment, or the inner nonce. Log only `insta
 ## related
 
 - [`pairing.md`](pairing.md) — the full ceremony; steps 4–8 (inner TLS, CSR, cert, attestation) are unchanged.
-- [`tokens.md`](tokens.md) — service/device tokens + `home_attestation` (unchanged); the pair-ticket sections are superseded by this doc.
+- [`tokens.md`](tokens.md) — service/device tokens + `home_attestation` (unchanged).
 - [`session.md`](session.md) — the tunnel/bridge lifecycle reused here.

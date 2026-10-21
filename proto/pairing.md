@@ -73,7 +73,7 @@ Direct form, version `0x04` (40 bytes):
 | 8 | 16 | nonce | 128-bit single-use nonce |
 | 24 | 16 | ca_fp | first 16 bytes of SHA-256 over the CA cert DER |
 
-**CA pin note:** direct form pins SHA-256(cert DER), first 16 bytes. The off-LAN `0x06` form's SPKI pin is specified in [`pair-window.md`](pair-window.md). A parser MUST key the pin algorithm off version and tag so future native clients stay forward-compatible. The home's HTTP `pair-start` response also carries a human-facing `ca_fingerprint` field; that value stays the full cert-DER SHA-256 in both postures.
+**CA pin note:** direct form pins SHA-256(cert DER), first 16 bytes. The off-LAN `0x06` form's SPKI pin is specified in [`pair-window.md`](pair-window.md). A parser MUST select the pin algorithm by `version` and, in a form that carries one, by `ca_fp_tag`. The `0x04` and `0x05` forms carry no tag, so their version alone selects the cert-DER pin. A parser MUST refuse a link whose version, address type or tag it does not recognize. The home's HTTP `pair-start` response also carries a human-facing `ca_fingerprint` field; that value stays the full cert-DER SHA-256 in both postures.
 
 Direct form conformance vector uses fixed inputs: `addr_type=0x01`, `address=192.0.2.42`, `port=7070`, `nonce=a1b2c3d4e5f607181122334455667788`, `ca_fp=deadbeefcafebabe0123456789abcdef`.
 
