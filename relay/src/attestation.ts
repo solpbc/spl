@@ -73,6 +73,9 @@ interface VerifyInput {
 	attestation: string;
 	caPubkeyPem: string;
 	expectedInstanceId: string;
+	// Defaults to "spl-relay". An enroll proof names the relay host it was
+	// sent to, so a proof handed to one relay cannot be redeemed at another.
+	expectedAudience?: string;
 	now?: number;
 }
 
@@ -89,7 +92,7 @@ export async function verifyAttestation(input: VerifyInput): Promise<Attestation
 // Home possession proof for /enroll/home (proto/tokens.md § proof of possession).
 //
 // Header:  { "alg": "ES256", "typ": "home-enroll" }
-// Payload: { "iss": "home:<instance_id>", "aud": "spl-relay",
+// Payload: { "iss": "home:<instance_id>", "aud": "<relay host>",
 //            "scope": "home.enroll", "instance_id": "<id>",
 //            "iat": <unix s>, "exp": <unix s>, "jti": "<random>" }
 //
@@ -100,7 +103,7 @@ export async function verifyAttestation(input: VerifyInput): Promise<Attestation
 // accepted proof's.
 export type EnrollProofClaims = {
 	iss: string;
-	aud: "spl-relay";
+	aud: string;
 	scope: "home.enroll";
 	instance_id: string;
 	iat: number;
@@ -167,7 +170,8 @@ async function verifyHomeSignedJwt(
 	const valid = await crypto.subtle.verify({ name: "ECDSA", hash: "SHA-256" }, caKey, sig, signed);
 	if (!valid) return { ok: false, reason: "bad_signature" };
 
-	if (claims.aud !== "spl-relay") return { ok: false, reason: "wrong_audience" };
+	if (claims.aud !== (input.expectedAudience ?? "spl-relay"))
+		return { ok: false, reason: "wrong_audience" };
 	if (claims.scope !== expectedScope) return { ok: false, reason: "wrong_scope" };
 	if (claims.iss !== `home:${input.expectedInstanceId}`)
 		return { ok: false, reason: "wrong_issuer" };
@@ -186,6 +190,29 @@ async function verifyHomeSignedJwt(
 	return { ok: true, claims };
 }
 
+// The jid of a CA public key (proto/identity.md § the jid): HKDF-SHA256 over
+// the canonical SubjectPublicKeyInfo DER, stamped as a UUIDv8. Web Crypto's
+// import validates the key and its re-export is the canonical encoding.
+export async function deriveJid(caKey: CryptoKey): Promise<string> {
+	const spki = await crypto.subtle.exportKey("spki", caKey);
+	const ikm = await crypto.subtle.importKey("raw", spki, "HKDF", false, ["deriveBits"]);
+	const bits = await crypto.subtle.deriveBits(
+		{
+			name: "HKDF",
+			hash: "SHA-256",
+			salt: new TextEncoder().encode("solstone/journal/v1"),
+			info: new TextEncoder().encode("solstone/jid/uuidv8/v1"),
+		},
+		ikm,
+		128,
+	);
+	const b = new Uint8Array(bits);
+	b[6] = (b[6] & 0x0f) | 0x80;
+	b[8] = (b[8] & 0x3f) | 0x80;
+	const hex = Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
+	return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
 // Parse SPKI PEM → Web Crypto ECDSA verify key. Returns null if the PEM
 // isn't a valid P-256 public key in SubjectPublicKeyInfo form.
 export async function importCaPublicKey(pem: string): Promise<CryptoKey | null> {
@@ -199,7 +226,8 @@ export async function importCaPublicKey(pem: string): Promise<CryptoKey | null> 
 			"spki",
 			der,
 			{ name: "ECDSA", namedCurve: "P-256" },
-			false,
+			// A public key: extractable so deriveJid can take its canonical form.
+			true,
 			["verify"],
 		);
 	} catch {

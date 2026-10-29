@@ -13,7 +13,6 @@
 // invariants. See AGENTS.md §3 for the blind-by-construction invariant.
 
 import { DurableObject } from "cloudflare:workers";
-import { serviceTokenSuperseded } from "./enroll";
 import type { Env } from "./env";
 import { type CloseReason, type Direction, type LogFields, log } from "./logging";
 import { verifyToken } from "./tokens";
@@ -120,10 +119,11 @@ export class InstanceDO extends DurableObject<Env> {
 		if (result.claims.instance_id !== instanceId) {
 			return unauthorizedWithLog("/session/listen", "instance_mismatch");
 		}
-		if (await serviceTokenSuperseded(this.env.DB, instanceId, result.claims.jti)) {
+		const row = await this.instanceRow(instanceId);
+		if (row !== null && row.proof_iat !== null && row.service_token_jti !== result.claims.jti) {
 			return unauthorizedWithLog("/session/listen", "superseded");
 		}
-		if (this.env.ENTITLEMENT_REQUIRED === "true" && !(await this.isEntitled(instanceId))) {
+		if (this.env.ENTITLEMENT_REQUIRED === "true" && !rowEntitled(row)) {
 			return notEntitledResponse();
 		}
 		const listenerGeneration = await this.nextListenerGeneration();
@@ -299,9 +299,6 @@ export class InstanceDO extends DurableObject<Env> {
 		if (result.claims.instance_id !== instanceId) {
 			return unauthorizedWithLog("/tunnel", "instance_mismatch");
 		}
-		if (await serviceTokenSuperseded(this.env.DB, instanceId, result.claims.jti)) {
-			return unauthorizedWithLog("/tunnel", "superseded");
-		}
 
 		return this.attachHomeTunnel(tunnelId, instanceId);
 	}
@@ -331,9 +328,6 @@ export class InstanceDO extends DurableObject<Env> {
 		}
 		if (result.claims.instance_id !== watt.instance_id) {
 			return unauthorizedWithLog("/tunnel", "instance_mismatch");
-		}
-		if (await serviceTokenSuperseded(this.env.DB, watt.instance_id, result.claims.jti)) {
-			return unauthorizedWithLog("/tunnel", "superseded");
 		}
 
 		return this.attachHomeTunnel(tunnelId, result.claims.instance_id);
@@ -500,15 +494,15 @@ export class InstanceDO extends DurableObject<Env> {
 	// Helpers
 
 	private async isEntitled(instanceId: string): Promise<boolean> {
-		const now = Math.floor(Date.now() / 1000);
-		const row = await this.env.DB.prepare(
-			"SELECT entitled_until, revoked_at FROM instances WHERE instance_id = ?",
+		return rowEntitled(await this.instanceRow(instanceId));
+	}
+
+	private instanceRow(instanceId: string): Promise<InstanceRow | null> {
+		return this.env.DB.prepare(
+			"SELECT entitled_until, revoked_at, service_token_jti, proof_iat FROM instances WHERE instance_id = ?",
 		)
 			.bind(instanceId)
-			.first<{ entitled_until: number | null; revoked_at: number | null }>();
-
-		if (!row || row.revoked_at !== null || row.entitled_until === null) return false;
-		return row.entitled_until > now;
+			.first<InstanceRow>();
 	}
 
 	private async nextListenerGeneration(): Promise<number> {
@@ -725,6 +719,19 @@ export class InstanceDO extends DurableObject<Env> {
 			} catch {}
 		});
 	}
+}
+
+interface InstanceRow {
+	entitled_until: number | null;
+	revoked_at: number | null;
+	service_token_jti: string;
+	proof_iat: number | null;
+}
+
+function rowEntitled(row: InstanceRow | null): boolean {
+	const now = Math.floor(Date.now() / 1000);
+	if (!row || row.revoked_at !== null || row.entitled_until === null) return false;
+	return row.entitled_until > now;
 }
 
 interface PendingBuffer {

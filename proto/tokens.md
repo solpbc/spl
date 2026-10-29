@@ -144,7 +144,7 @@ Legacy acceptance is a rollout choice, not an expiry timer: legacy refresh can p
 - the stored token does not decode, or carries no `kid` in its header;
 - the relay has refused the token, and the JWKS it publishes (see *JWKS publication* below) can be fetched and read and lists no key with the token's `kid`;
 - the token carries no `pop` claim, from the first solstone journal that signs (*proof of possession*);
-- the relay has refused a token that carries `pop`, whose `kid` the published JWKS lists. For a proven instance that refusal means a newer token was minted that the home does not hold, for example after a restore from backup, and only a signed call can replace it.
+- the relay has refused a token that carries `pop` with `401`, and the published JWKS lists its `kid`. For a proven instance that refusal means a newer token was minted that the home does not hold, for example after a restore from backup, and only a signed call can replace it. An entitlement refusal (`402`) is not a token refusal and triggers nothing.
 
 Every call from a journal that signs carries a proof. Otherwise a refusal on its own, or a relay it cannot reach, never triggers a renewal. Against a relay that does not record proofs, the `pop` trigger therefore renews at most once a day, under the 24-hour rule below. Before storing the new token the home checks its claims, that it lives at least a day, that it would not qualify for renewal again at once, and that its `kid` is in the published JWKS. A failed attempt backs off from one minute up to six hours, `not_enrolled` and `409` are retried only at six hours, and after a success the home does not renew again for 24 hours.
 
@@ -205,7 +205,7 @@ Home labels remain local to the home. Legacy `home_label` request fields are ign
 // payload
 {
   "iss": "home:<instance_id>",
-  "aud": "spl-relay",
+  "aud": "<the relay host the call is sent to, e.g. link.solstone.app>",
   "scope": "home.enroll",
   "instance_id": "<instance_id>",
   "iat": 1745006400,
@@ -214,7 +214,9 @@ Home labels remain local to the home. Legacy `home_label` request fields are ign
 }
 ```
 
-The relay verifies the signature against the `ca_pubkey` in the same request (which must also match any recorded one), and the claims with the bounds `home_attestation` uses: `aud`, `scope`, `iss` and `instance_id` exact, `exp` in the future, `iat` no more than 60 seconds ahead, and a lifetime of at most 300 seconds. A failure answers `401` with `{"error": "proof invalid: <reason>"}` and writes nothing. A home mints a fresh proof for every call.
+The relay verifies the signature against the `ca_pubkey` in the same request (which must also match any recorded one), and the claims with the bounds `home_attestation` uses: `scope`, `iss` and `instance_id` exact, `exp` in the future, `iat` no more than 60 seconds ahead, and a lifetime of at most 300 seconds. `aud` must equal the host of the request the relay received (its URL authority, with a port only when it is not the scheme's default), so a proof sent to one relay cannot be redeemed at another. A failure answers `401` with `{"error": "proof invalid: <reason>"}` and writes nothing. A home mints a fresh proof for every call.
+
+**A first enroll that carries a proof must name the jid of its key.** When no record exists, the relay derives the jid of `ca_pubkey` ([`identity.md`](identity.md)) and refuses any other `instance_id` with `400` and `{"error": "instance_id is not the jid of ca_pubkey"}`. Without this, a device that knows another home's instance id could claim it, with its own key and a valid proof, while no record exists, and the real home would meet `409` on every attempt after.
 
 **Each proof is single use.** The relay records the `iat` of the newest proof it accepted for the instance (`proof_iat`) and accepts a proof only if its `iat` is later. A replayed proof, or a second proof stamped in the same second, answers `401` with `{"error": "proof_replay"}`; the home tries again with a new proof on its next attempt.
 
@@ -222,7 +224,7 @@ The relay verifies the signature against the `ca_pubkey` in the same request (wh
 
 A token minted on a verified proof carries `"pop": true`. A relay that predates this section ignores `proof` and mints a token without `pop`, which is how a home can tell.
 
-**A proven instance honors only its newest service token.** From the first proof on, the session routes and `/token/access` accept a service token only if its `jti` is the one the relay recorded at the last mint (*validation* below). A token minted to anyone before the proof, and a home's own earlier tokens, stop working at the next socket they open. Before the first proof every unexpired service token for the instance is honored, as it always was.
+**A proven instance honors only its newest service token.** From the first proof on, `/session/listen`, `/session/pair-window` and `/token/access` accept a service token only if its `jti` is the one the relay recorded at the last mint (*validation* below). A token minted to anyone before the proof, and a home's own earlier tokens, stop working at the next socket they open. Before the first proof every unexpired service token for the instance is honored, as it always was.
 
 `/enroll/home` is **not rate-limited**: no waitlist, no payment gate, and no per-endpoint request limit anywhere in the Worker. ⚠ A deployment that needs one has to put it in front of the Worker, because nothing in this repository provides it. Self-hosted deployments will replace this endpoint or its policy as appropriate.
 
@@ -346,8 +348,8 @@ On every token-authenticated WebSocket upgrade request to `/session/listen` or `
    - `scope` matches the route (`session.listen` for `/session/listen`; `session.dial` for `/session/dial`)
    - for `session.listen`, `sub` starts with `home:` and `ca_fp` is present and matches `^sha256:[0-9a-f]{64}$`
    - for legacy `session.dial`, `sub` starts with `device:` and `device_fp` is present and matches `^sha256:[0-9a-f]{64}$`; v2 uses the exact claim shape below
-6. For `session.listen`, refuses a superseded token: if the instance has a recorded proof of possession and the token's `jti` is not the newest recorded one, the token answers `401`. This reads the instance row. `/tunnel/<id>`, `/session/pair-window`, the pair-window `/tunnel/<id>` attach and `POST /token/access` apply the same rule. An instance with no recorded proof, or no row, is not refused here.
-7. Applies the session entitlement gate, when the deployment sets `ENTITLEMENT_REQUIRED` to exactly `"true"`. It resolves the instance row and refuses an instance that is unknown, revoked, or holding no live grant. With the gate off, `/session/listen` and `/session/dial` complete on the token alone. ⚠ **Do not assume a fresh self-host has it off.** The variable is unset in `relay/wrangler.toml`'s top-level `[vars]`, but the committed `[env.production]` block sets it to `"true"`, and the documented self-host deploy (`make deploy`) runs `wrangler deploy --env production`. A self-host that follows those steps has the gate **on**, and those two routes answer `402` until it either clears the variable or pushes an entitlement grant.
+6. For `session.listen`, refuses a superseded token: if the instance has a recorded proof of possession and the token's `jti` is not the newest recorded one, the token answers `401`. `/session/pair-window` and `POST /token/access` apply the same rule. A home's `/tunnel/<id>` attach does not: a tunnel id is random and reaches the home only over the listen or pair-window socket it already opened. An instance with no recorded proof, or no row, is not refused here.
+7. Applies the session entitlement gate, when the deployment sets `ENTITLEMENT_REQUIRED` to exactly `"true"`. It refuses an instance that is unknown, revoked, or holding no live grant. Checks 6 and 7 share one read of the instance row; with the gate off, `/session/dial` completes on the token alone. With the gate off, `/session/listen` and `/session/dial` complete on the token alone. ⚠ **Do not assume a fresh self-host has it off.** The variable is unset in `relay/wrangler.toml`'s top-level `[vars]`, but the committed `[env.production]` block sets it to `"true"`, and the documented self-host deploy (`make deploy`) runs `wrangler deploy --env production`. A self-host that follows those steps has the gate **on**, and those two routes answer `402` until it either clears the variable or pushes an entitlement grant.
 
 ⚠ **The gate covers exactly those two routes.** `/session/pair-window`, `/session/pair-dial` and `/tunnel/<id>` never consult it, so a gate-on relay holding no grants still completes a full off-LAN pair ceremony and brokers the tunnel it produces. Entitlement gates the data session, not pairing.
 

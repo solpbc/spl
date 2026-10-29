@@ -10,6 +10,7 @@
 // See proto/tokens.md §issuance for the on-the-wire payloads and TTL rules.
 
 import {
+	deriveJid,
 	fingerprintDer,
 	importCaPublicKey,
 	pemToDer,
@@ -141,6 +142,7 @@ export async function handleEnrollHome(request: Request, env: Env): Promise<Resp
 			attestation: body.proof,
 			caPubkeyPem: body.ca_pubkey,
 			expectedInstanceId: body.instance_id,
+			expectedAudience: new URL(request.url).host,
 		});
 		if (!proof.ok) {
 			log({ event: "enroll_rejected", route: "/enroll/home", reason: `proof_${proof.reason}` });
@@ -207,6 +209,14 @@ export async function handleEnrollHome(request: Request, env: Env): Promise<Resp
 		});
 		return json({ error: "not_enrolled" }, 404);
 	} else {
+		// A first enroll that proves possession must also be the jid of the key
+		// it proves (proto/identity.md). Otherwise a device that knows another
+		// home's instance id could claim it with its own key while no row
+		// exists, and lock the real home out with ca_mismatch.
+		if (proofIat !== null && body.instance_id !== (await deriveJid(caKey))) {
+			log({ event: "enroll_rejected", route: "/enroll/home", reason: "instance_not_jid" });
+			return json({ error: "instance_id is not the jid of ca_pubkey" }, 400);
+		}
 		try {
 			await env.DB.prepare(
 				"INSERT INTO instances (instance_id, ca_fp, ca_pubkey_pem, created_at, service_token_jti, proof_iat) VALUES (?, ?, ?, ?, ?, ?)",
@@ -233,18 +243,24 @@ export async function handleEnrollHome(request: Request, env: Env): Promise<Resp
 	// race; see migrations/0006_pending_grants.sql). Placed after both the
 	// insert and re-enroll branches so the single claim covers both. A held
 	// grant for an already-enrolled instance is rare but handled correctly.
-	const pending = await env.DB.prepare(
-		"SELECT entitled_until FROM pending_grants WHERE instance_id = ?",
-	)
-		.bind(body.instance_id)
-		.first<{ entitled_until: number }>();
-	if (pending) {
-		await env.DB.prepare("UPDATE instances SET entitled_until = ? WHERE instance_id = ?")
-			.bind(pending.entitled_until, body.instance_id)
-			.run();
-		await env.DB.prepare("DELETE FROM pending_grants WHERE instance_id = ?")
+	// The token is already committed, so a failed claim must not lose the
+	// response: the grant stays pending and the next enroll claims it.
+	try {
+		const pending = await env.DB.prepare(
+			"SELECT entitled_until FROM pending_grants WHERE instance_id = ?",
+		)
 			.bind(body.instance_id)
-			.run();
+			.first<{ entitled_until: number }>();
+		if (pending) {
+			await env.DB.prepare("UPDATE instances SET entitled_until = ? WHERE instance_id = ?")
+				.bind(pending.entitled_until, body.instance_id)
+				.run();
+			await env.DB.prepare("DELETE FROM pending_grants WHERE instance_id = ?")
+				.bind(body.instance_id)
+				.run();
+		}
+	} catch {
+		log({ event: "internal_error", reason: "pending_grant_claim_failed" });
 	}
 
 	return json({

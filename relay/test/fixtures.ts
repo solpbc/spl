@@ -162,6 +162,7 @@ export interface EnrollProofInput {
 	typ?: string;
 	scope?: string;
 	jti?: string;
+	audience?: string;
 }
 
 // A home's /enroll/home possession proof (proto/tokens.md § proof of
@@ -171,7 +172,7 @@ export async function mintEnrollProof(input: EnrollProofInput): Promise<string> 
 	const header = { alg: "ES256", typ: input.typ ?? "home-enroll" };
 	const claims = {
 		iss: `home:${input.instanceId}`,
-		aud: "spl-relay",
+		aud: input.audience ?? "spl.test",
 		scope: input.scope ?? "home.enroll",
 		instance_id: input.instanceId,
 		iat: now,

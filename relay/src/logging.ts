@@ -70,6 +70,8 @@ type AuthorizedReason =
 	| "ca_fp_conflict"
 	| "bad_mode"
 	| "proof_required"
+	| "instance_not_jid"
+	| "pending_grant_claim_failed"
 	| "proof_replay"
 	| `proof_${AttestationFailReason}`
 	| "unknown_instance"

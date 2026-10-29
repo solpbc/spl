@@ -123,4 +123,6 @@ Successful enrollment, refresh, session activity, owner purges and forwarded fra
 
 Upgrading an existing relay requires the enrollment drain before migration 0011; follow [the token migration procedure](../proto/tokens.md#stateless-enrollment-transition).
 
+⚠ **Apply migration 0012 before deploying the Worker that reads it.** That Worker names `instances.proof_iat` on every enroll, listen, pair-window and `/token/access` call, so deployed first it refuses all of them until the column exists. The Worker before it never names the column, so migrating first is safe: `CI=true wrangler d1 migrations apply <db> --remote --env production`, then `make deploy`. `make deploy` does not apply migrations.
+
 See [`../AGENTS.md`](../AGENTS.md) §3 for the full policy.
