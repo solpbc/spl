@@ -77,6 +77,54 @@ interface VerifyInput {
 }
 
 export async function verifyAttestation(input: VerifyInput): Promise<AttestationResult> {
+	const verified = await verifyHomeSignedJwt(input, "home-attest", "device.enroll");
+	if (!verified.ok) return verified;
+	const claims = verified.claims as AttestationClaims;
+	if (typeof claims.device_fp !== "string" || !/^sha256:[0-9a-f]{64}$/.test(claims.device_fp)) {
+		return { ok: false, reason: "bad_claim" };
+	}
+	return { ok: true, claims };
+}
+
+// Home possession proof for /enroll/home (proto/tokens.md § proof of possession).
+//
+// Header:  { "alg": "ES256", "typ": "home-enroll" }
+// Payload: { "iss": "home:<instance_id>", "aud": "spl-relay",
+//            "scope": "home.enroll", "instance_id": "<id>",
+//            "iat": <unix s>, "exp": <unix s>, "jti": "<random>" }
+//
+// Signed with the home's CA private key, verified against the CA public key
+// the same request presents (which must also match any stored one). The
+// lifetime and clock bounds are the attestation's. Single use is enforced by
+// the caller: a proof is accepted only if its iat is later than the last
+// accepted proof's.
+export type EnrollProofClaims = {
+	iss: string;
+	aud: "spl-relay";
+	scope: "home.enroll";
+	instance_id: string;
+	iat: number;
+	exp: number;
+	jti: string;
+};
+
+export type EnrollProofResult =
+	| { ok: true; claims: EnrollProofClaims }
+	| { ok: false; reason: AttestationFailReason };
+
+export async function verifyEnrollProof(input: VerifyInput): Promise<EnrollProofResult> {
+	const verified = await verifyHomeSignedJwt(input, "home-enroll", "home.enroll");
+	if (!verified.ok) return verified;
+	return { ok: true, claims: verified.claims as EnrollProofClaims };
+}
+
+async function verifyHomeSignedJwt(
+	input: VerifyInput,
+	expectedTyp: string,
+	expectedScope: string,
+): Promise<
+	{ ok: true; claims: Record<string, unknown> } | { ok: false; reason: AttestationFailReason }
+> {
 	const now = input.now ?? Math.floor(Date.now() / 1000);
 
 	const parts = input.attestation.split(".");
@@ -84,17 +132,26 @@ export async function verifyAttestation(input: VerifyInput): Promise<Attestation
 	const [headerB64, payloadB64, sigB64] = parts;
 
 	let header: { alg?: string; typ?: string };
-	let claims: AttestationClaims;
+	let claims: {
+		iss?: unknown;
+		aud?: unknown;
+		scope?: unknown;
+		instance_id?: unknown;
+		iat?: unknown;
+		exp?: unknown;
+		jti?: unknown;
+	};
 	try {
 		header = JSON.parse(utf8Decode(base64UrlDecode(headerB64)));
-		claims = JSON.parse(utf8Decode(base64UrlDecode(payloadB64))) as AttestationClaims;
+		claims = JSON.parse(utf8Decode(base64UrlDecode(payloadB64)));
 	} catch {
 		return { ok: false, reason: "malformed" };
 	}
 
-	if (!header || !claims || typeof claims !== "object") return { ok: false, reason: "malformed" };
+	if (!header || !claims || typeof claims !== "object" || Array.isArray(claims))
+		return { ok: false, reason: "malformed" };
 	if (header.alg !== "ES256") return { ok: false, reason: "malformed" };
-	if (header.typ !== "home-attest") return { ok: false, reason: "malformed" };
+	if (header.typ !== expectedTyp) return { ok: false, reason: "malformed" };
 
 	const caKey = await importCaPublicKey(input.caPubkeyPem);
 	if (!caKey) return { ok: false, reason: "malformed" };
@@ -111,25 +168,20 @@ export async function verifyAttestation(input: VerifyInput): Promise<Attestation
 	if (!valid) return { ok: false, reason: "bad_signature" };
 
 	if (claims.aud !== "spl-relay") return { ok: false, reason: "wrong_audience" };
-	if (claims.scope !== "device.enroll") return { ok: false, reason: "wrong_scope" };
+	if (claims.scope !== expectedScope) return { ok: false, reason: "wrong_scope" };
 	if (claims.iss !== `home:${input.expectedInstanceId}`)
 		return { ok: false, reason: "wrong_issuer" };
 	if (claims.instance_id !== input.expectedInstanceId)
 		return { ok: false, reason: "wrong_instance" };
-	if (!Number.isSafeInteger(claims.exp) || claims.exp <= now)
+	const exp = claims.exp;
+	const iat = claims.iat;
+	if (typeof exp !== "number" || !Number.isSafeInteger(exp) || exp <= now)
 		return { ok: false, reason: "expired" };
-	if (!Number.isSafeInteger(claims.iat) || claims.iat < 0 || claims.iat > now + 60)
+	if (typeof iat !== "number" || !Number.isSafeInteger(iat) || iat < 0 || iat > now + 60)
 		return { ok: false, reason: "issued_future" };
-	if (claims.exp <= claims.iat || claims.exp - claims.iat > MAX_ATTESTATION_LIFETIME_SECONDS)
+	if (exp <= iat || exp - iat > MAX_ATTESTATION_LIFETIME_SECONDS)
 		return { ok: false, reason: "too_long_lived" };
-	if (
-		typeof claims.jti !== "string" ||
-		!claims.jti ||
-		typeof claims.device_fp !== "string" ||
-		!/^sha256:[0-9a-f]{64}$/.test(claims.device_fp)
-	) {
-		return { ok: false, reason: "bad_claim" };
-	}
+	if (typeof claims.jti !== "string" || !claims.jti) return { ok: false, reason: "bad_claim" };
 
 	return { ok: true, claims };
 }

@@ -36,13 +36,22 @@ export async function handleTokenAccess(request: Request, env: Env): Promise<Res
 	if (verified.claims.sub !== `home:${instance_id}`)
 		return json({ error: "invalid service_token" }, 401);
 	const instance = await env.DB.prepare(
-		"SELECT ca_fp, revoked_at FROM instances WHERE instance_id = ?",
+		"SELECT ca_fp, revoked_at, service_token_jti, proof_iat FROM instances WHERE instance_id = ?",
 	)
 		.bind(instance_id)
-		.first<{ ca_fp: string; revoked_at: number | null }>();
+		.first<{
+			ca_fp: string;
+			revoked_at: number | null;
+			service_token_jti: string;
+			proof_iat: number | null;
+		}>();
 	if (!instance) return json({ error: "unknown instance_id" }, 404);
 	if (instance.revoked_at !== null) return json({ error: "instance revoked" }, 403);
 	if (instance.ca_fp !== ca_fp) return json({ error: "invalid service_token" }, 401);
+	// A proven instance honors only its newest service token (enroll.ts
+	// serviceTokenSuperseded; proto/tokens.md § proof of possession).
+	if (instance.proof_iat !== null && instance.service_token_jti !== verified.claims.jti)
+		return json({ error: "invalid service_token" }, 401);
 	const minted = await mintInstanceToken(env.SIGNING_JWK, {
 		instance_id,
 		issuer: env.ISSUER,

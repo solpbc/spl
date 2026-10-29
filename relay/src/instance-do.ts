@@ -13,6 +13,7 @@
 // invariants. See AGENTS.md §3 for the blind-by-construction invariant.
 
 import { DurableObject } from "cloudflare:workers";
+import { serviceTokenSuperseded } from "./enroll";
 import type { Env } from "./env";
 import { type CloseReason, type Direction, type LogFields, log } from "./logging";
 import { verifyToken } from "./tokens";
@@ -119,6 +120,9 @@ export class InstanceDO extends DurableObject<Env> {
 		if (result.claims.instance_id !== instanceId) {
 			return unauthorizedWithLog("/session/listen", "instance_mismatch");
 		}
+		if (await serviceTokenSuperseded(this.env.DB, instanceId, result.claims.jti)) {
+			return unauthorizedWithLog("/session/listen", "superseded");
+		}
 		if (this.env.ENTITLEMENT_REQUIRED === "true" && !(await this.isEntitled(instanceId))) {
 			return notEntitledResponse();
 		}
@@ -205,14 +209,19 @@ export class InstanceDO extends DurableObject<Env> {
 		if (!result.ok) return unauthorizedWithLog("/session/pair-window", result.reason);
 
 		const instanceId = result.claims.instance_id;
-		const row = await this.env.DB.prepare("SELECT revoked_at FROM instances WHERE instance_id = ?")
+		const row = await this.env.DB.prepare(
+			"SELECT revoked_at, service_token_jti, proof_iat FROM instances WHERE instance_id = ?",
+		)
 			.bind(instanceId)
-			.first<{ revoked_at: number | null }>();
+			.first<{ revoked_at: number | null; service_token_jti: string; proof_iat: number | null }>();
 		if (!row) {
 			return unauthorizedWithLog("/session/pair-window", "not_enrolled");
 		}
 		if (row.revoked_at !== null) {
 			return unauthorizedWithLog("/session/pair-window", "revoked");
+		}
+		if (row.proof_iat !== null && row.service_token_jti !== result.claims.jti) {
+			return unauthorizedWithLog("/session/pair-window", "superseded");
 		}
 
 		for (const ws of this.ctx.getWebSockets(tagPairWindow())) {
@@ -290,6 +299,9 @@ export class InstanceDO extends DurableObject<Env> {
 		if (result.claims.instance_id !== instanceId) {
 			return unauthorizedWithLog("/tunnel", "instance_mismatch");
 		}
+		if (await serviceTokenSuperseded(this.env.DB, instanceId, result.claims.jti)) {
+			return unauthorizedWithLog("/tunnel", "superseded");
+		}
 
 		return this.attachHomeTunnel(tunnelId, instanceId);
 	}
@@ -319,6 +331,9 @@ export class InstanceDO extends DurableObject<Env> {
 		}
 		if (result.claims.instance_id !== watt.instance_id) {
 			return unauthorizedWithLog("/tunnel", "instance_mismatch");
+		}
+		if (await serviceTokenSuperseded(this.env.DB, watt.instance_id, result.claims.jti)) {
+			return unauthorizedWithLog("/tunnel", "superseded");
 		}
 
 		return this.attachHomeTunnel(tunnelId, result.claims.instance_id);

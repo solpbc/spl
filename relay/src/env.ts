@@ -67,6 +67,13 @@ export interface Env {
 	// dial WS open when no home is listening (instead of 503); unset/off by
 	// default so behavior is unchanged. See proto/session.md §reconnect-semantics.
 	PRESENCE_HOLD_ENABLED?: string;
+
+	// Home possession proof. Only the exact string "true" makes every
+	// /enroll/home call carry a proof. Unset, an unproven instance may still
+	// enroll or renew unsigned, while an instance that has proven possession
+	// once never accepts an unsigned call again. See proto/tokens.md
+	// § proof of possession.
+	HOME_PROOF_REQUIRED?: string;
 }
 
 export interface OwnerPurgeOriginFrame {

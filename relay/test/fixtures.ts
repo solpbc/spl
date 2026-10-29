@@ -153,3 +153,37 @@ export async function mintAttestation(input: AttestationInput): Promise<string> 
 	const sigB64 = base64UrlEncode(new Uint8Array(sig));
 	return `${headerB64}.${payloadB64}.${sigB64}`;
 }
+
+export interface EnrollProofInput {
+	caPrivateKey: CryptoKey;
+	instanceId: string;
+	now?: number;
+	exp?: number;
+	typ?: string;
+	scope?: string;
+	jti?: string;
+}
+
+// A home's /enroll/home possession proof (proto/tokens.md § proof of
+// possession), signed the way a home signs it.
+export async function mintEnrollProof(input: EnrollProofInput): Promise<string> {
+	const now = input.now ?? Math.floor(Date.now() / 1000);
+	const header = { alg: "ES256", typ: input.typ ?? "home-enroll" };
+	const claims = {
+		iss: `home:${input.instanceId}`,
+		aud: "spl-relay",
+		scope: input.scope ?? "home.enroll",
+		instance_id: input.instanceId,
+		iat: now,
+		exp: input.exp ?? now + 240,
+		jti: input.jti ?? crypto.randomUUID(),
+	};
+	const headerB64 = base64UrlEncode(new TextEncoder().encode(JSON.stringify(header)));
+	const payloadB64 = base64UrlEncode(new TextEncoder().encode(JSON.stringify(claims)));
+	const sig = await crypto.subtle.sign(
+		{ name: "ECDSA", hash: "SHA-256" },
+		input.caPrivateKey,
+		new TextEncoder().encode(`${headerB64}.${payloadB64}`),
+	);
+	return `${headerB64}.${payloadB64}.${base64UrlEncode(new Uint8Array(sig))}`;
+}

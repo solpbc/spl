@@ -55,7 +55,8 @@ JWT payload, service token:
   "ca_fp": "sha256:<64 lowercase hex>",
   "iat": 1745006400,
   "exp": 1776542400,
-  "jti": "<uuidv7>"
+  "jti": "<uuidv7>",
+  "pop": true
 }
 ```
 
@@ -86,7 +87,8 @@ JWT payload, legacy unversioned device token:
 | `device_fp` | device only | SHA-256 of the mobile client cert. Required for `session.dial`, must match `^sha256:[0-9a-f]{64}$`, and is bound to a specific paired device. |
 | `iat` | yes | issued-at, seconds since epoch. |
 | `exp` | yes | expiration, seconds since epoch. |
-| `jti` | yes | token id; UUIDv7. Device enrollment derives it deterministically for retries; refresh replaces it. No device issuance or replay record is retained. Service-token issuance metadata remains instance-scoped. |
+| `jti` | yes | token id; UUIDv7. Device enrollment derives it deterministically for retries; refresh replaces it. No device issuance or replay record is retained. Service-token issuance metadata remains instance-scoped: the relay records the newest service token's `jti`, and for a proven instance only that token is honored (*proof of possession*). |
+| `pop` | service only, optional | `true` when the token was minted on a verified proof of possession. Absent otherwise. It tells the home whether its relay has recorded a proof; the relay decides admission from its own record, never from this claim. |
 
 Workers MUST reject any token missing a required claim or carrying an unexpected `scope` for the requested route.
 
@@ -140,9 +142,11 @@ Legacy acceptance is a rollout choice, not an expiry timer: legacy refresh can p
 - the token has passed a share of its lifetime set once for each home, between 75% and 85%;
 - the token has expired;
 - the stored token does not decode, or carries no `kid` in its header;
-- the relay has refused the token, and the JWKS it publishes (see *JWKS publication* below) can be fetched and read and lists no key with the token's `kid`.
+- the relay has refused the token, and the JWKS it publishes (see *JWKS publication* below) can be fetched and read and lists no key with the token's `kid`;
+- the token carries no `pop` claim, from the first solstone journal that signs (*proof of possession*);
+- the relay has refused a token that carries `pop`, whose `kid` the published JWKS lists. For a proven instance that refusal means a newer token was minted that the home does not hold, for example after a restore from backup, and only a signed call can replace it.
 
-A refusal on its own, or a relay it cannot reach, never triggers a renewal. Before storing the new token the home checks its claims, that it lives at least a day, that it would not qualify for renewal again at once, and that its `kid` is in the published JWKS. A failed attempt backs off from one minute up to six hours, `not_enrolled` and `409` are retried only at six hours, and after a success the home does not renew again for 24 hours.
+Every call from a journal that signs carries a proof. Otherwise a refusal on its own, or a relay it cannot reach, never triggers a renewal. Against a relay that does not record proofs, the `pop` trigger therefore renews at most once a day, under the 24-hour rule below. Before storing the new token the home checks its claims, that it lives at least a day, that it would not qualify for renewal again at once, and that its `kid` is in the published JWKS. A failed attempt backs off from one minute up to six hours, `not_enrolled` and `409` are retried only at six hours, and after a success the home does not renew again for 24 hours.
 
 Plan for the rest. A home that does not renew itself, including a solstone journal older than 2.0.45, cannot open `/session/listen` once its service token expires, so it is unreachable off-LAN until it enrolls again, and triggering that call in time is the deployment's own responsibility.
 
@@ -165,7 +169,8 @@ Called once at solstone first run. Body:
 ```json
 {
   "instance_id": "<the home's jid, derived from its CA>",
-  "ca_pubkey": "<PEM>"
+  "ca_pubkey": "<PEM>",
+  "proof": "<compact ES256 JWS, see proof of possession>"
 }
 ```
 
@@ -190,7 +195,36 @@ Response:
 
 Home labels remain local to the home. Legacy `home_label` request fields are ignored and are absent from storage and admin projections.
 
-In v1, `/enroll/home` is **neither gated nor rate-limited**: no waitlist, no payment gate, and no per-endpoint request limit anywhere in the Worker. ⚠ A deployment that needs one has to put it in front of the Worker, because nothing in this repository provides it. Self-hosted deployments will replace this endpoint or its policy as appropriate.
+#### proof of possession
+
+`ca_pubkey` and `instance_id` are not secrets. Every paired device holds the CA public key, including devices the owner has since revoked, the home presents it in its TLS chain, and the instance id is derived from it. So presenting them proves nothing, and a call that carried only them could rotate the home's service token and take over its `/session/listen` parking spot. A home therefore proves that it holds the CA **private** key by adding `proof` to the body: a compact JWS signed with that key.
+
+```json
+// header
+{ "alg": "ES256", "typ": "home-enroll" }
+// payload
+{
+  "iss": "home:<instance_id>",
+  "aud": "spl-relay",
+  "scope": "home.enroll",
+  "instance_id": "<instance_id>",
+  "iat": 1745006400,
+  "exp": 1745006640,
+  "jti": "<random>"
+}
+```
+
+The relay verifies the signature against the `ca_pubkey` in the same request (which must also match any recorded one), and the claims with the bounds `home_attestation` uses: `aud`, `scope`, `iss` and `instance_id` exact, `exp` in the future, `iat` no more than 60 seconds ahead, and a lifetime of at most 300 seconds. A failure answers `401` with `{"error": "proof invalid: <reason>"}` and writes nothing. A home mints a fresh proof for every call.
+
+**Each proof is single use.** The relay records the `iat` of the newest proof it accepted for the instance (`proof_iat`) and accepts a proof only if its `iat` is later. A replayed proof, or a second proof stamped in the same second, answers `401` with `{"error": "proof_replay"}`; the home tries again with a new proof on its next attempt.
+
+**Once an instance has proven possession, it never accepts an unsigned call again.** An unsigned call (no `proof`) is honored only for an instance with no recorded proof, so a home on a journal that does not sign keeps enrolling and renewing as before. For a proven instance it answers `401` with `{"error": "proof_required"}` and rotates nothing. A deployment that sets `HOME_PROOF_REQUIRED` to exactly `"true"` refuses every unsigned call, new instances included. Each guard is part of the D1 write itself, so a proof landing concurrently is never overwritten by an unsigned rotation.
+
+A token minted on a verified proof carries `"pop": true`. A relay that predates this section ignores `proof` and mints a token without `pop`, which is how a home can tell.
+
+**A proven instance honors only its newest service token.** From the first proof on, the session routes and `/token/access` accept a service token only if its `jti` is the one the relay recorded at the last mint (*validation* below). A token minted to anyone before the proof, and a home's own earlier tokens, stop working at the next socket they open. Before the first proof every unexpired service token for the instance is honored, as it always was.
+
+`/enroll/home` is **not rate-limited**: no waitlist, no payment gate, and no per-endpoint request limit anywhere in the Worker. ⚠ A deployment that needs one has to put it in front of the Worker, because nothing in this repository provides it. Self-hosted deployments will replace this endpoint or its policy as appropriate.
 
 ### POST `/enroll/device`
 
@@ -312,19 +346,20 @@ On every token-authenticated WebSocket upgrade request to `/session/listen` or `
    - `scope` matches the route (`session.listen` for `/session/listen`; `session.dial` for `/session/dial`)
    - for `session.listen`, `sub` starts with `home:` and `ca_fp` is present and matches `^sha256:[0-9a-f]{64}$`
    - for legacy `session.dial`, `sub` starts with `device:` and `device_fp` is present and matches `^sha256:[0-9a-f]{64}$`; v2 uses the exact claim shape below
-6. Applies the session entitlement gate, when the deployment sets `ENTITLEMENT_REQUIRED` to exactly `"true"`. That is the only D1 read on these two routes: it resolves the instance row and refuses an instance that is unknown, revoked, or holding no live grant. With the gate off, `/session/listen` and `/session/dial` complete on the token alone. ⚠ **Do not assume a fresh self-host has it off.** The variable is unset in `relay/wrangler.toml`'s top-level `[vars]`, but the committed `[env.production]` block sets it to `"true"`, and the documented self-host deploy (`make deploy`) runs `wrangler deploy --env production`. A self-host that follows those steps has the gate **on**, and those two routes answer `402` until it either clears the variable or pushes an entitlement grant.
+6. For `session.listen`, refuses a superseded token: if the instance has a recorded proof of possession and the token's `jti` is not the newest recorded one, the token answers `401`. This reads the instance row. `/tunnel/<id>`, `/session/pair-window`, the pair-window `/tunnel/<id>` attach and `POST /token/access` apply the same rule. An instance with no recorded proof, or no row, is not refused here.
+7. Applies the session entitlement gate, when the deployment sets `ENTITLEMENT_REQUIRED` to exactly `"true"`. It resolves the instance row and refuses an instance that is unknown, revoked, or holding no live grant. With the gate off, `/session/listen` and `/session/dial` complete on the token alone. ⚠ **Do not assume a fresh self-host has it off.** The variable is unset in `relay/wrangler.toml`'s top-level `[vars]`, but the committed `[env.production]` block sets it to `"true"`, and the documented self-host deploy (`make deploy`) runs `wrangler deploy --env production`. A self-host that follows those steps has the gate **on**, and those two routes answer `402` until it either clears the variable or pushes an entitlement grant.
 
 ⚠ **The gate covers exactly those two routes.** `/session/pair-window`, `/session/pair-dial` and `/tunnel/<id>` never consult it, so a gate-on relay holding no grants still completes a full off-LAN pair ceremony and brokers the tunnel it produces. Entitlement gates the data session, not pairing.
 
 **An ended grant also closes what is already open.** With the gate on, a grant push that leaves an instance holding no live grant makes the relay close every listen, dial and tunnel socket still open for that instance, with close code `4402`. A revoke therefore takes effect at once rather than at the next reconnect, and that reconnect then meets the `402` refusal above. A grant that is renewed or extended closes nothing.
 
-`/session/pair-window` always reads D1, gate or no gate: it refuses a token whose `instance_id` has no row, and one whose row carries `revoked_at`. With the gate off that makes it the stricter of the two paths; with the gate on it is the weaker, since it never checks entitlement.
+`/session/pair-window` always reads D1, gate or no gate: it refuses a token whose `instance_id` has no row, one whose row carries `revoked_at`, and a superseded one (check 6). With the gate off that makes it the stricter of the two paths; with the gate on it is the weaker, since it never checks entitlement.
 
-**What this does not do is enforce revocation.** There is no revocation table and no `jti` lookup. Revoking an *instance* sets `instances.revoked_at`. `/enroll/device`, `/token/refresh` and `/session/pair-window` all honor it; it reaches `/session/listen` and `/session/dial` only through the entitlement gate above; and ⚠ **`/enroll/home` does not check it at all**, so a revoked instance that re-enrolls is issued a fresh 365-day service token and gets `rotated_at` stamped. It cannot use that token — every route that would carry it refuses the instance — but it is why a rotation sweep counts only non-revoked instances. Revoking a device is enforced by the home; the relay holds no per-device revocation row. A revoked device keeps a working rendezvous until its device token expires; what stops it is the home refusing its client cert inside the inner TLS handshake, which is where [`pairing.md`](pairing.md) § revocation puts the authoritative check. That placement is deliberate: the inner TLS session terminates on the home, so the relay only ever forwards bytes it holds no key for. What that bounds is content. The relay still sees which instance, when, and how much, and a revoked device holding a live token still gets a working rendezvous. So the relay is not a second line of defense here, and this document should not be read as promising one.
+**What this does not do is enforce revocation.** There is no revocation table. The only `jti` lookup is check 6, which concerns which service token is current, not revocation. Revoking an *instance* sets `instances.revoked_at`. `/enroll/device`, `/token/refresh`, `/token/access` and `/session/pair-window` all honor it; it reaches `/session/listen` and `/session/dial` only through the entitlement gate above; and ⚠ **`/enroll/home` does not check it at all**, so a revoked instance that re-enrolls is issued a fresh 365-day service token and gets `rotated_at` stamped. It cannot use that token — every route that would carry it refuses the instance — but it is why a rotation sweep counts only non-revoked instances. Revoking a device is enforced by the home; the relay holds no per-device revocation row. A revoked device keeps a working rendezvous for as long as it keeps its capability: `POST /token/refresh` re-issues one from the relay's own prior signature without asking the home, and a v2 capability names only the instance, so nothing at the relay distinguishes a revoked device's capability from a current one. What stops it is the home refusing its client cert inside the inner TLS handshake, which is where [`pairing.md`](pairing.md) § revocation puts the authoritative check. That placement is deliberate: the inner TLS session terminates on the home, so the relay only ever forwards bytes it holds no key for. What that bounds is content. The relay still sees which instance, when, and how much, and a revoked device holding a live token still gets a working rendezvous. So the relay is not a second line of defense here, and this document should not be read as promising one.
 
 Off-LAN pair-window admission, including the anonymous `/session/pair-dial`, is specified in [`pair-window.md`](pair-window.md). Pair-vs-dial selection is by request path, never by reading an unverified `scope`.
 
-If any check fails, the Worker refuses the upgrade rather than accepting a socket. Checks 1–5 answer `401` with an `x-close-code: 4401` header; **check 6 answers `402` with `x-close-code: 4402`**, and a client that treats only 401/4401 as a refusal will mis-handle every entitlement rejection. ⚠ In both cases the upgrade never completes, so no WebSocket is accepted and **no close frame is sent** — a client waiting for a 4401 or 4402 close code will wait forever, and must read the header on the failed upgrade response instead. The Worker emits only fixed `event`, `route` and `reason` classifications for authorization failures. It does not log `jti` or any other token claim on failed authorization. **Never the token bytes, never claims-as-payload.**
+If any check fails, the Worker refuses the upgrade rather than accepting a socket. Checks 1–6 answer `401` with an `x-close-code: 4401` header; **check 7 answers `402` with `x-close-code: 4402`**, and a client that treats only 401/4401 as a refusal will mis-handle every entitlement rejection. ⚠ In both cases the upgrade never completes, so no WebSocket is accepted and **no close frame is sent** — a client waiting for a 4401 or 4402 close code will wait forever, and must read the header on the failed upgrade response instead. The Worker emits only fixed `event`, `route` and `reason` classifications for authorization failures. It does not log `jti` or any other token claim on failed authorization. **Never the token bytes, never claims-as-payload.**
 
 `spl-relay` does **not** issue or refresh tokens on the WebSocket path. Issuance is HTTPS-only via the control-plane endpoints.
 
@@ -400,7 +435,7 @@ The endpoint is unauthenticated, served `Cache-Control: max-age=300` (5 minutes 
 
 ## storage
 
-The relay stores instance admission state: ID, CA public key/fingerprint, service-token issuance metadata, revocation and entitlement. It also holds bounded purge-operation receipts and pending instance grants. The authoritative schema is `relay/migrations/`.
+The relay stores instance admission state: ID, CA public key/fingerprint, service-token issuance metadata (the newest token's `jti`, `rotated_at`, and the `iat` of the newest accepted proof of possession), revocation and entitlement. It also holds bounded purge-operation receipts and pending instance grants. The authoritative schema is `relay/migrations/`.
 
 There is no device table, device label, home label, certificate-fingerprint history or attestation replay ledger. Enrollment and refresh write no per-device state. Legacy bearer tokens still reveal their device subject and fingerprint transiently when presented; v2 issuance omits those claims, while legacy acceptance remains available during client rollout. Socket routing attachments survive Durable Object hibernation for live connections, and the instance listener-generation counter is persistent.
 

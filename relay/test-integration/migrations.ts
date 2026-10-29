@@ -110,4 +110,8 @@ export const migrations = [
 		name: "0011_relay_minimization",
 		queries: ["DROP TABLE devices", "ALTER TABLE instances DROP COLUMN home_label"],
 	},
+	{
+		name: "0012_instances_home_proof",
+		queries: ["ALTER TABLE instances ADD COLUMN proof_iat INTEGER"],
+	},
 ];

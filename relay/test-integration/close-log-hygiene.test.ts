@@ -2,8 +2,11 @@
 // Copyright (c) 2026 sol pbc
 
 import { SELF, env } from "cloudflare:test";
-import { type MockInstance, describe, expect, it, vi } from "vitest";
+import { type MockInstance, beforeAll, describe, expect, it, vi } from "vitest";
 import { mintDeviceToken, mintServiceToken } from "../src/tokens";
+import { applyRelayD1Migrations } from "./apply-migrations";
+
+beforeAll(applyRelayD1Migrations);
 
 const VALID_FP = `sha256:${"a".repeat(64)}`;
 

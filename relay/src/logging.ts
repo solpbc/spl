@@ -49,6 +49,7 @@ type AuthorizedReason =
 	// route-local auth / routing
 	| "missing_token"
 	| "instance_mismatch"
+	| "superseded"
 	| "not_enrolled"
 	| "revoked"
 	| "no_window"
@@ -68,6 +69,9 @@ type AuthorizedReason =
 	| "ca_mismatch"
 	| "ca_fp_conflict"
 	| "bad_mode"
+	| "proof_required"
+	| "proof_replay"
+	| `proof_${AttestationFailReason}`
 	| "unknown_instance"
 	| "instance_revoked"
 	| "attestation_replay"

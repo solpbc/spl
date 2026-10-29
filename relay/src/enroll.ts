@@ -4,12 +4,18 @@
 // Control-plane enrollment endpoints. HTTPS-only; never reachable on the
 // WebSocket upgrade path.
 //
-// POST /enroll/home   — home install → service token
+// POST /enroll/home   — home install → service token (CA-signed proof of possession)
 // POST /enroll/device — paired mobile → device token
 //
 // See proto/tokens.md §issuance for the on-the-wire payloads and TTL rules.
 
-import { fingerprintDer, importCaPublicKey, pemToDer, verifyAttestation } from "./attestation";
+import {
+	fingerprintDer,
+	importCaPublicKey,
+	pemToDer,
+	verifyAttestation,
+	verifyEnrollProof,
+} from "./attestation";
 import { enrollmentIds } from "./enrollment-ids";
 import type { Env } from "./env";
 import { json, readJson } from "./http";
@@ -26,6 +32,7 @@ interface EnrollHomeBody {
 	instance_id?: string;
 	ca_pubkey?: string;
 	mode?: unknown;
+	proof?: unknown;
 }
 
 interface EnrollDeviceBody {
@@ -119,11 +126,38 @@ export async function handleEnrollHome(request: Request, env: Env): Promise<Resp
 	}
 	const caFp = await fingerprintDer(caDer);
 
+	// Proof of possession of the CA private key (proto/tokens.md § proof of
+	// possession). The CA public key is not a secret: every paired device holds
+	// it and the home presents it in its TLS chain. So a call without a proof
+	// is accepted only for an instance that has never proven possession, and
+	// only while the deployment allows unsigned calls at all.
+	let proofIat: number | null = null;
+	if (body.proof !== undefined) {
+		if (typeof body.proof !== "string" || !body.proof) {
+			log({ event: "enroll_rejected", route: "/enroll/home", reason: "proof_malformed" });
+			return json({ error: "proof invalid: malformed" }, 401);
+		}
+		const proof = await verifyEnrollProof({
+			attestation: body.proof,
+			caPubkeyPem: body.ca_pubkey,
+			expectedInstanceId: body.instance_id,
+		});
+		if (!proof.ok) {
+			log({ event: "enroll_rejected", route: "/enroll/home", reason: `proof_${proof.reason}` });
+			return json({ error: `proof invalid: ${proof.reason}` }, 401);
+		}
+		proofIat = proof.claims.iat;
+	} else if (env.HOME_PROOF_REQUIRED === "true") {
+		log({ event: "enroll_rejected", route: "/enroll/home", reason: "proof_required" });
+		return json({ error: "proof_required" }, 401);
+	}
+
 	const minted = await mintServiceToken(env.SIGNING_JWK, {
 		instance_id: body.instance_id,
 		ca_fp: caFp,
 		issuer: env.ISSUER,
 		ttlSeconds: SERVICE_TOKEN_TTL_SECONDS,
+		proven: proofIat !== null,
 	});
 
 	// Idempotent: same instance_id rotates the token. Preserves ca_pubkey
@@ -143,11 +177,28 @@ export async function handleEnrollHome(request: Request, env: Env): Promise<Resp
 			});
 			return json({ error: "ca_pubkey mismatch — rotation not supported in v1" }, 409);
 		}
-		await env.DB.prepare(
-			"UPDATE instances SET ca_fp = ?, service_token_jti = ?, rotated_at = ? WHERE instance_id = ?",
-		)
-			.bind(caFp, minted.jti, minted.iat, body.instance_id)
-			.run();
+		// Each guard sits in the UPDATE itself, so a proof landing between the
+		// read above and this write is still honored. An unsigned call rotates
+		// only an instance that has never proven possession; a proof rotates
+		// only if it is newer than the last accepted one, which makes each
+		// proof single use.
+		const rotated =
+			proofIat === null
+				? await env.DB.prepare(
+						"UPDATE instances SET ca_fp = ?, service_token_jti = ?, rotated_at = ? WHERE instance_id = ? AND proof_iat IS NULL",
+					)
+						.bind(caFp, minted.jti, minted.iat, body.instance_id)
+						.run()
+				: await env.DB.prepare(
+						"UPDATE instances SET ca_fp = ?, service_token_jti = ?, rotated_at = ?, proof_iat = ? WHERE instance_id = ? AND (proof_iat IS NULL OR proof_iat < ?)",
+					)
+						.bind(caFp, minted.jti, minted.iat, proofIat, body.instance_id, proofIat)
+						.run();
+		if (rotated.meta.changes !== 1) {
+			const reason = proofIat === null ? "proof_required" : "proof_replay";
+			log({ event: "enroll_rejected", route: "/enroll/home", reason });
+			return json({ error: reason }, 401);
+		}
 	} else if (renewOnly) {
 		log({
 			event: "enroll_rejected",
@@ -158,9 +209,9 @@ export async function handleEnrollHome(request: Request, env: Env): Promise<Resp
 	} else {
 		try {
 			await env.DB.prepare(
-				"INSERT INTO instances (instance_id, ca_fp, ca_pubkey_pem, created_at, service_token_jti) VALUES (?, ?, ?, ?, ?)",
+				"INSERT INTO instances (instance_id, ca_fp, ca_pubkey_pem, created_at, service_token_jti, proof_iat) VALUES (?, ?, ?, ?, ?, ?)",
 			)
-				.bind(body.instance_id, caFp, body.ca_pubkey, minted.iat, minted.jti)
+				.bind(body.instance_id, caFp, body.ca_pubkey, minted.iat, minted.jti, proofIat)
 				.run();
 		} catch (err) {
 			// instance_id PK can't collide here — we just SELECTed and found none.
@@ -200,6 +251,23 @@ export async function handleEnrollHome(request: Request, env: Env): Promise<Resp
 		service_token: minted.jwt,
 		expires_at: new Date(minted.exp * 1000).toISOString(),
 	});
+}
+
+// A service token is superseded when its instance has proven possession of
+// its CA key and has since been issued a different token. Before the first
+// proof every unexpired service token for the instance is honored, as it
+// always was; from it on, only the newest. See proto/tokens.md § proof of
+// possession.
+export async function serviceTokenSuperseded(
+	db: D1Database,
+	instanceId: string,
+	jti: string,
+): Promise<boolean> {
+	const row = await db
+		.prepare("SELECT service_token_jti, proof_iat FROM instances WHERE instance_id = ?")
+		.bind(instanceId)
+		.first<{ service_token_jti: string; proof_iat: number | null }>();
+	return row !== null && row.proof_iat !== null && row.service_token_jti !== jti;
 }
 
 export async function handleEnrollDevice(request: Request, env: Env): Promise<Response> {

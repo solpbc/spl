@@ -25,6 +25,8 @@ export interface TokenClaims {
 	ver?: 2;
 	// service token only
 	ca_fp?: string;
+	// service token only: minted on a verified possession proof
+	pop?: true;
 	// device token only
 	device_fp?: string;
 }
@@ -197,6 +199,8 @@ export interface MintServiceTokenInput {
 	issuer: string;
 	ttlSeconds: number;
 	now?: number;
+	// The caller verified a possession proof for this mint.
+	proven?: boolean;
 }
 
 export interface MintDeviceTokenInput {
@@ -234,6 +238,7 @@ export async function mintServiceToken(
 		iat: now,
 		exp,
 		jti,
+		...(input.proven ? { pop: true as const } : {}),
 	};
 
 	const jwt = await sign(signingJwkRaw, claims);
