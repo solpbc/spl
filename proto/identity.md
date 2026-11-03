@@ -9,7 +9,7 @@ This document is the normative source for both. Machine-readable form for both, 
 
 ## why this is in the protocol
 
-The home derives the jid, and any implementation that checks it MUST derive it identically from the same key. A client pairing off-LAN is expected to compare the jid it derives against the `instance_id` it was given, as an integrity check on the CA it pinned ([`pair-window.md`](pair-window.md)). A divergence does not fail loudly: it fails as a mismatch between two parties who each believe they are correct.
+The home derives the jid, and any implementation that checks it MUST derive it identically from the same key. A client MUST compare the jid it derives against the `instance_id` it was given when it pairs, on either path, as an integrity check on the CA it pinned ([`pairing.md`](pairing.md), [`pair-window.md`](pair-window.md)). A divergence does not fail loudly: it fails as a mismatch between two parties who each believe they are correct.
 
 ## the jid
 

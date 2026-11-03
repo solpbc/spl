@@ -1,6 +1,6 @@
 # pairing
 
-How a mobile device first becomes able to dial a particular home solstone through `spl-relay`.
+How a mobile device first becomes able to dial a particular journal through `spl-relay`.
 
 The end state of a successful pairing:
 
@@ -225,6 +225,8 @@ Response body:
 `home_label` is retained for compatibility and carries the two words of the journal's mark. It is not a name: a client never displays it as one, because the journal's mark (derived from `instance_id`) is its only identity. Nor is it the mark an owner compares at pairing, which a client takes from the journal's key, never from this field.
 
 The mobile stores `client_cert`, the matching private key (already in Keychain from step 4), and `ca_chain` (used to validate the home's TLS server cert during everyday tunnel use). It also stores `instance_id` — this is the address it will dial through `spl-relay`.
+
+Before it stores anything, the client MUST confirm that the CA its pin accepted signs itself and that the handshake's leaf chains to it by signature, then compute the jid from that CA ([`identity.md`](identity.md)) and refuse the pairing if `instance_id` isn't that jid. A public key alone isn't proof, because anyone can copy a journal's public key into a certificate. The relay-addressed path makes the same check. The pin proves only that the peer holds the CA the link named, and a forged link names the forger's CA, so neither a claimed `instance_id` nor a mark the peer serves means anything until it's tied to that CA. A client MUST compute the mark an owner compares from this jid on the device (`spl-core`'s `mark.rs` in [`solpbc/spl-rust`](https://github.com/solpbc/spl-rust)), MUST NOT draw one the peer serves, and MUST show the mark and wait for the owner's answer before it uses the credential to send anything of the owner's. A forger's own jid passes this check, and a forger can search for a key whose mark resembles the owner's, so the owner comparing the mark is what catches a forged link: a mismatch means stop, and a match isn't proof.
 
 ### 8. relay access after pairing
 

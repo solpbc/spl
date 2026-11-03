@@ -1,4 +1,4 @@
-bundle_semver = "9.0.0"
+bundle_semver = "9.0.1"
 source_claims = []
 
 # Citation markers are exact source substrings. The longer markers below are

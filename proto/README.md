@@ -2,7 +2,9 @@
 
 Shared protocol documentation. The authoritative description of the wire formats and ceremonies that `spl-relay`, `home`, and the iOS client all have to agree on.
 
-The rule for this directory: **if any two components would need to agree on the same detail, it is documented here, not in their READMEs**. A subtle divergence in framing interpretation between the Worker and the python home is the exact class of bug this directory exists to prevent.
+In these documents and on the wire, `home` is the role of the journal's end of the protocol. It isn't a name for the journal.
+
+The rule for this directory: **if any two components would need to agree on the same detail, it is documented here, not in their READMEs**. A subtle divergence in framing interpretation between the Worker and a journal is the exact class of bug this directory exists to prevent.
 
 ## the documents
 

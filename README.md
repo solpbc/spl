@@ -6,7 +6,7 @@
 
 ## what it is
 
-spl gives two paired endpoints (today: a solstone home server and a paired mobile app) a way to reach each other over the public internet without exposing either to it. Cloudflare holds two WebSockets and shovels opaque bytes between them. Inside the tunnel, the endpoints run TLS 1.3 end-to-end; the server authenticates the rendezvous, never the payload.
+spl gives two paired endpoints (today: a solstone journal and a paired mobile app) a way to reach each other over the public internet without exposing either to it. Cloudflare holds two WebSockets and shovels opaque bytes between them. Inside the tunnel, the endpoints run TLS 1.3 end-to-end; the server authenticates the rendezvous, never the payload.
 
 - **Operator:** sol pbc (hosted `spl-relay` relay at `link.solstone.app`). Or run your own — the whole server is in this repo.
 - **License:** [AGPL-3.0-only](LICENSE).
@@ -15,7 +15,7 @@ spl gives two paired endpoints (today: a solstone home server and a paired mobil
 ## architecture
 
 ```
-solstone (home, rust)            sol-pbc CF ("spl-relay")            mobile app (swift/kotlin)
+solstone journal (rust)          sol-pbc CF ("spl-relay")            mobile app (swift/kotlin)
 ---------------------            --------------------            ------------------------
 POST /session/listen ────────▶   Workers: validate
   Authorization: service_token     service token
@@ -45,7 +45,7 @@ encrypted http/ws/sse   ◀─── DO forwards opaque frames ───▶   en
 Key invariants:
 
 - `spl-relay` holds **no key** that can decrypt the inner stream. It authenticates the rendezvous, not the payload.
-- mTLS with a self-signed CA lives **at the home endpoint**, not at CF. Authorized-keys-file pattern for revocation — edit a file, device is out.
+- mTLS with a self-signed CA lives **at the journal**, not at CF. Authorized-keys-file pattern for revocation — edit a file, device is out.
 - The inner protocol is TLS 1.3 with an SSH-channel-style multiplexing frame (`stream_id | flags | length | payload`). One tunnel WebSocket carries many concurrent HTTP/WS/SSE connections.
 
 ## repo layout
@@ -58,18 +58,19 @@ Key invariants:
 
 ## implementations
 
-**This repository holds the protocol and the relay. It deliberately ships no client or home implementation.** It used to carry a Python home module and a TypeScript example client; both drifted behind the protocol they were meant to demonstrate — one implemented a pairing form the spec had retired, the other could not complete a pairing against its own server. A reference that lies is worse than no reference, so they were removed in favour of pointing at the real thing.
+**This repository holds the protocol and the relay. It deliberately ships no client or journal implementation.** It used to carry a Python home module and a TypeScript example client; both drifted behind the protocol they were meant to demonstrate — one implemented a pairing form the spec had retired, the other could not complete a pairing against its own server. A reference that lies is worse than no reference, so they were removed in favour of pointing at the real thing.
 
 Every implementation below is open source and in production use. Read these instead:
 
 | Role | Language | Repository |
 |---|---|---|
-| Shared client and home library | Rust | [`solpbc/spl-rust`](https://github.com/solpbc/spl-rust) |
+| Shared client and journal library | Rust | [`solpbc/spl-rust`](https://github.com/solpbc/spl-rust) |
 | Shared client library | Swift | [`solpbc/spl-swift`](https://github.com/solpbc/spl-swift) |
-| Home (journal) | Rust | [`solpbc/solstone-journal`](https://github.com/solpbc/solstone-journal), through `spl-home` from [`solpbc/spl-rust`](https://github.com/solpbc/spl-rust) |
+| Journal | Rust | [`solpbc/solstone-journal`](https://github.com/solpbc/solstone-journal), through `spl-home` from [`solpbc/spl-rust`](https://github.com/solpbc/spl-rust) |
 | Client — iOS, macOS | Swift | [`solpbc/solstone-swift`](https://github.com/solpbc/solstone-swift) · [`solpbc/solstone-macos`](https://github.com/solpbc/solstone-macos) |
 | Client — Android | Kotlin | [`solpbc/solstone-android`](https://github.com/solpbc/solstone-android) |
 | Client — Windows | Rust | [`solpbc/solstone-windows`](https://github.com/solpbc/solstone-windows) |
+| Client — Linux, tmux | Rust | [`solpbc/solstone-linux`](https://github.com/solpbc/solstone-linux) · [`solpbc/solstone-tmux`](https://github.com/solpbc/solstone-tmux) |
 
 If you are writing a new implementation, start with the documents in [`proto/`](proto/) and check yourself against [`proto/definition/`](proto/definition/); then read the closest existing client above. [`docs/client-implementation-audit.json`](docs/client-implementation-audit.json) records what each in-repo component actually implements, with evidence.
 

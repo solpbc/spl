@@ -1,6 +1,6 @@
 {
   "bundle_schema_identity": "spl.pair-link-definition-bundle.schema.v1",
-  "bundle_semver": "9.0.0",
+  "bundle_semver": "9.0.1",
   "files": [
     {
       "path": "definition.json",
@@ -25,7 +25,7 @@
       "id": "definition.authored_source",
       "path": "proto/definition/definition.toml",
       "role": "authored_source",
-      "sha256": "ab73dfe26287d5ab11118e9206ca768a8874e7ef56390232d07dd537478698e3"
+      "sha256": "89785f8c996677cb2b9e12744ea43305c98844e54b667992b9b69c8580464bd4"
     },
     {
       "id": "definition.conformance_corpus",
@@ -43,19 +43,19 @@
       "id": "source.identity",
       "path": "proto/identity.md",
       "role": "normative_source_document",
-      "sha256": "49e5495a233f34466776cc1d2e295342b8bb1c18329d199436884b9ba42cb9fb"
+      "sha256": "3735db388e0105131c346ca4a932a673ad56b0854ac31c23568e541031cde069"
     },
     {
       "id": "source.pair_window",
       "path": "proto/pair-window.md",
       "role": "normative_source_document",
-      "sha256": "256d6d416129cb420e11d277c159c4e4dbf83043e14a6b8ab39911f609c75e2b"
+      "sha256": "5ef0084f8efde114064499da184b2e9b97dd6cef8b722314b07fff23d82a7d47"
     },
     {
       "id": "source.pairing",
       "path": "proto/pairing.md",
       "role": "normative_source_document",
-      "sha256": "727487e7ef5e0ab2f2b71f07b2c25cac38762faf505e9b1e8895c83b94af950e"
+      "sha256": "4544a33a66df6b776e689a312b8b88c677f1fee85fc74eb841ff9e700e73c240"
     }
   ],
   "schema_dialect_uri": "https://json-schema.org/draft/2020-12/schema"

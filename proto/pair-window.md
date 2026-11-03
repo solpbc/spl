@@ -102,7 +102,7 @@ A client that sends first and checks the pin against the `PairResponse` afterwar
 
 ## client learns `instance_id` from the inner TLS
 
-The pair-link carries no `instance_id`. After the inner pinned-TLS handshake (pinned to `ca_fp_spki` from the link), the home returns `instance_id` in the inner `PairResponse` (as today). Because the inner channel is cryptographically bound to the pinned CA, that value is trustworthy. The equality below always holds for a conforming home, because the home's `instance_id` **is** its jid ([`identity.md`](identity.md)), so a mismatch means the pinned CA and the returned identity disagree and the ceremony has no trustworthy home. The client:
+The pair-link carries no `instance_id`. After the inner pinned-TLS handshake (pinned to `ca_fp_spki` from the link), the home returns `instance_id` in the inner `PairResponse` (as today). The inner channel is cryptographically bound to the pinned CA, so that value comes from whoever holds that CA, and the check below ties it to that CA. The equality below always holds for a conforming home, because the home's `instance_id` **is** its jid ([`identity.md`](identity.md)), so a mismatch means the pinned CA and the returned identity disagree and the ceremony has no trustworthy home. The client:
 
 1. takes `instance_id` from the `PairResponse`,
 2. **MUST verify** `instance_id == jid_from_spki(pinned CA)` and abort the ceremony on mismatch,
