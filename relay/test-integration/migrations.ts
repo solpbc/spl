@@ -114,4 +114,8 @@ export const migrations = [
 		name: "0012_instances_home_proof",
 		queries: ["ALTER TABLE instances ADD COLUMN proof_iat INTEGER"],
 	},
+	{
+		name: "0013_instances_device_renewal",
+		queries: ["ALTER TABLE instances ADD COLUMN device_renewal_at INTEGER"],
+	},
 ];

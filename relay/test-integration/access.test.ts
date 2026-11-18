@@ -235,3 +235,80 @@ describe("instance relay capability v2", () => {
 		expect((await post("/token/access", { service_token: "x".repeat(17000) })).status).toBe(413);
 	});
 });
+
+describe("renewal comes from the home once it declares so", () => {
+	async function access(serviceToken: string, declares: boolean): Promise<Response> {
+		return SELF.fetch("http://spl.test/token/access", {
+			method: "POST",
+			headers: {
+				"content-type": "application/json",
+				...(declares ? { "SPL-Device-Renewal": "home" } : {}),
+			},
+			body: JSON.stringify({ service_token: serviceToken }),
+		});
+	}
+	async function legacyToken(instanceId: string): Promise<string> {
+		const minted = await mintDeviceToken(env.SIGNING_JWK, {
+			instance_id: instanceId,
+			device_id: crypto.randomUUID(),
+			device_fp: fp,
+			issuer: env.ISSUER,
+			ttlSeconds: 60 * 86400,
+		});
+		return minted.jwt;
+	}
+	async function renewalAt(instanceId: string): Promise<number | null> {
+		const row = await env.DB.prepare(
+			"SELECT device_renewal_at FROM instances WHERE instance_id = ?",
+		)
+			.bind(instanceId)
+			.first<{ device_renewal_at: number | null }>();
+		return row?.device_renewal_at ?? null;
+	}
+
+	it("refuses every relay renewal for a declaring home, both versions and the v2 upgrade, without a re-pair status", async () => {
+		const h = await home();
+		const other = await home();
+		const issued = await capability(await access(h.serviceToken, true), h.instanceId);
+		expect(await renewalAt(h.instanceId)).not.toBeNull();
+		const legacy = await legacyToken(h.instanceId);
+
+		for (const body of [
+			{ device_token: issued.body.device_token },
+			{ device_token: issued.body.device_token, protocol_version: 2 },
+			{ device_token: legacy },
+			{ device_token: legacy, protocol_version: 2 },
+		]) {
+			const refused = await post("/token/refresh", body);
+			expect(refused.status).toBe(410);
+			expect(await refused.json()).toEqual({ error: "renew from home" });
+		}
+
+		// The home itself still issues, and other homes' devices still renew.
+		await capability(await access(h.serviceToken, true), h.instanceId);
+		const otherIssued = await capability(
+			await post("/token/access", { service_token: other.serviceToken }),
+			other.instanceId,
+		);
+		await capability(
+			await post("/token/refresh", { device_token: otherIssued.body.device_token }),
+			other.instanceId,
+		);
+		expect(await renewalAt(other.instanceId)).toBeNull();
+	});
+
+	it("gives relay renewal back when the home's latest call no longer declares", async () => {
+		const h = await home();
+		const issued = await capability(await access(h.serviceToken, true), h.instanceId);
+		const firstDeclared = await renewalAt(h.instanceId);
+		await capability(await access(h.serviceToken, true), h.instanceId);
+		expect(await renewalAt(h.instanceId)).toBe(firstDeclared);
+
+		await capability(await access(h.serviceToken, false), h.instanceId);
+		expect(await renewalAt(h.instanceId)).toBeNull();
+		await capability(
+			await post("/token/refresh", { device_token: issued.body.device_token }),
+			h.instanceId,
+		);
+	});
+});

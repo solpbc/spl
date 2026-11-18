@@ -4,6 +4,8 @@
 // Control-plane HTTPS endpoint: re-issues a device token from a client's current
 // (or <=30-day-expired) device token by verifying the relay's OWN prior Ed25519
 // signature; no attestation, no client cert, no QR; blind and stateless.
+// It renews nothing for an instance whose home renews its own devices
+// (access.ts), since only the home knows which devices it still authorizes.
 
 import { DEVICE_TOKEN_TTL_SECONDS } from "./enroll";
 import type { Env } from "./env";
@@ -54,11 +56,17 @@ export async function handleTokenRefresh(request: Request, env: Env): Promise<Re
 	const device_id = result.claims.sub.slice("device:".length);
 
 	// Admission is instance-bound; no per-device issuance state exists.
-	const instance = await env.DB.prepare("SELECT revoked_at FROM instances WHERE instance_id = ?")
+	const instance = await env.DB.prepare(
+		"SELECT revoked_at, device_renewal_at FROM instances WHERE instance_id = ?",
+	)
 		.bind(instance_id)
-		.first<{ revoked_at: number | null }>();
+		.first<{ revoked_at: number | null; device_renewal_at: number | null }>();
 	if (!instance) return json({ error: "unknown instance_id" }, 404);
 	if (instance.revoked_at !== null) return json({ error: "instance revoked" }, 403);
+	// 410, never 401 "expired", 403 or 404: shipped clients read those as
+	// re-pair, while this one leaves the device dialing on the access it holds
+	// until its next connection fetches fresh access from the home.
+	if (instance.device_renewal_at !== null) return json({ error: "renew from home" }, 410);
 
 	const v2 = body.protocol_version === 2 || result.claims.ver === 2;
 	const input = {

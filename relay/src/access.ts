@@ -8,6 +8,9 @@ import { mintInstanceToken, verifyToken } from "./tokens";
 
 // Only the home service can acquire shared instance access here. Devices get
 // this capability from their authenticated home, never its service token.
+// A home that also renews its devices declares it with this header, and from
+// then on /token/refresh renews nothing for the instance (refresh.ts).
+export const DEVICE_RENEWAL_HEADER = "SPL-Device-Renewal";
 export async function handleTokenAccess(request: Request, env: Env): Promise<Response> {
 	if (!env.SIGNING_JWK) return json({ error: "relay not provisioned" }, 503);
 	const read = await readJson<{ service_token?: string }>(request, 16 * 1024);
@@ -36,7 +39,7 @@ export async function handleTokenAccess(request: Request, env: Env): Promise<Res
 	if (verified.claims.sub !== `home:${instance_id}`)
 		return json({ error: "invalid service_token" }, 401);
 	const instance = await env.DB.prepare(
-		"SELECT ca_fp, revoked_at, service_token_jti, proof_iat FROM instances WHERE instance_id = ?",
+		"SELECT ca_fp, revoked_at, service_token_jti, proof_iat, device_renewal_at FROM instances WHERE instance_id = ?",
 	)
 		.bind(instance_id)
 		.first<{
@@ -44,6 +47,7 @@ export async function handleTokenAccess(request: Request, env: Env): Promise<Res
 			revoked_at: number | null;
 			service_token_jti: string;
 			proof_iat: number | null;
+			device_renewal_at: number | null;
 		}>();
 	if (!instance) return json({ error: "unknown instance_id" }, 404);
 	if (instance.revoked_at !== null) return json({ error: "instance revoked" }, 403);
@@ -52,6 +56,14 @@ export async function handleTokenAccess(request: Request, env: Env): Promise<Res
 	// serviceTokenSuperseded; proto/tokens.md § proof of possession).
 	if (instance.proof_iat !== null && instance.service_token_jti !== verified.claims.jti)
 		return json({ error: "invalid service_token" }, 401);
+	// The latest call decides, so a home moved back to a version that does not
+	// renew its devices gets relay renewal back for them.
+	const renewsDevices = request.headers.get(DEVICE_RENEWAL_HEADER) === "home";
+	if (renewsDevices !== (instance.device_renewal_at !== null)) {
+		await env.DB.prepare("UPDATE instances SET device_renewal_at = ? WHERE instance_id = ?")
+			.bind(renewsDevices ? Math.floor(Date.now() / 1000) : null, instance_id)
+			.run();
+	}
 	const minted = await mintInstanceToken(env.SIGNING_JWK, {
 		instance_id,
 		issuer: env.ISSUER,
