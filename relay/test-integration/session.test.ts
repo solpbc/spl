@@ -257,3 +257,29 @@ describe("/session/dial fails if no home is listening and presence-hold is off",
 		expect(await res.text()).toBe("no home listening");
 	});
 });
+
+describe("a token in the URL", () => {
+	it("is refused on the home routes", async () => {
+		const instanceId = newInstanceId();
+		const token = await mintService(instanceId);
+		for (const path of [
+			`/session/listen?instance=${instanceId}&token=${token}`,
+			`/session/pair-window?token=${token}`,
+			`/tunnel/${crypto.randomUUID()}?instance=${instanceId}&token=${token}`,
+		]) {
+			const res = await SELF.fetch(`http://spl.test${path}`, { headers: { Upgrade: "websocket" } });
+			expect(res.status, path).toBe(401);
+		}
+	});
+
+	it("is still accepted on a device dial", async () => {
+		const instanceId = newInstanceId();
+		const dialToken = await mintDevice(instanceId);
+		const res = await SELF.fetch(
+			`http://spl.test/session/dial?instance=${instanceId}&token=${dialToken}`,
+			{ headers: { Upgrade: "websocket" } },
+		);
+		expect(res.status).toBe(503);
+		expect(await res.text()).toBe("no home listening");
+	});
+});

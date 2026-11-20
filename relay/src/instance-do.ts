@@ -160,7 +160,7 @@ export class InstanceDO extends DurableObject<Env> {
 	}
 
 	private async handleDial(request: Request, url: URL, instanceId: string): Promise<Response> {
-		const token = extractToken(request, url);
+		const token = extractToken(request, url, true);
 		if (!token) return unauthorizedWithLog("/session/dial", "missing_token");
 
 		const result = await verifyToken(token, {
@@ -743,12 +743,15 @@ function measure(message: string | ArrayBuffer): number {
 	return typeof message === "string" ? message.length : message.byteLength;
 }
 
-function extractToken(request: Request, url: URL): string | null {
+// Home routes read the service token from the Authorization header only: a
+// token in a URL can end up in access logs along the way. A device dial may
+// also present it as `?token=` (proto/tokens.md), because some WebSocket
+// clients can't set headers. The query value never reaches our logs.
+function extractToken(request: Request, url: URL, allowQuery = false): string | null {
 	const header = request.headers.get("authorization") ?? "";
 	const m = header.match(/^Bearer\s+(.+)$/i);
 	if (m) return m[1].trim();
-	// WebSocket clients often can't set headers; accept `?token=` as a
-	// fallback. This never leaks to logs.
+	if (!allowQuery) return null;
 	const q = url.searchParams.get("token");
 	return q?.trim() || null;
 }
