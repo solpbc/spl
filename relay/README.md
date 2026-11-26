@@ -63,7 +63,7 @@ wrangler deploy --env production
 
 `make deploy` runs the same command. The operator must have run `wrangler login` at least once. Do not run the project-local wrangler (`bun run wrangler` / `npx wrangler`) for this — it loses the authenticated OAuth session and has been observed to cause R2/D1 visibility bugs.
 
-A deploy disconnects every live tunnel. It is not routine. Only deploy when the change is worth the customer-visible blip.
+Deploy when the change warrants interrupting an active transfer. Hibernating sockets can survive an update. A busy tunnel can disconnect and must reconnect. See [deployment behavior](../proto/session.md#deploy-disconnect).
 
 ### account context — `account_id`
 

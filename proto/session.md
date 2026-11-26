@@ -332,7 +332,7 @@ The mobile dial-turned-tunnel WS disconnects on:
 - App backgrounding (iOS suspends after 20 s grace; the WS naturally drops).
 - Network change (wifi ↔ cellular).
 - TLS-handshake failure.
-- `spl-relay` deploy.
+- A relay update that resets the active Durable Object.
 
 Except where § 7 says to stop retrying, the mobile reconnects on next owner-visible activity (foreground, scroll, tap). Backoff is: 1 s, then 5 s, then 10 s, capped at 30 s, with the same ±25% jitter. Connection establishment alone does not reset backoff. The dialer retains its current attempt until a tunnel generation remains connected without transport or keepalive failure for 60 s; only then does the next automatic reconnect start again at 1 s. An explicit owner-initiated start or stop begins a fresh backoff sequence. The home and mobile use different delay schedules, but the same demonstrated-stability reset condition. The mobile's UX handles "Reconnecting…" / "Offline" banners.
 
@@ -348,18 +348,11 @@ The waiting-phase timeout is owned by the client and is out of scope for the rel
 
 ## deploy-disconnect
 
-Every `spl-relay` Worker redeploy disconnects every WebSocket. This is a CF property of the Hibernatable WebSocket API — the new code version cannot inherit live sockets from the old version.
+The relay uses Cloudflare’s WebSocket Hibernation API. If the Durable Object hibernates, its sockets can stay connected across a code update. Under Cloudflare’s default strategy, an active object can defer the update for up to five minutes. An object that stays active can reset and disconnect its sockets. Deferral is best effort. [Cloudflare’s code update strategy](https://developers.cloudflare.com/durable-objects/deployments/durable-objects-code-updates/)
 
-Behavior:
+If the tunnel disconnects, either peer may see 1006 (abnormal closure) or 1012 (service restart). Both peers follow the backoff rules above. On the next dial, the relay issues a new `tunnel_id` and the home opens a fresh tunnel WebSocket for the incoming connection. The stored pairing credentials survive the disconnect.
 
-- Both sides lose their WebSocket connection. A peer may observe 1006 (abnormal closure) or 1012 (service restart); a deploy does not guarantee a clean closing handshake.
-- Both sides reconnect per the backoff rules above.
-- **Pair state is not preserved.** All in-flight `tunnel_id`s are invalidated. The mobile's next dial mints a new `tunnel_id`; the home opens a fresh tunnel WS in response to the new `incoming`.
-- **Pairing material is preserved.** The home's CA, the mobile's client cert, the device tokens, and the service tokens all survive — they live in their respective stores, not in the Worker. **No re-enrollment is required.**
-
-Acceptance criterion: clients reconnect within 10 seconds of a Worker redeploy without requiring re-pair. This requires a client recovery test against a relay restart or deploy. The relay's Worker integration tests alone do not establish a client recovery time.
-
-Operational implication: deploy cadence on `spl-relay` is low. We don't ship features weekly. Every deploy is a customer-visible blip; only ship when it's worth that.
+Test recovery with a relay restart or update that closes the home listener and both ends of an established tunnel. Verify that the listener and tunnel reconnect within 10 seconds of the disconnect using the existing pairing. A deployment that preserves the socket does not exercise this recovery path.
 
 ## cardinality
 

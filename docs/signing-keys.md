@@ -151,7 +151,7 @@ The mechanism:
 
 6. **Archive the old keypair** somewhere offline. Keep it for **at least 90 days measured from the step 5 trim** (forensic and replay defense), then destroy it. That retention is a separate clock from the overlap window, and shares its length only by coincidence.
 
-Live tunnels survive a rotation — `JWKS_PUBLIC` and `SIGNING_JWK` updates do not redeploy the Worker, so existing WebSockets aren't disconnected. (If a `wrangler deploy` is also part of the rotation for unrelated reasons, expect every WS to disconnect; clients reconnect within 10 s without re-pair.)
+Each `wrangler secret put` deploys a new Worker version. A hibernating tunnel can stay connected. If a busy tunnel disconnects, its pairing survives. Reconnecting requires relay tokens that the current keys can verify. See [Wrangler secret updates](https://developers.cloudflare.com/workers/configuration/secrets/#via-wrangler) and [relay deployment behavior](../proto/session.md#deploy-disconnect).
 
 ## key compromise
 
