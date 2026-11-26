@@ -63,7 +63,7 @@ wrangler deploy --env production
 
 `make deploy` runs the same command. The operator must have run `wrangler login` at least once. Do not run the project-local wrangler (`bun run wrangler` / `npx wrangler`) for this — it loses the authenticated OAuth session and has been observed to cause R2/D1 visibility bugs.
 
-Deploy when the change warrants interrupting an active transfer. Hibernating sockets can survive an update. A busy tunnel can disconnect and must reconnect. See [deployment behavior](../proto/session.md#deploy-disconnect).
+Keep production deploys infrequent. Deploy when the change is worth interrupting an active transfer. Hibernating sockets can survive an update. If a busy tunnel drops, the journal and client must reconnect according to the [session retry rules](../proto/session.md#reconnect-semantics). Before resuming a resumable import upload, the client must ask the journal for its current upload offset and continue from there. See [deployment behavior](../proto/session.md#deploy-disconnect).
 
 ### account context — `account_id`
 
